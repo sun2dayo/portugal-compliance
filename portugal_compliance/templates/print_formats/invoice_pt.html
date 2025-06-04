@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.name }} - {{ doc.customer_name }}</title>
+    <style>
+        /* Estilos para fatura portuguesa */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .invoice-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #046a38;
+            padding-bottom: 20px;
+        }
+
+        .company-info {
+            flex: 1;
+        }
+
+        .company-logo {
+            max-width: 150px;
+            max-height: 80px;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #046a38;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .document-info {
+            text-align: right;
+            flex: 0 0 200px;
+        }
+
+        .document-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #046a38;
+            margin-bottom: 10px;
+        }
+
+        .document-number {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .document-dates {
+            font-size: 10px;
+        }
+
+        .customer-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .customer-info, .billing-info {
+            flex: 1;
+            margin-right: 20px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #046a38;
+            border-bottom: 1px solid #046a38;
+            padding-bottom: 3px;
+            margin-bottom: 10px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .items-table th {
+            background-color: #046a38;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #046a38;
+        }
+
+        .items-table td {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .items-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+
+        .totals-table {
+            width: 300px;
+            border-collapse: collapse;
+        }
+
+        .totals-table td {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+        }
+
+        .totals-table .total-label {
+            font-weight: bold;
+            background-color: #f5f5f5;
+        }
+
+        .totals-table .grand-total {
+            background-color: #046a38;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .tax-summary {
+            margin-bottom: 20px;
+        }
+
+        .tax-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+
+        .tax-table th {
+            background-color: #f5f5f5;
+            padding: 5px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+
+        .tax-table td {
+            padding: 5px;
+            border: 1px solid #ddd;
+        }
+
+        .footer-info {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        .atcud-section {
+            background-color: #f0f8ff;
+            border: 2px solid #046a38;
+            padding: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .atcud-code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #046a38;
+            letter-spacing: 1px;
+        }
+
+        .qr-code {
+            margin: 10px 0;
+        }
+
+        .legal-notes {
+            font-size: 9px;
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.3;
+        }
+
+        .payment-terms {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+
+        .signature-box {
+            width: 200px;
+            text-align: center;
+            border-top: 1px solid #333;
+            padding-top: 5px;
+            font-size: 10px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .invoice-container {
+                border: none;
+                padding: 0;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            <div class="company-info">
+                {% if doc.company_logo %}
+                <img src="{{ doc.company_logo }}" alt="Logo" class="company-logo">
+                {% endif %}
+                <div class="company-name">{{ frappe.db.get_value("Company", doc.company, "company_name") }}</div>
+                <div class="company-details">
+                    {% set company_address = frappe.db.get_value("Address", {"is_your_company_address": 1, "link_name": doc.company}, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True) %}
+                    {% if company_address %}
+                    {{ company_address.address_line1 }}<br>
+                    {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
+                    {{ company_address.pincode }} {{ company_address.city }}<br>
+                    {{ company_address.country }}
+                    {% endif %}
+                    <br>
+                    <strong>NIF:</strong> {{ frappe.db.get_value("Company", doc.company, "tax_id") }}<br>
+                    {% set company_phone = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "phone") %}
+                    {% if company_phone %}<strong>Tel:</strong> {{ company_phone }}<br>{% endif %}
+                    {% set company_email = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "email_id") %}
+                    {% if company_email %}<strong>Email:</strong> {{ company_email }}{% endif %}
+                </div>
+            </div>
+
+            <div class="document-info">
+                <div class="document-title">
+                    {% if doc.is_return %}
+                        {% if doc.return_against %}NOTA DE CRÉDITO{% else %}NOTA DE DÉBITO{% endif %}
+                    {% else %}
+                        FATURA
+                    {% endif %}
+                </div>
+                <div class="document-number">{{ doc.name }}</div>
+                <div class="document-dates">
+                    <strong>Data:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}<br>
+                    {% if doc.due_date %}
+                    <strong>Vencimento:</strong> {{ frappe.utils.formatdate(doc.due_date, "dd/MM/yyyy") }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ATCUD Section -->
+        {% if doc.atcud_code %}
+        <div class="atcud-section">
+            <div><strong>Código Único de Documento (ATCUD)</strong></div>
+            <div class="atcud-code">{{ doc.atcud_code }}</div>
+            {% if doc.qr_code_image %}
+            <div class="qr-code">
+                <img src="{{ doc.qr_code_image }}" alt="QR Code" style="width: 80px; height: 80px;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Informações do Cliente -->
+        <div class="customer-section">
+            <div class="customer-info">
+                <div class="section-title">CLIENTE</div>
+                <strong>{{ doc.customer_name }}</strong><br>
+                {% if doc.customer_address %}
+                {% set customer_addr = frappe.db.get_value("Address", doc.customer_address, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True) %}
+                {% if customer_addr %}
+                {{ customer_addr.address_line1 }}<br>
+                {% if customer_addr.address_line2 %}{{ customer_addr.address_line2 }}<br>{% endif %}
+                {{ customer_addr.pincode }} {{ customer_addr.city }}<br>
+                {{ customer_addr.country }}
+                {% endif %}
+                {% endif %}
+                <br>
+                {% set customer_tax_id = frappe.db.get_value("Customer", doc.customer, "tax_id") %}
+                {% if customer_tax_id %}
+                <strong>NIF:</strong> {{ customer_tax_id }}
+                {% endif %}
+            </div>
+
+            <div class="billing-info">
+                <div class="section-title">INFORMAÇÕES DE FATURAÇÃO</div>
+                <strong>Moeda:</strong> {{ doc.currency }}<br>
+                {% if doc.conversion_rate != 1 %}
+                <strong>Taxa de Câmbio:</strong> {{ doc.conversion_rate }}<br>
+                {% endif %}
+                <strong>Condições de Pagamento:</strong> {{ doc.payment_terms_template or "À vista" }}<br>
+                <strong>Método de Pagamento:</strong> {{ doc.mode_of_payment or "Transferência Bancária" }}
+            </div>
+        </div>
+
+        <!-- Tabela de Itens -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 8%;">Item</th>
+                    <th style="width: 35%;">Descrição</th>
+                    <th style="width: 8%;" class="text-center">Qtd</th>
+                    <th style="width: 8%;" class="text-center">Unidade</th>
+                    <th style="width: 12%;" class="text-right">Preço Unit.</th>
+                    <th style="width: 8%;" class="text-center">IVA %</th>
+                    <th style="width: 12%;" class="text-right">Valor s/ IVA</th>
+                    <th style="width: 9%;" class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in doc.items %}
+                <tr>
+                    <td>{{ item.item_code }}</td>
+                    <td>
+                        <strong>{{ item.item_name }}</strong>
+                        {% if item.description and item.description != item.item_name %}
+                        <br><small>{{ item.description }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ frappe.utils.fmt_money(item.qty, precision=2) }}</td>
+                    <td class="text-center">{{ item.uom or "Un" }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.rate, precision=4, currency=doc.currency) }}</td>
+                    <td class="text-center">
+                        {% set tax_rate = 0 %}
+                        {% for tax in doc.taxes %}
+                            {% if tax.account_head and "IVA" in tax.account_head %}
+                                {% set tax_rate = tax.rate %}
+                            {% endif %}
+                        {% endfor %}
+                        {{ tax_rate }}%
+                    </td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount, precision=2, currency=doc.currency) }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount * (1 + tax_rate/100), precision=2, currency=doc.currency) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Resumo de Impostos -->
+        {% if doc.taxes %}
+        <div class="tax-summary">
+            <div class="section-title">RESUMO DE IMPOSTOS</div>
+            <table class="tax-table">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th class="text-right">Taxa</th>
+                        <th class="text-right">Incidência</th>
+                        <th class="text-right">Valor do Imposto</th>
+                        <th>Motivo de Isenção</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tax in doc.taxes %}
+                    <tr>
+                        <td>{{ tax.description }}</td>
+                        <td class="text-right">{{ tax.rate }}%</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(tax.total, precision=2, currency=doc.currency) }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(tax.tax_amount, precision=2, currency=doc.currency) }}</td>
+                        <td>
+                            {% if tax.rate == 0 %}
+                            {{ tax.exemption_reason or "Artigo 16.º n.º 6 do CIVA" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Totais -->
+        <div class="totals-section">
+            <table class="totals-table">
+                <tr>
+                    <td class="total-label">Subtotal (s/ IVA):</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.net_total, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                {% if doc.discount_amount %}
+                <tr>
+                    <td class="total-label">Desconto:</td>
+                    <td class="text-right">-{{ frappe.utils.fmt_money(doc.discount_amount, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td class="total-label">Total de Impostos:</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.total_taxes_and_charges, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                <tr class="grand-total">
+                    <td>TOTAL GERAL:</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.grand_total, precision=2, currency=doc.currency) }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Condições de Pagamento -->
+        {% if doc.payment_terms_template or doc.terms %}
+        <div class="payment-terms">
+            <strong>Condições de Pagamento:</strong><br>
+            {{ doc.terms or "Pagamento conforme condições acordadas." }}
+        </div>
+        {% endif %}
+
+        <!-- Informações Legais -->
+        <div class="legal-notes">
+            <strong>Informações Legais:</strong><br>
+            - Documento processado por programa certificado n.º {{ frappe.db.get_value("Company", doc.company, "at_certificate_number") or "XXXX/AT" }}<br>
+            - IVA incluído conforme legislação em vigor<br>
+            - Em caso de dúvida sobre este documento, contacte-nos através dos dados indicados<br>
+            {% if doc.is_return %}
+            - Este documento anula e substitui o documento {{ doc.return_against }}<br>
+            {% endif %}
+            - Processado por {{ frappe.session.user }} em {{ frappe.utils.now() }}
+        </div>
+
+        <!-- Assinaturas -->
+        <div class="signature-section">
+            <div class="signature-box">
+                O Vendedor<br>
+                {{ frappe.db.get_value("Company", doc.company, "company_name") }}
+            </div>
+            <div class="signature-box">
+                O Comprador<br>
+                {{ doc.customer_name }}
+            </div>
+        </div>
+
+        <!-- Rodapé -->
+        <div class="footer-info text-center">
+            <small>
+                Este documento foi gerado automaticamente pelo sistema ERPNext com o módulo Portugal Compliance<br>
+                Para mais informações visite: {{ frappe.utils.get_url() }}
+            </small>
+        </div>
+    </div>
+</body>
+</html>

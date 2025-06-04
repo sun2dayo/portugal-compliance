@@ -1,0 +1,1395 @@
+{
+  "chart_of_accounts": {
+    "name": "Plano de Contas Portugal (SNC)",
+    "country": "Portugal",
+    "currency": "EUR",
+    "description": "Plano de Contas conforme Sistema de Normalização Contabilística (SNC) - Decreto-Lei n.º 158/2009",
+    "compliance": "SNC - Sistema de Normalização Contabilística",
+    "version": "2.0",
+    "created_by": "Portugal Compliance Module",
+    "accounts": [
+      {
+        "account_number": "1",
+        "account_name": "MEIOS FINANCEIROS LÍQUIDOS",
+        "account_type": "Asset",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "11",
+        "account_name": "Caixa",
+        "account_type": "Cash",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "MEIOS FINANCEIROS LÍQUIDOS"
+      },
+      {
+        "account_number": "111",
+        "account_name": "Caixa",
+        "account_type": "Cash",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Caixa"
+      },
+      {
+        "account_number": "12",
+        "account_name": "Depósitos à ordem",
+        "account_type": "Bank",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "MEIOS FINANCEIROS LÍQUIDOS"
+      },
+      {
+        "account_number": "121",
+        "account_name": "Depósitos à ordem",
+        "account_type": "Bank",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Depósitos à ordem"
+      },
+      {
+        "account_number": "13",
+        "account_name": "Outros depósitos bancários",
+        "account_type": "Bank",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "MEIOS FINANCEIROS LÍQUIDOS"
+      },
+      {
+        "account_number": "131",
+        "account_name": "Depósitos a prazo",
+        "account_type": "Bank",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Outros depósitos bancários"
+      },
+      {
+        "account_number": "14",
+        "account_name": "Outros instrumentos financeiros",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "MEIOS FINANCEIROS LÍQUIDOS"
+      },
+      {
+        "account_number": "141",
+        "account_name": "Derivados",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Outros instrumentos financeiros"
+      },
+      {
+        "account_number": "2",
+        "account_name": "CONTAS A RECEBER E A PAGAR",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "21",
+        "account_name": "Clientes",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "CONTAS A RECEBER E A PAGAR"
+      },
+      {
+        "account_number": "211",
+        "account_name": "Clientes c/c",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Clientes"
+      },
+      {
+        "account_number": "212",
+        "account_name": "Clientes - Títulos a receber",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Clientes"
+      },
+      {
+        "account_number": "218",
+        "account_name": "Clientes de cobrança duvidosa",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Clientes"
+      },
+      {
+        "account_number": "219",
+        "account_name": "Perdas por imparidade acumuladas - Clientes",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Clientes"
+      },
+      {
+        "account_number": "22",
+        "account_name": "Fornecedores",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 1,
+        "parent_account": "CONTAS A RECEBER E A PAGAR"
+      },
+      {
+        "account_number": "221",
+        "account_name": "Fornecedores c/c",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Fornecedores"
+      },
+      {
+        "account_number": "228",
+        "account_name": "Fornecedores - Facturas em receção e conferência",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Fornecedores"
+      },
+      {
+        "account_number": "23",
+        "account_name": "Pessoal",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 1,
+        "parent_account": "CONTAS A RECEBER E A PAGAR"
+      },
+      {
+        "account_number": "231",
+        "account_name": "Remunerações a pagar",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Pessoal"
+      },
+      {
+        "account_number": "232",
+        "account_name": "Adiantamentos",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Pessoal"
+      },
+      {
+        "account_number": "24",
+        "account_name": "Estado e outros entes públicos",
+        "account_type": "Tax",
+        "root_type": "Liability",
+        "is_group": 1,
+        "parent_account": "CONTAS A RECEBER E A PAGAR"
+      },
+      {
+        "account_number": "2431",
+        "account_name": "IVA - Liquidado",
+        "account_type": "Tax",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Estado e outros entes públicos"
+      },
+      {
+        "account_number": "2432",
+        "account_name": "IVA - Dedutível",
+        "account_type": "Tax",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Estado e outros entes públicos"
+      },
+      {
+        "account_number": "2433",
+        "account_name": "IVA - Regularizações",
+        "account_type": "Tax",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Estado e outros entes públicos"
+      },
+      {
+        "account_number": "2441",
+        "account_name": "IRC",
+        "account_type": "Tax",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Estado e outros entes públicos"
+      },
+      {
+        "account_number": "2451",
+        "account_name": "IRS",
+        "account_type": "Tax",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Estado e outros entes públicos"
+      },
+      {
+        "account_number": "2461",
+        "account_name": "Contribuições para a Segurança Social",
+        "account_type": "Tax",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Estado e outros entes públicos"
+      },
+      {
+        "account_number": "25",
+        "account_name": "Accionistas/sócios",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "CONTAS A RECEBER E A PAGAR"
+      },
+      {
+        "account_number": "251",
+        "account_name": "Accionistas c/c",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Accionistas/sócios"
+      },
+      {
+        "account_number": "26",
+        "account_name": "Outras contas a receber e a pagar",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "CONTAS A RECEBER E A PAGAR"
+      },
+      {
+        "account_number": "261",
+        "account_name": "Devedores diversos",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Outras contas a receber e a pagar"
+      },
+      {
+        "account_number": "262",
+        "account_name": "Credores diversos",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Outras contas a receber e a pagar"
+      },
+      {
+        "account_number": "27",
+        "account_name": "Diferimentos",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "CONTAS A RECEBER E A PAGAR"
+      },
+      {
+        "account_number": "271",
+        "account_name": "Acréscimos de proveitos",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Diferimentos"
+      },
+      {
+        "account_number": "272",
+        "account_name": "Custos diferidos",
+        "account_type": "Receivable",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Diferimentos"
+      },
+      {
+        "account_number": "273",
+        "account_name": "Proveitos diferidos",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Diferimentos"
+      },
+      {
+        "account_number": "274",
+        "account_name": "Acréscimos de custos",
+        "account_type": "Payable",
+        "root_type": "Liability",
+        "is_group": 0,
+        "parent_account": "Diferimentos"
+      },
+      {
+        "account_number": "3",
+        "account_name": "INVENTÁRIOS E ACTIVOS BIOLÓGICOS",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "31",
+        "account_name": "Compras",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVENTÁRIOS E ACTIVOS BIOLÓGICOS"
+      },
+      {
+        "account_number": "311",
+        "account_name": "Mercadorias",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Compras"
+      },
+      {
+        "account_number": "312",
+        "account_name": "Matérias-primas, subsidiárias e de consumo",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Compras"
+      },
+      {
+        "account_number": "32",
+        "account_name": "Mercadorias",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVENTÁRIOS E ACTIVOS BIOLÓGICOS"
+      },
+      {
+        "account_number": "321",
+        "account_name": "Mercadorias",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Mercadorias"
+      },
+      {
+        "account_number": "33",
+        "account_name": "Matérias-primas, subsidiárias e de consumo",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVENTÁRIOS E ACTIVOS BIOLÓGICOS"
+      },
+      {
+        "account_number": "331",
+        "account_name": "Matérias-primas",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Matérias-primas, subsidiárias e de consumo"
+      },
+      {
+        "account_number": "34",
+        "account_name": "Produtos acabados e intermédios",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVENTÁRIOS E ACTIVOS BIOLÓGICOS"
+      },
+      {
+        "account_number": "341",
+        "account_name": "Produtos acabados",
+        "account_type": "Stock",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Produtos acabados e intermédios"
+      },
+      {
+        "account_number": "4",
+        "account_name": "INVESTIMENTOS",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "41",
+        "account_name": "Investimentos financeiros",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVESTIMENTOS"
+      },
+      {
+        "account_number": "411",
+        "account_name": "Investimentos em subsidiárias",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Investimentos financeiros"
+      },
+      {
+        "account_number": "42",
+        "account_name": "Propriedades de investimento",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVESTIMENTOS"
+      },
+      {
+        "account_number": "421",
+        "account_name": "Terrenos e recursos naturais",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Propriedades de investimento"
+      },
+      {
+        "account_number": "43",
+        "account_name": "Activos fixos tangíveis",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVESTIMENTOS"
+      },
+      {
+        "account_number": "431",
+        "account_name": "Terrenos e recursos naturais",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos fixos tangíveis"
+      },
+      {
+        "account_number": "432",
+        "account_name": "Edifícios e outras construções",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos fixos tangíveis"
+      },
+      {
+        "account_number": "433",
+        "account_name": "Equipamento básico",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos fixos tangíveis"
+      },
+      {
+        "account_number": "434",
+        "account_name": "Equipamento de transporte",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos fixos tangíveis"
+      },
+      {
+        "account_number": "435",
+        "account_name": "Equipamento administrativo",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos fixos tangíveis"
+      },
+      {
+        "account_number": "438",
+        "account_name": "Depreciações acumuladas - Activos fixos tangíveis",
+        "account_type": "Accumulated Depreciation",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos fixos tangíveis"
+      },
+      {
+        "account_number": "44",
+        "account_name": "Activos intangíveis",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 1,
+        "parent_account": "INVESTIMENTOS"
+      },
+      {
+        "account_number": "441",
+        "account_name": "Goodwill",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos intangíveis"
+      },
+      {
+        "account_number": "442",
+        "account_name": "Propriedade industrial e outros direitos",
+        "account_type": "Fixed Asset",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos intangíveis"
+      },
+      {
+        "account_number": "448",
+        "account_name": "Amortizações acumuladas - Activos intangíveis",
+        "account_type": "Accumulated Depreciation",
+        "root_type": "Asset",
+        "is_group": 0,
+        "parent_account": "Activos intangíveis"
+      },
+      {
+        "account_number": "5",
+        "account_name": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "51",
+        "account_name": "Capital",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "511",
+        "account_name": "Capital realizado",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Capital"
+      },
+      {
+        "account_number": "52",
+        "account_name": "Acções (quotas) próprias",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "521",
+        "account_name": "Valor nominal",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Acções (quotas) próprias"
+      },
+      {
+        "account_number": "53",
+        "account_name": "Outros instrumentos de capital próprio",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "531",
+        "account_name": "Prestações suplementares",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Outros instrumentos de capital próprio"
+      },
+      {
+        "account_number": "54",
+        "account_name": "Prémios de emissão",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "541",
+        "account_name": "Prémios de emissão de acções",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Prémios de emissão"
+      },
+      {
+        "account_number": "55",
+        "account_name": "Reservas",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "551",
+        "account_name": "Reservas legais",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Reservas"
+      },
+      {
+        "account_number": "552",
+        "account_name": "Outras reservas",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Reservas"
+      },
+      {
+        "account_number": "56",
+        "account_name": "Resultados transitados",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "561",
+        "account_name": "Resultados transitados",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Resultados transitados"
+      },
+      {
+        "account_number": "57",
+        "account_name": "Ajustamentos em activos financeiros",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "571",
+        "account_name": "Ajustamentos em activos financeiros disponíveis para venda",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Ajustamentos em activos financeiros"
+      },
+      {
+        "account_number": "58",
+        "account_name": "Excedentes de revalorização",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "581",
+        "account_name": "Excedentes de revalorização de activos fixos tangíveis",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Excedentes de revalorização"
+      },
+      {
+        "account_number": "59",
+        "account_name": "Resultado líquido do período",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "CAPITAL, RESERVAS E RESULTADOS TRANSITADOS"
+      },
+      {
+        "account_number": "591",
+        "account_name": "Resultado líquido do período",
+        "account_type": "Equity",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Resultado líquido do período"
+      },
+      {
+        "account_number": "6",
+        "account_name": "GASTOS",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "61",
+        "account_name": "Custo das mercadorias vendidas e das matérias consumidas",
+        "account_type": "Cost of Goods Sold",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "611",
+        "account_name": "Custo das mercadorias vendidas",
+        "account_type": "Cost of Goods Sold",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Custo das mercadorias vendidas e das matérias consumidas"
+      },
+      {
+        "account_number": "612",
+        "account_name": "Custo das matérias consumidas",
+        "account_type": "Cost of Goods Sold",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Custo das mercadorias vendidas e das matérias consumidas"
+      },
+      {
+        "account_number": "62",
+        "account_name": "Fornecimentos e serviços externos",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "621",
+        "account_name": "Subcontratos",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "622",
+        "account_name": "Serviços especializados",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "623",
+        "account_name": "Publicidade e propaganda",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "624",
+        "account_name": "Vigilância e segurança",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "625",
+        "account_name": "Trabalhos especializados",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "626",
+        "account_name": "Conservação e reparação",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "627",
+        "account_name": "Material de escritório",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "628",
+        "account_name": "Comunicação",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "629",
+        "account_name": "Transportes",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "6291",
+        "account_name": "Deslocações e estadas",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "6292",
+        "account_name": "Combustíveis",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "6293",
+        "account_name": "Rendas e alugueres",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "6294",
+        "account_name": "Seguros",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "6295",
+        "account_name": "Contencioso e notariado",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "6296",
+        "account_name": "Despesas de representação",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Fornecimentos e serviços externos"
+      },
+      {
+        "account_number": "63",
+        "account_name": "Gastos com o pessoal",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "631",
+        "account_name": "Remunerações dos órgãos sociais",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos com o pessoal"
+      },
+      {
+        "account_number": "632",
+        "account_name": "Remunerações do pessoal",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos com o pessoal"
+      },
+      {
+        "account_number": "633",
+        "account_name": "Encargos sobre remunerações",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos com o pessoal"
+      },
+      {
+        "account_number": "634",
+        "account_name": "Seguros de acidentes no trabalho e doenças profissionais",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos com o pessoal"
+      },
+      {
+        "account_number": "635",
+        "account_name": "Outros gastos com o pessoal",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos com o pessoal"
+      },
+      {
+        "account_number": "64",
+        "account_name": "Gastos de depreciação e de amortização",
+        "account_type": "Depreciation",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "641",
+        "account_name": "Gastos de depreciação e de amortização - Activos fixos tangíveis",
+        "account_type": "Depreciation",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos de depreciação e de amortização"
+      },
+      {
+        "account_number": "642",
+        "account_name": "Gastos de depreciação e de amortização - Activos intangíveis",
+        "account_type": "Depreciation",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos de depreciação e de amortização"
+      },
+      {
+        "account_number": "65",
+        "account_name": "Perdas por imparidade",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "651",
+        "account_name": "Perdas por imparidade em dívidas a receber",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Perdas por imparidade"
+      },
+      {
+        "account_number": "66",
+        "account_name": "Perdas por reduções de justo valor",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "661",
+        "account_name": "Perdas por reduções de justo valor - Activos biológicos",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Perdas por reduções de justo valor"
+      },
+      {
+        "account_number": "67",
+        "account_name": "Provisões do período",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "671",
+        "account_name": "Provisões",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Provisões do período"
+      },
+      {
+        "account_number": "68",
+        "account_name": "Outros gastos e perdas",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "681",
+        "account_name": "Gastos em inventários",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Outros gastos e perdas"
+      },
+      {
+        "account_number": "682",
+        "account_name": "Perdas em créditos incobráveis",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Outros gastos e perdas"
+      },
+      {
+        "account_number": "683",
+        "account_name": "Dívidas incobráveis",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Outros gastos e perdas"
+      },
+      {
+        "account_number": "684",
+        "account_name": "Perdas em inventários",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Outros gastos e perdas"
+      },
+      {
+        "account_number": "685",
+        "account_name": "Perdas em activos fixos tangíveis",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Outros gastos e perdas"
+      },
+      {
+        "account_number": "686",
+        "account_name": "Gastos e perdas de financiamento",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Outros gastos e perdas"
+      },
+      {
+        "account_number": "69",
+        "account_name": "Gastos e perdas de financiamento",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "GASTOS"
+      },
+      {
+        "account_number": "691",
+        "account_name": "Juros suportados",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos e perdas de financiamento"
+      },
+      {
+        "account_number": "692",
+        "account_name": "Perdas em instrumentos financeiros",
+        "account_type": "Expense",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Gastos e perdas de financiamento"
+      },
+      {
+        "account_number": "7",
+        "account_name": "RENDIMENTOS",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "71",
+        "account_name": "Vendas",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "711",
+        "account_name": "Vendas",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Vendas"
+      },
+      {
+        "account_number": "72",
+        "account_name": "Prestações de serviços",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "721",
+        "account_name": "Prestações de serviços",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Prestações de serviços"
+      },
+      {
+        "account_number": "73",
+        "account_name": "Variações nos inventários da produção",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "731",
+        "account_name": "Variações nos inventários da produção",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Variações nos inventários da produção"
+      },
+      {
+        "account_number": "74",
+        "account_name": "Trabalhos para a própria entidade",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "741",
+        "account_name": "Trabalhos para a própria entidade",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Trabalhos para a própria entidade"
+      },
+      {
+        "account_number": "75",
+        "account_name": "Subsídios à exploração",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "751",
+        "account_name": "Subsídios à exploração",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Subsídios à exploração"
+      },
+      {
+        "account_number": "76",
+        "account_name": "Ganhos por aumentos de justo valor",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "761",
+        "account_name": "Ganhos por aumentos de justo valor - Activos biológicos",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Ganhos por aumentos de justo valor"
+      },
+      {
+        "account_number": "77",
+        "account_name": "Reversões",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "771",
+        "account_name": "Reversões de depreciações e de amortizações",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Reversões"
+      },
+      {
+        "account_number": "78",
+        "account_name": "Outros rendimentos e ganhos",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "781",
+        "account_name": "Rendimentos suplementares",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Outros rendimentos e ganhos"
+      },
+      {
+        "account_number": "782",
+        "account_name": "Rendimentos e ganhos em inventários",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Outros rendimentos e ganhos"
+      },
+      {
+        "account_number": "783",
+        "account_name": "Ganhos em activos fixos tangíveis",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Outros rendimentos e ganhos"
+      },
+      {
+        "account_number": "784",
+        "account_name": "Ganhos em activos intangíveis",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Outros rendimentos e ganhos"
+      },
+      {
+        "account_number": "785",
+        "account_name": "Ganhos em investimentos financeiros",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Outros rendimentos e ganhos"
+      },
+      {
+        "account_number": "79",
+        "account_name": "Rendimentos e ganhos de financiamento",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 1,
+        "parent_account": "RENDIMENTOS"
+      },
+      {
+        "account_number": "791",
+        "account_name": "Juros obtidos",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Rendimentos e ganhos de financiamento"
+      },
+      {
+        "account_number": "792",
+        "account_name": "Ganhos em instrumentos financeiros",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Rendimentos e ganhos de financiamento"
+      },
+      {
+        "account_number": "793",
+        "account_name": "Diferenças de câmbio favoráveis",
+        "account_type": "Income",
+        "root_type": "Income",
+        "is_group": 0,
+        "parent_account": "Rendimentos e ganhos de financiamento"
+      },
+      {
+        "account_number": "8",
+        "account_name": "RESULTADOS",
+        "account_type": "Temporary",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": ""
+      },
+      {
+        "account_number": "81",
+        "account_name": "Resultado antes de impostos",
+        "account_type": "Temporary",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "RESULTADOS"
+      },
+      {
+        "account_number": "811",
+        "account_name": "Resultado antes de impostos",
+        "account_type": "Temporary",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Resultado antes de impostos"
+      },
+      {
+        "account_number": "82",
+        "account_name": "Imposto sobre o rendimento do período",
+        "account_type": "Tax",
+        "root_type": "Expense",
+        "is_group": 1,
+        "parent_account": "RESULTADOS"
+      },
+      {
+        "account_number": "821",
+        "account_name": "Imposto estimado para o período",
+        "account_type": "Tax",
+        "root_type": "Expense",
+        "is_group": 0,
+        "parent_account": "Imposto sobre o rendimento do período"
+      },
+      {
+        "account_number": "88",
+        "account_name": "Resultado líquido do período",
+        "account_type": "Temporary",
+        "root_type": "Equity",
+        "is_group": 1,
+        "parent_account": "RESULTADOS"
+      },
+      {
+        "account_number": "881",
+        "account_name": "Resultado líquido do período",
+        "account_type": "Temporary",
+        "root_type": "Equity",
+        "is_group": 0,
+        "parent_account": "Resultado líquido do período"
+      }
+    ]
+  },
+  "tax_templates": [
+    {
+      "title": "IVA 23% - Taxa Normal",
+      "account_head": "IVA - Liquidado",
+      "rate": 23.0,
+      "tax_type": "On Net Total",
+      "description": "IVA à taxa normal de 23%"
+    },
+    {
+      "title": "IVA 13% - Taxa Intermédia",
+      "account_head": "IVA - Liquidado",
+      "rate": 13.0,
+      "tax_type": "On Net Total",
+      "description": "IVA à taxa intermédia de 13%"
+    },
+    {
+      "title": "IVA 6% - Taxa Reduzida",
+      "account_head": "IVA - Liquidado",
+      "rate": 6.0,
+      "tax_type": "On Net Total",
+      "description": "IVA à taxa reduzida de 6%"
+    },
+    {
+      "title": "IVA 0% - Isento",
+      "account_head": "IVA - Liquidado",
+      "rate": 0.0,
+      "tax_type": "On Net Total",
+      "description": "IVA isento ou taxa zero"
+    }
+  ],
+  "cost_centers": [
+    {
+      "cost_center_name": "Administração",
+      "parent_cost_center": "",
+      "is_group": 1
+    },
+    {
+      "cost_center_name": "Vendas",
+      "parent_cost_center": "",
+      "is_group": 1
+    },
+    {
+      "cost_center_name": "Produção",
+      "parent_cost_center": "",
+      "is_group": 1
+    },
+    {
+      "cost_center_name": "Financeiro",
+      "parent_cost_center": "",
+      "is_group": 1
+    }
+  ],
+  "default_accounts": {
+    "default_cash_account": "Caixa",
+    "default_bank_account": "Depósitos à ordem",
+    "default_receivable_account": "Clientes c/c",
+    "default_payable_account": "Fornecedores c/c",
+    "default_expense_account": "Fornecimentos e serviços externos",
+    "default_income_account": "Vendas",
+    "default_cost_of_goods_sold_account": "Custo das mercadorias vendidas",
+    "stock_received_but_not_billed": "Fornecedores - Facturas em receção e conferência",
+    "stock_adjustment_account": "Gastos em inventários",
+    "expenses_included_in_valuation": "Custo das matérias consumidas",
+    "default_tax_account": "IVA - Liquidado",
+    "default_deferred_revenue_account": "Proveitos diferidos",
+    "default_deferred_expense_account": "Custos diferidos",
+    "depreciation_expense_account": "Gastos de depreciação e de amortização - Activos fixos tangíveis",
+    "accumulated_depreciation_account": "Depreciações acumuladas - Activos fixos tangíveis",
+    "capital_account": "Capital realizado",
+    "retained_earnings_account": "Resultados transitados"
+  },
+  "compliance_settings": {
+    "fiscal_year_start": "01-01",
+    "fiscal_year_end": "12-31",
+    "currency": "EUR",
+    "tax_authority": "Autoridade Tributária e Aduaneira",
+    "accounting_standards": "SNC - Sistema de Normalização Contabilística",
+    "chart_version": "2.0",
+    "last_updated": "2025-01-01",
+    "mandatory_fields": [
+      "tax_id",
+      "atcud_code",
+      "naming_series"
+    ],
+    "vat_rates": {
+      "normal": 23.0,
+      "intermediate": 13.0,
+      "reduced": 6.0,
+      "zero": 0.0
+    },
+    "document_series_required": true,
+    "atcud_required": true,
+    "saft_pt_compliance": true
+  }
+}

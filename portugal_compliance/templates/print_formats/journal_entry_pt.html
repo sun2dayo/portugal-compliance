@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.name }} - Lançamento Contabilístico</title>
+    <style>
+        /* Estilos para lançamento contabilístico português */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .journal-entry-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid #17a2b8;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #17a2b8;
+            padding-bottom: 20px;
+        }
+
+        .company-info {
+            flex: 1;
+        }
+
+        .company-logo {
+            max-width: 150px;
+            max-height: 80px;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #17a2b8;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .document-info {
+            text-align: right;
+            flex: 0 0 200px;
+        }
+
+        .document-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #17a2b8;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .document-number {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .document-dates {
+            font-size: 10px;
+        }
+
+        .journal-notice {
+            background-color: #d1ecf1;
+            border: 2px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .notice-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #17a2b8;
+            margin-bottom: 10px;
+        }
+
+        .entry-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .entry-details, .voucher-info {
+            flex: 1;
+            margin-right: 20px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #17a2b8;
+            border-bottom: 1px solid #17a2b8;
+            padding-bottom: 3px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .accounts-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .accounts-table th {
+            background-color: #17a2b8;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #17a2b8;
+        }
+
+        .accounts-table td {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .accounts-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .debit-amount {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .credit-amount {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .atcud-section {
+            background-color: #f0f8ff;
+            border: 2px solid #17a2b8;
+            padding: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .atcud-code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #17a2b8;
+            letter-spacing: 1px;
+        }
+
+        .qr-code {
+            margin: 10px 0;
+        }
+
+        .totals-section {
+            background-color: #e9ecef;
+            border: 2px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .totals-table td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+        }
+
+        .balance-check {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .balance-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .references-section {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            gap: 20px;
+        }
+
+        .signature-box {
+            flex: 1;
+            text-align: center;
+            border: 1px solid #ddd;
+            padding: 40px 10px 10px 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+
+        .signature-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #17a2b8;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            margin: 30px 0 5px 0;
+        }
+
+        .legal-notes {
+            font-size: 9px;
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.3;
+        }
+
+        .footer-info {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .journal-entry-container {
+                border: none;
+                padding: 0;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="journal-entry-container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            <div class="company-info">
+                {% if doc.company_logo %}
+                <img src="{{ doc.company_logo }}" alt="Logo" class="company-logo">
+                {% endif %}
+                <div class="company-name">{{ frappe.db.get_value("Company", doc.company, "company_name") }}</div>
+                <div class="company-details">
+                    {% set company_address = frappe.db.get_value("Address", {"is_your_company_address": 1, "link_name": doc.company}, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True) %}
+                    {% if company_address %}
+                    {{ company_address.address_line1 }}<br>
+                    {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
+                    {{ company_address.pincode }} {{ company_address.city }}<br>
+                    {{ company_address.country }}
+                    {% endif %}
+                    <br>
+                    <strong>NIF:</strong> {{ frappe.db.get_value("Company", doc.company, "tax_id") }}<br>
+                    {% set company_phone = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "phone") %}
+                    {% if company_phone %}<strong>Tel:</strong> {{ company_phone }}<br>{% endif %}
+                    {% set company_email = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "email_id") %}
+                    {% if company_email %}<strong>Email:</strong> {{ company_email }}{% endif %}
+                </div>
+            </div>
+
+            <div class="document-info">
+                <div class="document-title">Lançamento Contabilístico</div>
+                <div class="document-number">{{ doc.name }}</div>
+                <div class="document-dates">
+                    <strong>Data:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}<br>
+                    <strong>Criado:</strong> {{ frappe.utils.formatdate(doc.creation, "dd/MM/yyyy HH:mm") }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Aviso de Lançamento Contabilístico -->
+        <div class="journal-notice">
+            <div class="notice-title">📊 LANÇAMENTO CONTABILÍSTICO 📊</div>
+            <div>Documento que regista <strong>MOVIMENTOS CONTABILÍSTICOS</strong> no razão geral</div>
+            <div>Tipo: <strong>{{ doc.voucher_type or "Lançamento Manual" }}</strong></div>
+        </div>
+
+        <!-- ATCUD Section -->
+        {% if doc.atcud_code %}
+        <div class="atcud-section">
+            <div><strong>Código Único de Documento (ATCUD)</strong></div>
+            <div class="atcud-code">{{ doc.atcud_code }}</div>
+            {% if doc.qr_code_image %}
+            <div class="qr-code">
+                <img src="{{ doc.qr_code_image }}" alt="QR Code" style="width: 80px; height: 80px;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Informações do Lançamento -->
+        <div class="entry-info">
+            <div class="entry-details">
+                <div class="section-title">📝 Detalhes do Lançamento</div>
+                <strong>Tipo de Voucher:</strong> {{ doc.voucher_type or "Lançamento Manual" }}<br>
+                <strong>Data de Lançamento:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}<br>
+                <strong>Utilizador:</strong> {{ doc.owner }}<br>
+                <strong>Estado:</strong>
+                {% if doc.docstatus == 1 %}
+                <span style="color: #28a745; font-weight: bold;">Submetido</span>
+                {% elif doc.docstatus == 2 %}
+                <span style="color: #dc3545; font-weight: bold;">Cancelado</span>
+                {% else %}
+                <span style="color: #ffc107; font-weight: bold;">Rascunho</span>
+                {% endif %}
+            </div>
+
+            <div class="voucher-info">
+                <div class="section-title">🔗 Informações de Referência</div>
+                {% if doc.cheque_no %}
+                <strong>Nº do Cheque:</strong> {{ doc.cheque_no }}<br>
+                {% endif %}
+                {% if doc.cheque_date %}
+                <strong>Data do Cheque:</strong> {{ frappe.utils.formatdate(doc.cheque_date, "dd/MM/yyyy") }}<br>
+                {% endif %}
+                {% if doc.user_remark %}
+                <strong>Observações:</strong> {{ doc.user_remark }}<br>
+                {% endif %}
+                <strong>Moeda Base:</strong> {{ frappe.db.get_value("Company", doc.company, "default_currency") }}
+            </div>
+        </div>
+
+        <!-- Descrição do Lançamento -->
+        {% if doc.user_remark %}
+        <div class="references-section">
+            <div class="section-title">📄 Descrição do Lançamento</div>
+            {{ doc.user_remark }}
+        </div>
+        {% endif %}
+
+        <!-- Tabela de Contas -->
+        <table class="accounts-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Conta</th>
+                    <th style="width: 25%;">Descrição da Conta</th>
+                    <th style="width: 20%;">Contra Conta</th>
+                    <th style="width: 12%;" class="text-right">Débito</th>
+                    <th style="width: 12%;" class="text-right">Crédito</th>
+                    <th style="width: 16%;">Observações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for account in doc.accounts %}
+                <tr>
+                    <td>
+                        <strong>{{ account.account }}</strong>
+                        {% if account.account_currency and account.account_currency != frappe.db.get_value("Company", doc.company, "default_currency") %}
+                        <br><small>({{ account.account_currency }})</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ frappe.db.get_value("Account", account.account, "account_name") }}
+                        {% if account.party_type and account.party %}
+                        <br><small><strong>{{ account.party_type }}:</strong> {{ account.party }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ account.against_account or "-" }}</td>
+                    <td class="text-right">
+                        {% if account.debit_in_account_currency %}
+                        <span class="debit-amount">{{ frappe.utils.fmt_money(account.debit_in_account_currency, precision=2, currency=account.account_currency) }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        {% if account.credit_in_account_currency %}
+                        <span class="credit-amount">{{ frappe.utils.fmt_money(account.credit_in_account_currency, precision=2, currency=account.account_currency) }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if account.reference_type and account.reference_name %}
+                        <strong>{{ account.reference_type }}:</strong> {{ account.reference_name }}
+                        {% endif %}
+                        {% if account.user_remark %}
+                        <br><small>{{ account.user_remark }}</small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Totais -->
+        <div class="totals-section">
+            <div class="section-title">💰 Resumo dos Totais</div>
+            <table class="totals-table">
+                <tr>
+                    <td style="width: 70%;">Total de Débitos:</td>
+                    <td class="text-right debit-amount">{{ frappe.utils.fmt_money(doc.total_debit, precision=2, currency=frappe.db.get_value("Company", doc.company, "default_currency")) }}</td>
+                </tr>
+                <tr>
+                    <td>Total de Créditos:</td>
+                    <td class="text-right credit-amount">{{ frappe.utils.fmt_money(doc.total_credit, precision=2, currency=frappe.db.get_value("Company", doc.company, "default_currency")) }}</td>
+                </tr>
+                <tr style="border-top: 2px solid #17a2b8;">
+                    <td><strong>Diferença:</strong></td>
+                    <td class="text-right">
+                        <strong>{{ frappe.utils.fmt_money(doc.difference, precision=2, currency=frappe.db.get_value("Company", doc.company, "default_currency")) }}</strong>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Verificação de Equilíbrio -->
+        <div class="balance-check {% if doc.difference != 0 %}balance-error{% endif %}">
+            {% if doc.difference == 0 %}
+            <strong>✅ LANÇAMENTO EQUILIBRADO</strong><br>
+            Os débitos e créditos estão balanceados corretamente
+            {% else %}
+            <strong>❌ LANÇAMENTO DESEQUILIBRADO</strong><br>
+            Diferença de {{ frappe.utils.fmt_money(doc.difference, precision=2, currency=frappe.db.get_value("Company", doc.company, "default_currency")) }} - Verificar lançamentos
+            {% endif %}
+        </div>
+
+        <!-- Referências de Documentos -->
+        {% set has_references = false %}
+        {% for account in doc.accounts %}
+            {% if account.reference_type and account.reference_name %}
+                {% set has_references = true %}
+            {% endif %}
+        {% endfor %}
+
+        {% if has_references %}
+        <div class="references-section">
+            <div class="section-title">🔗 Documentos de Referência</div>
+            {% for account in doc.accounts %}
+                {% if account.reference_type and account.reference_name %}
+                <strong>{{ account.reference_type }}:</strong> {{ account.reference_name }}
+                {% if account.reference_due_date %}
+                (Vencimento: {{ frappe.utils.formatdate(account.reference_due_date, "dd/MM/yyyy") }})
+                {% endif %}
+                <br>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Informações Contabilísticas -->
+        <div class="references-section">
+            <div class="section-title">📚 Informações Contabilísticas</div>
+            <strong>Período Contabilístico:</strong> {{ frappe.utils.formatdate(doc.posting_date, "MM/yyyy") }}<br>
+            <strong>Exercício Fiscal:</strong> {{ frappe.utils.get_fiscal_year(doc.posting_date, company=doc.company)[0] }}<br>
+            <strong>Método de Contabilização:</strong> Partidas Dobradas<br>
+            <strong>Princípio Contabilístico:</strong> Acréscimo (Regime Geral)<br>
+            <strong>Norma Aplicável:</strong> SNC - Sistema de Normalização Contabilística
+        </div>
+
+        <!-- Assinaturas -->
+        <div class="signature-section">
+            <div class="signature-box">
+                <div class="signature-title">Preparado por</div>
+                <div class="signature-line"></div>
+                <div>{{ doc.owner }}</div>
+                <small>Técnico de Contabilidade</small>
+            </div>
+
+            <div class="signature-box">
+                <div class="signature-title">Revisto por</div>
+                <div class="signature-line"></div>
+                <div>A preencher</div>
+                <small>Contabilista Certificado</small>
+            </div>
+
+            <div class="signature-box">
+                <div class="signature-title">Aprovado por</div>
+                <div class="signature-line"></div>
+                <div>A preencher</div>
+                <small>Responsável Financeiro</small>
+            </div>
+        </div>
+
+        <!-- Informações Legais -->
+        <div class="legal-notes">
+            <strong>Informações Legais:</strong><br>
+            • Documento processado por programa certificado n.º {{ frappe.db.get_value("Company", doc.company, "at_certificate_number") or "XXXX/AT" }}<br>
+            • Lançamento contabilístico conforme SNC - Sistema de Normalização Contabilística<br>
+            • Documento sujeito aos princípios das partidas dobradas<br>
+            • Conservar este documento por período mínimo de 10 anos<br>
+            • Lançamento registado no livro diário e razão geral<br>
+            • Processado por {{ frappe.session.user }} em {{ frappe.utils.now() }}
+        </div>
+
+        <!-- Rodapé -->
+        <div class="footer-info text-center">
+            <small>
+                Este documento foi gerado automaticamente pelo sistema ERPNext com o módulo Portugal Compliance<br>
+                Para mais informações visite: {{ frappe.utils.get_url() }}
+            </small>
+        </div>
+    </div>
+</body>
+</html>

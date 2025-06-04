@@ -1,2 +1,0 @@
-# Portugal Compliance DocTypes
-

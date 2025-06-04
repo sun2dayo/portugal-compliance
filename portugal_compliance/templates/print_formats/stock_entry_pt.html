@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.name }} - Movimento de Stock</title>
+    <style>
+        /* Estilos para movimento de stock português */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .stock-entry-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid #fd7e14;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #fd7e14;
+            padding-bottom: 20px;
+        }
+
+        .company-info {
+            flex: 1;
+        }
+
+        .company-logo {
+            max-width: 150px;
+            max-height: 80px;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fd7e14;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .document-info {
+            text-align: right;
+            flex: 0 0 200px;
+        }
+
+        .document-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fd7e14;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .document-number {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .document-dates {
+            font-size: 10px;
+        }
+
+        .stock-notice {
+            background-color: #fff3cd;
+            border: 2px solid #fd7e14;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .notice-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fd7e14;
+            margin-bottom: 10px;
+        }
+
+        .movement-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .movement-details, .warehouse-info {
+            flex: 1;
+            margin-right: 20px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #fd7e14;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #fd7e14;
+            border-bottom: 1px solid #fd7e14;
+            padding-bottom: 3px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .warehouse-section {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .items-table th {
+            background-color: #fd7e14;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #fd7e14;
+        }
+
+        .items-table td {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .items-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .atcud-section {
+            background-color: #f0f8ff;
+            border: 2px solid #fd7e14;
+            padding: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .atcud-code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fd7e14;
+            letter-spacing: 1px;
+        }
+
+        .qr-code {
+            margin: 10px 0;
+        }
+
+        .movement-summary {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            gap: 20px;
+        }
+
+        .signature-box {
+            flex: 1;
+            text-align: center;
+            border: 1px solid #ddd;
+            padding: 40px 10px 10px 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+
+        .signature-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #fd7e14;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            margin: 30px 0 5px 0;
+        }
+
+        .legal-notes {
+            font-size: 9px;
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.3;
+        }
+
+        .footer-info {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .stock-in {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .stock-out {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .stock-transfer {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+
+        .purpose-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .purpose-material-receipt {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .purpose-material-issue {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .purpose-material-transfer {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .purpose-manufacture {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .stock-entry-container {
+                border: none;
+                padding: 0;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stock-entry-container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            <div class="company-info">
+                {% if doc.company_logo %}
+                <img src="{{ doc.company_logo }}" alt="Logo" class="company-logo">
+                {% endif %}
+                <div class="company-name">{{ frappe.db.get_value("Company", doc.company, "company_name") }}</div>
+                <div class="company-details">
+                    {% set company_address = frappe.db.get_value("Address", {"is_your_company_address": 1, "link_name": doc.company}, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True) %}
+                    {% if company_address %}
+                    {{ company_address.address_line1 }}<br>
+                    {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
+                    {{ company_address.pincode }} {{ company_address.city }}<br>
+                    {{ company_address.country }}
+                    {% endif %}
+                    <br>
+                    <strong>NIF:</strong> {{ frappe.db.get_value("Company", doc.company, "tax_id") }}<br>
+                    {% set company_phone = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "phone") %}
+                    {% if company_phone %}<strong>Tel:</strong> {{ company_phone }}<br>{% endif %}
+                    {% set company_email = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "email_id") %}
+                    {% if company_email %}<strong>Email:</strong> {{ company_email }}{% endif %}
+                </div>
+            </div>
+
+            <div class="document-info">
+                <div class="document-title">Movimento de Stock</div>
+                <div class="document-number">{{ doc.name }}</div>
+                <div class="document-dates">
+                    <strong>Data:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}<br>
+                    <strong>Hora:</strong> {{ frappe.utils.formatdate(doc.posting_time, "HH:mm") if doc.posting_time else frappe.utils.formatdate(doc.creation, "HH:mm") }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Aviso de Movimento de Stock -->
+        <div class="stock-notice">
+            <div class="notice-title">📦 MOVIMENTO DE STOCK 📦</div>
+            <div>Documento que regista <strong>MOVIMENTAÇÕES</strong> de mercadorias em armazém</div>
+            <div>
+                Tipo:
+                <span class="purpose-badge purpose-{{ doc.purpose.lower().replace(' ', '-') if doc.purpose else 'material-receipt' }}">
+                    {{ doc.purpose or "Material Receipt" }}
+                </span>
+            </div>
+        </div>
+
+        <!-- ATCUD Section -->
+        {% if doc.atcud_code %}
+        <div class="atcud-section">
+            <div><strong>Código Único de Documento (ATCUD)</strong></div>
+            <div class="atcud-code">{{ doc.atcud_code }}</div>
+            {% if doc.qr_code_image %}
+            <div class="qr-code">
+                <img src="{{ doc.qr_code_image }}" alt="QR Code" style="width: 80px; height: 80px;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Informações do Movimento -->
+        <div class="movement-info">
+            <div class="movement-details">
+                <div class="section-title">📋 Detalhes do Movimento</div>
+                <strong>Tipo de Movimento:</strong> {{ doc.purpose or "Material Receipt" }}<br>
+                <strong>Data de Lançamento:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}<br>
+                <strong>Hora de Lançamento:</strong> {{ frappe.utils.formatdate(doc.posting_time, "HH:mm") if doc.posting_time else frappe.utils.formatdate(doc.creation, "HH:mm") }}<br>
+                <strong>Utilizador:</strong> {{ doc.owner }}<br>
+                <strong>Estado:</strong>
+                {% if doc.docstatus == 1 %}
+                <span style="color: #28a745; font-weight: bold;">Submetido</span>
+                {% elif doc.docstatus == 2 %}
+                <span style="color: #dc3545; font-weight: bold;">Cancelado</span>
+                {% else %}
+                <span style="color: #ffc107; font-weight: bold;">Rascunho</span>
+                {% endif %}
+            </div>
+
+            <div class="warehouse-info">
+                <div class="section-title">🏪 Informações de Armazém</div>
+                {% if doc.from_warehouse %}
+                <strong>Armazém de Origem:</strong> {{ doc.from_warehouse }}<br>
+                {% endif %}
+                {% if doc.to_warehouse %}
+                <strong>Armazém de Destino:</strong> {{ doc.to_warehouse }}<br>
+                {% endif %}
+                {% if doc.purpose == "Material Transfer" and doc.from_warehouse and doc.to_warehouse %}
+                <strong>Tipo:</strong> <span class="stock-transfer">Transferência Interna</span><br>
+                {% elif doc.purpose in ["Material Receipt", "Purchase Return"] %}
+                <strong>Tipo:</strong> <span class="stock-in">Entrada de Stock</span><br>
+                {% elif doc.purpose in ["Material Issue", "Sales Return"] %}
+                <strong>Tipo:</strong> <span class="stock-out">Saída de Stock</span><br>
+                {% endif %}
+                <strong>Responsável:</strong> {{ frappe.session.user.split('@')[0] }}
+            </div>
+        </div>
+
+        <!-- Armazéns Envolvidos -->
+        {% if doc.from_warehouse or doc.to_warehouse %}
+        <div class="warehouse-section">
+            <div class="section-title">🏢 Armazéns Envolvidos</div>
+            <div style="display: flex; justify-content: space-between;">
+                {% if doc.from_warehouse %}
+                <div style="flex: 1; margin-right: 20px;">
+                    <strong>📤 Armazém de Origem:</strong><br>
+                    {{ doc.from_warehouse }}<br>
+                    {% set from_warehouse_address = frappe.db.get_value("Warehouse", doc.from_warehouse, "address_line_1") %}
+                    {% if from_warehouse_address %}
+                    <small>{{ from_warehouse_address }}</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if doc.to_warehouse %}
+                <div style="flex: 1;">
+                    <strong>📥 Armazém de Destino:</strong><br>
+                    {{ doc.to_warehouse }}<br>
+                    {% set to_warehouse_address = frappe.db.get_value("Warehouse", doc.to_warehouse, "address_line_1") %}
+                    {% if to_warehouse_address %}
+                    <small>{{ to_warehouse_address }}</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tabela de Itens -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">Código</th>
+                    <th style="width: 25%;">Descrição do Item</th>
+                    <th style="width: 8%;" class="text-center">Qtd</th>
+                    <th style="width: 8%;" class="text-center">Unidade</th>
+                    <th style="width: 12%;">Armazém Origem</th>
+                    <th style="width: 12%;">Armazém Destino</th>
+                    <th style="width: 10%;" class="text-right">Valor Unit.</th>
+                    <th style="width: 13%;" class="text-right">Valor Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in doc.items %}
+                <tr>
+                    <td>{{ item.item_code }}</td>
+                    <td>
+                        <strong>{{ item.item_name }}</strong>
+                        {% if item.description and item.description != item.item_name %}
+                        <br><small>{{ item.description }}</small>
+                        {% endif %}
+                        {% if item.serial_no %}
+                        <br><small><strong>Nº Série:</strong> {{ item.serial_no }}</small>
+                        {% endif %}
+                        {% if item.batch_no %}
+                        <br><small><strong>Lote:</strong> {{ item.batch_no }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if item.qty > 0 %}
+                        <span class="stock-in">+{{ frappe.utils.fmt_money(item.qty, precision=2) }}</span>
+                        {% else %}
+                        <span class="stock-out">{{ frappe.utils.fmt_money(item.qty, precision=2) }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ item.uom or "Un" }}</td>
+                    <td>{{ item.s_warehouse or "-" }}</td>
+                    <td>{{ item.t_warehouse or "-" }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.basic_rate or 0, precision=4, currency=frappe.db.get_value("Company", doc.company, "default_currency")) }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.basic_amount or 0, precision=2, currency=frappe.db.get_value("Company", doc.company, "default_currency")) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Resumo do Movimento -->
+        <div class="movement-summary">
+            <div class="section-title">📊 Resumo do Movimento</div>
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Total de Itens:</strong> {{ doc.items|length }}<br>
+                    <strong>Quantidade Total Movimentada:</strong> {{ doc.total_outgoing_value or doc.total_incoming_value or 0 }} unidades<br>
+                    <strong>Peso Total:</strong> {{ doc.total_additional_costs or "N/A" }} kg
+                </div>
+                <div class="text-right">
+                    <strong>Valor Total do Movimento:</strong><br>
+                    <span style="font-size: 16px; font-weight: bold; color: #fd7e14;">
+                        {{ frappe.utils.fmt_money(doc.total_outgoing_value or doc.total_incoming_value or 0, precision=2, currency=frappe.db.get_value("Company", doc.company, "default_currency")) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documentos de Referência -->
+        {% if doc.purchase_order or doc.sales_order or doc.delivery_note_no or doc.purchase_receipt_no %}
+        <div class="warehouse-section">
+            <div class="section-title">📄 Documentos de Referência</div>
+            {% if doc.purchase_order %}
+            <strong>Encomenda de Compra:</strong> {{ doc.purchase_order }}<br>
+            {% endif %}
+            {% if doc.sales_order %}
+            <strong>Encomenda de Venda:</strong> {{ doc.sales_order }}<br>
+            {% endif %}
+            {% if doc.delivery_note_no %}
+            <strong>Guia de Remessa:</strong> {{ doc.delivery_note_no }}<br>
+            {% endif %}
+            {% if doc.purchase_receipt_no %}
+            <strong>Guia de Receção:</strong> {{ doc.purchase_receipt_no }}<br>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Observações -->
+        {% if doc.remarks %}
+        <div class="warehouse-section">
+            <div class="section-title">📝 Observações</div>
+            {{ doc.remarks }}
+        </div>
+        {% endif %}
+
+        <!-- Assinaturas -->
+        <div class="signature-section">
+            <div class="signature-box">
+                <div class="signature-title">Responsável pelo Movimento</div>
+                <div class="signature-line"></div>
+                <div>{{ doc.owner }}</div>
+                <small>Nome, assinatura e data</small>
+            </div>
+
+            <div class="signature-box">
+                <div class="signature-title">Responsável do Armazém</div>
+                <div class="signature-line"></div>
+                <div>A preencher</div>
+                <small>Nome, assinatura e data</small>
+            </div>
+
+            <div class="signature-box">
+                <div class="signature-title">Supervisor</div>
+                <div class="signature-line"></div>
+                <div>A preencher</div>
+                <small>Nome, assinatura e data</small>
+            </div>
+        </div>
+
+        <!-- Informações Legais -->
+        <div class="legal-notes">
+            <strong>Informações Legais:</strong><br>
+            • Documento processado por programa certificado n.º {{ frappe.db.get_value("Company", doc.company, "at_certificate_number") or "XXXX/AT" }}<br>
+            • Movimento de stock registado conforme legislação em vigor<br>
+            • Este documento comprova as movimentações de mercadorias em armazém<br>
+            • Conservar este documento para efeitos de controlo de inventário<br>
+            • Documento sujeito a auditoria e fiscalização<br>
+            • Processado por {{ frappe.session.user }} em {{ frappe.utils.now() }}
+        </div>
+
+        <!-- Rodapé -->
+        <div class="footer-info text-center">
+            <small>
+                Este documento foi gerado automaticamente pelo sistema ERPNext com o módulo Portugal Compliance<br>
+                Para mais informações visite: {{ frappe.utils.get_url() }}
+            </small>
+        </div>
+    </div>
+</body>
+</html>

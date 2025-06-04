@@ -1,225 +1,335 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2025, NovaDX - Octávio Daio and contributors
+# For license information, please see license.txt
+#HOOKS OPERACIONAL
+"""
+Hooks Configuration for Portugal Compliance - VERSÃO NATIVA CERTIFICADA
+Integra lógica testada da versão anterior com naming_series nativas
+✅ Compliance inviolável com séries comunicadas
+✅ ATCUD automático conforme legislação portuguesa
+✅ Configuração automática completa
+"""
+
+from __future__ import unicode_literals
+import frappe
+from frappe import _
+
 app_name = "portugal_compliance"
 app_title = "Portugal Compliance"
 app_publisher = "NovaDX - Octávio Daio"
-app_description = "Compliance with Portuguese fiscal regulations (ATCUD, SAFT-PT, Digital Signatures)."
-app_email = "app@novadx.eu"
-app_license = "gpl-3.0"
-# required_apps = []
+app_description = "Compliance with Portuguese fiscal regulations (ATCUD, SAFT-PT, QR-Code, Digital Signatures, Audit Trail) - Native ERPNext Integration"
+app_icon = "octicon octicon-law"
+app_color = "green"
+app_email = "compliance@novadx.pt"
+app_license = "MIT"
+app_version = "2.0.0"
 
-# Includes in <head>
-# ------------------
+# ✅ REQUIRED APPS
+required_apps = ["frappe", "erpnext"]
 
-# include js, css files in header of desk.html
-# app_include_css = "/assets/portugal_compliance/css/portugal_compliance.css"
-# app_include_js = "/assets/portugal_compliance/js/portugal_compliance.js"
-
-# include js, css files in header of web_ όταν.html
-# web_include_css = "/assets/portugal_compliance/css/portugal_compliance.css"
-# web_include_js = "/assets/portugal_compliance/js/portugal_compliance.js"
-
-# include custom scss in every website theme (without file extension ".scss")
-# website_theme_scss = "portugal_compliance/public/scss/website"
-
-# include js, css files in header of web form theme
-# webform_include_js = {"doctype": "public/js/doctype.js"}
-# webform_include_css = {"doctype": "public/css/doctype.css"}
-
-# Home Pages
-# ----------
-
-# application home page (will override Website Settings)
-# home_page = "login"
-
-# website user home page (by Role)
-# role_home_page = {
-#   "Role": "home_page"
-# }
-
-# Generators
-# ----------
-
-# automatically create page for each record of this doctype
-# website_generators = ["Web Page"]
-
-# Jinja
-# ----------
-
-# add methods and filters to jinja environment
-# jinja = {
-#   "methods": "portugal_compliance.utils.jinja_methods",
-#   "filters": "portugal_compliance.utils.jinja_filters"
-# }
-
-# Installation
-# ------------
-
-# before_install = "portugal_compliance.install.before_install"
-# after_install = "portugal_compliance.install.after_install"
-
-# Uninstallation
-# ------------
-
-# before_uninstall = "portugal_compliance.uninstall.before_uninstall"
-# after_uninstall = "portugal_compliance.uninstall.after_uninstall"
-
-# Integration Setup
-# ------------------
-# To set up dependencies/integrations with other apps
-# Name of the app being integrated is given as static value
-# Put static values if required for integration
-# Format given below is example
-# integration_setup = {
-#   "my_app": {
-#       "enable_integration": 1,
-#       "another_value": 2
-#   }
-# }
-
-# DocType Class
-# ---------------
-# Override standard doctype classes
-
-# override_doctype_class = {
-#   "ToDo": "custom_app.overrides.CustomToDo"
-# }
-
-# Document Events
-# ----------------
-# Hook on document methods and events
-doc_events = {
-    "Sales Invoice": {
-        "on_submit": [
-            "portugal_compliance.api.signing_utils.process_sales_invoice_signature",
-            "portugal_compliance.api.qrcode_atcud_utils.process_document_atcud_and_qr"
-        ],
-		# "validate": "portugal_compliance.portugal_compliance.api.signing_utils.validate_sales_invoice_for_signing",
-		# "on_cancel": "portugal_compliance.portugal_compliance.api.signing_utils.handle_invoice_cancellation_log"
-    }
-}
-
-
-    # Add other relevant doctypes like 'Credit Note', 'Delivery Note' etc.
-    # "Credit Note": {
-    #     "on_submit": [
-    #         "portugal_compliance.portugal_compliance.api.signing_utils.process_credit_note_signature",
-    #         "portugal_compliance.portugal_compliance.api.qrcode_atcud_utils.process_document_atcud_and_qr"
-    #      ]
-    # },
-    # "Delivery Note": {
-    #    "on_submit": [
-    #         "portugal_compliance.portugal_compliance.api.signing_utils.process_delivery_note_signature",
-    #         "portugal_compliance.portugal_compliance.api.qrcode_atcud_utils.process_document_atcud_and_qr"
-    #      ]
-    # }
-
-
-# Scheduled Tasks
-# ----------------
-
-# scheduler_events = {
-#   "all": [
-#       "portugal_compliance.tasks.all"
-#   ],
-#   "daily": [
-#       "portugal_compliance.tasks.daily"
-#   ],
-#   "hourly": [
-#       "portugal_compliance.tasks.hourly"
-#   ],
-#   "weekly": [
-#       "portugal_compliance.tasks.weekly"
-#   ],
-#   "monthly": [
-#       "portugal_compliance.tasks.monthly"
-#   ],
-# }
-
-# Testing
-# -------
-
-# before_tests = "portugal_compliance.install.before_tests"
-
-# Overriding Methods
-# --------------------
-#
-# override_whitelisted_methods = {
-#   "frappe.desk.doctype.event.event.get_events": "portugal_compliance.event.get_events"
-# }
-#
-# each overriding function accepts a `data` argument;
-# generated from the base implementation of the doctype dashboard,
-# along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-#   "Task": "portugal_compliance.task.get_dashboard_data"
-# }
-
-# exempt linked doctypes from being automatically cancelled
-# auto_cancel_exempted_doctypes = ["Auto Repeat"]
-
-# Ignore links to specified DocTypes when deleting documents
-# -----------------------------------------------------------
-# ignore_links_on_delete = ["Communication", "ToDo"]
-
-# Request Events
-# ----------------
-# before_request = ["portugal_compliance.utils.before_request"]
-# after_request = ["portugal_compliance.utils.after_request"]
-
-# Job Events
-# ----------
-# before_job = ["portugal_compliance.utils.before_job"]
-# after_job = ["portugal_compliance.utils.after_job"]
-
-# User Data Protection
-# --------------------
-
-# user_data_fields = [
-#   {
-#       "doctype": "{doctype_name}",
-#       "filter_by": "{filter_by}",
-#       "redact_fields": ["{field_1}", "{field_2}"],
-#       "partial": 1, # PII doesn't form part of critical data so can be removed without breaking integrity
-#   },
-#   {
-#       "doctype": "{doctype_name}",
-#       "filter_by": "{filter_by}",
-#       "partial": 1,
-#   },
-#   {
-#       "doctype": "{doctype_name}",
-#       "filter_by": "{filter_by}",
-#       "field_mapping": {"field_1": "{field_2}"}
-#   },
-#   {
-#       "doctype": "User",
-#       "filter_by": "name",
-#       "redact_fields": ["email", "mobile_no"]
-#   }
-# ]
-
-# Fixtures
-# --------
-# Adding Custom Fields to standard DocTypes for Portugal Compliance
-fixtures = [
-    {"dt": "Custom Field", "filters": [
-        ["module", "=", "Portugal Compliance"]
-    ]},
-    {"dt": "Property Setter", "filters": [
-        ["module", "=", "Portugal Compliance"]
-    ]}
+# ✅ INCLUDES CSS/JS - CORRIGIDO E COMPLETO
+app_include_css = [
+    "/assets/portugal_compliance/css/portugal_compliance.css"
 ]
 
-# Caching
-# --------
+app_include_js = [
+    "/assets/portugal_compliance/js/portugal_compliance.js",
+    "/assets/portugal_compliance/js/company.js"
+]
 
-# Cache methods in this app. Define path to methods like so:
-# "portugal_compliance.utils.get_cache_key": 300, # cache for 5 minutes
-# cache_keys = {}
+web_include_css = [
+    "/assets/portugal_compliance/css/portugal_compliance.css"
+]
 
-# Required Apps
-# -------------
-#required_apps = ["erpnext"]
+web_include_js = [
+    "/assets/portugal_compliance/js/portugal_compliance.js",
+    "/assets/portugal_compliance/js/company.js"
+]
 
+# ✅ DOCTYPE JS - CORRIGIDO (era lista, agora é dicionário)
+doctype_js = {
+	"Sales Invoice": "public/js/sales_invoice.js",
+	"Purchase Invoice": "public/js/purchase_invoice.js",
+	"POS Invoice": "public/js/pos_invoice.js",
+	"Quotation": "public/js/quotation.js",
+	"Sales Order": "public/js/sales_order.js",
+	"Purchase Order": "public/js/purchase_order.js",
+	"Payment Entry": "public/js/payment_entry.js",
+	"Delivery Note": "public/js/delivery_note.js",
+	"Purchase Receipt": "public/js/purchase_receipt.js",
+	"Stock Entry": "public/js/stock_entry.js",
+	"Journal Entry": "public/js/journal_entry.js",
+	"Company": "public/js/company.js",
+	"Customer": "public/js/customer.js",
+	"Supplier": "public/js/supplier.js"
+}
 
-add_to_apps_screen = 1
+# ✅ INSTALAÇÃO E DESINSTALAÇÃO
+after_install = "portugal_compliance.regional.portugal.after_install"
+before_uninstall = "portugal_compliance.regional.portugal.before_uninstall"
 
+# ✅ MIGRATION HOOKS
+#after_migrate = "portugal_compliance.utils.migrate_to_native_approach.sync_all_naming_series_after_migrate"
+
+# ✅ DOCUMENT EVENTS - CORRIGIDO (estrutura simplificada)
+doc_events = {
+	# ========== DOCUMENTOS FISCAIS CRÍTICOS ==========
+	"Sales Invoice": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+	"Purchase Invoice": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+	"POS Invoice": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+	"Payment Entry": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+
+	# ========== DOCUMENTOS DE TRANSPORTE ==========
+	"Delivery Note": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+	"Purchase Receipt": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+	"Stock Entry": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+
+	# ========== DOCUMENTOS CONTABILÍSTICOS ==========
+	"Journal Entry": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+	},
+
+	# ========== DOCUMENTOS COMERCIAIS ==========
+	"Quotation": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance"
+	},
+	"Sales Order": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance"
+	},
+	"Purchase Order": {
+		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance"
+	},
+
+	# ========== CONFIGURAÇÃO DA EMPRESA ==========
+	"Company": {
+		"on_update": "portugal_compliance.utils.document_hooks.setup_company_portugal_compliance",
+		"validate": "portugal_compliance.regional.portugal.validate_portugal_company_settings"
+	},
+
+	# ========== VALIDAÇÃO DE ENTIDADES ==========
+	"Customer": {
+		"validate": "portugal_compliance.utils.document_hooks.validate_customer_nif"
+	},
+	"Supplier": {
+		"validate": "portugal_compliance.utils.document_hooks.validate_supplier_nif"
+	}
+}
+
+# ✅ PERMISSIONS
+permission_query_conditions = {
+	"Portugal Series Configuration": "portugal_compliance.queries.has_permission_for_series.get_permission_query_conditions",
+	"ATCUD Log": "portugal_compliance.queries.has_permission_for_atcud.get_permission_query_conditions"
+}
+
+has_permission = {
+	"Portugal Series Configuration": "portugal_compliance.queries.has_permission_for_series.has_permission",
+	"ATCUD Log": "portugal_compliance.queries.has_permission_for_atcud.has_permission"
+}
+
+# ✅ OVERRIDE DOCTYPE CLASS
+override_doctype_class = {
+	"Sales Invoice": "portugal_compliance.overrides.sales_invoice.CustomSalesInvoice"
+}
+
+# ✅ OVERRIDE WHITELISTED METHODS
+override_whitelisted_methods = {
+	"frappe.core.doctype.communication.email.make": "portugal_compliance.email.make_portugal_compliant_email"
+}
+
+# ✅ SCHEDULED TASKS
+#scheduler_events = {
+#	"daily": [
+#		"portugal_compliance.utils.maintenance.daily_compliance_check",
+#		"portugal_compliance.utils.maintenance.validate_atcud_integrity"
+#	],
+#	"weekly": [
+#		"portugal_compliance.utils.maintenance.weekly_series_sync"
+#	],
+#	"monthly": [
+#		"portugal_compliance.utils.maintenance.monthly_compliance_audit"
+#	]
+#}
+
+# ✅ FIXTURES - SIMPLIFICADO
+fixtures = [
+	{
+		"dt": "Custom Field",
+		"filters": [
+			["module", "in", ["Portugal Compliance"]]
+		]
+	}
+]
+
+# ✅ JINJA METHODS - ESSENCIAIS
+jinja = {
+	"methods": [
+		# ✅ MÉTODOS ATCUD
+		"portugal_compliance.utils.jinja_methods.get_atcud_code",
+		"portugal_compliance.utils.jinja_methods.format_atcud_display",
+
+		# ✅ MÉTODOS NAMING_SERIES
+		"portugal_compliance.utils.jinja_methods.get_naming_series",
+		"portugal_compliance.utils.jinja_methods.get_series_prefix",
+		"portugal_compliance.utils.jinja_methods.is_portuguese_series",
+
+		# ✅ MÉTODOS DE FORMATAÇÃO
+		"portugal_compliance.utils.jinja_methods.format_portuguese_date",
+		"portugal_compliance.utils.jinja_methods.format_portuguese_currency",
+
+		# ✅ MÉTODOS DE VALIDAÇÃO
+		"portugal_compliance.utils.jinja_methods.validate_portuguese_nif",
+		"portugal_compliance.utils.jinja_methods.get_company_nif",
+
+		# ✅ MÉTODOS DE DOCUMENTOS
+		"portugal_compliance.utils.jinja_methods.get_document_type_description",
+		"portugal_compliance.utils.jinja_methods.format_tax_breakdown",
+
+		# ✅ MÉTODOS QR CODE
+		"portugal_compliance.utils.jinja_methods.get_qr_code_data",
+		"portugal_compliance.utils.jinja_methods.generate_qr_code_image"
+	]
+}
+
+# ✅ BACKGROUND JOBS
+background_jobs = {
+	"portugal_compliance.utils.at_webservice.batch_register_naming_series": {"timeout": 1800},
+	"portugal_compliance.utils.atcud_generator.batch_generate_atcud": {"timeout": 1200}
+}
+
+# ✅ REGIONAL SETTINGS
+regional_overrides = {
+	"Portugal": {
+		"get_series": "portugal_compliance.regional.portugal.get_series",
+		"validate_tax_id": "portugal_compliance.utils.validation.validate_portuguese_nif",
+		"get_tax_template": "portugal_compliance.regional.portugal.get_tax_template_for_transaction",
+		"format_currency": "portugal_compliance.utils.formatting.format_portuguese_currency",
+		"currency": "EUR",
+		"date_format": "dd/MM/yyyy",
+		"time_format": "HH:mm:ss",
+		"number_format": "#.###,##",
+		"first_day_of_the_week": "Monday"
+	}
+}
+
+# ✅ WEBSITE SETTINGS
+website_route_rules = [
+	{"from_route": "/portugal-compliance/<path:app_path>", "to_route": "portugal-compliance"}
+]
+
+# ✅ DOMAINS
+domains = {
+	"Portugal Compliance": "portugal_compliance"
+}
+
+# ✅ BOOT SESSION
+#boot_session = "portugal_compliance.utils.boot.boot_session"
+
+# ✅ STARTUP HOOKS
+startup_hooks = [
+	"portugal_compliance.utils.startup.validate_portugal_compliance_setup"
+]
+
+# ✅ SOUNDS
+#sounds = [
+#	{"name": "atcud-generated", "src": "/assets/portugal_compliance/sounds/success.mp3"},
+#	{"name": "series-communicated", "src": "/assets/portugal_compliance/sounds/communication.mp3"},
+#	{"name": "compliance-error", "src": "/assets/portugal_compliance/sounds/error.mp3"}
+#]
+
+# ✅ AUTO CANCEL EXEMPTED DOCTYPES
+auto_cancel_exempted_doctypes = ["Auto Repeat", "ATCUD Log", "Portugal Series Configuration"]
+
+# ✅ TRANSLATION FILES
+translation_files = [
+	"apps/portugal_compliance/translations"
+]
+
+# ✅ DEFAULT MAIL FOOTER
+default_mail_footer = """
+    <div style="padding: 7px; text-align: right; color: #888">
+        <small>Enviado via Portugal Compliance para ERPNext</small>
+    </div>
+"""
+
+# ✅ NOTIFICATION CONFIG
+#notification_config = "portugal_compliance.notifications.get_notification_config"
+
+# ✅ WEBSITE CONTEXT
+website_context = {
+	"favicon": "/assets/portugal_compliance/images/favicon.ico",
+	"splash_image": "/assets/portugal_compliance/images/portugal_compliance_logo.png"
+}
+
+# ✅ CALENDARS
+calendars = ["ATCUD Log"]
+
+# ✅ DASHBOARD DATA
+dashboard_data = {
+	"Portugal Compliance": "portugal_compliance.dashboards.get_dashboard_data"
+}
+
+# ✅ STANDARD QUERIES
+standard_queries = {
+	"Customer": "portugal_compliance.queries.customer_query",
+	"Supplier": "portugal_compliance.queries.supplier_query"
+}
+
+# ✅ PORTAL MENU ITEMS
+portal_menu_items = [
+	{
+		"title": "Documentos Fiscais",
+		"route": "/compliance/documents",
+		"reference_doctype": "Sales Invoice",
+		"role": "Customer"
+	}
+]
+# ✅ WHITELISTED METHODS - MANUAL (SOLUÇÃO PARA BUG DO DECORATOR)
+whitelisted_methods = [
+    "portugal_compliance.api.company_api.create_company_series",
+    "portugal_compliance.api.company_api.get_company_compliance_status",
+    "portugal_compliance.api.company_api.save_company_settings",
+    "portugal_compliance.api.company_api.validate_company_for_compliance",
+    "portugal_compliance.api.company_api.delete_company_series",
+    "portugal_compliance.api.company_api.get_available_document_types",
+    "portugal_compliance.utils.jinja_methods.validate_portuguese_nif"
+]

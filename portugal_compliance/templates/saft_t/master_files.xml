@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template para ficheiros mestre do SAF-T (PT) -->
+<MasterFiles>
+    <!-- Plano de Contas -->
+    <GeneralLedgerAccounts>
+        {% for account in chart_of_accounts %}
+        <Account>
+            <AccountID>{{ account.account_number or account.name }}</AccountID>
+            <AccountDescription>{{ account.account_name }}</AccountDescription>
+            <StandardAccountID>{{ account.standard_account_id or '' }}</StandardAccountID>
+            <GroupingCategory>{{ account.account_type }}</GroupingCategory>
+            <GroupingCode>{{ account.parent_account or '' }}</GroupingCode>
+            <TaxonomyCode>{{ account.taxonomy_code or '' }}</TaxonomyCode>
+            <AccountCreationDate>{{ account.creation.strftime('%Y-%m-%d') if account.creation else '' }}</AccountCreationDate>
+            <OpeningDebitBalance>{{ account.opening_balance if account.opening_balance > 0 else '0.00' }}</OpeningDebitBalance>
+            <OpeningCreditBalance>{{ account.opening_balance if account.opening_balance < 0 else '0.00' }}</OpeningCreditBalance>
+            <ClosingDebitBalance>{{ account.closing_balance if account.closing_balance > 0 else '0.00' }}</ClosingDebitBalance>
+            <ClosingCreditBalance>{{ account.closing_balance if account.closing_balance < 0 else '0.00' }}</ClosingCreditBalance>
+        </Account>
+        {% endfor %}
+    </GeneralLedgerAccounts>
+
+    <!-- Clientes -->
+    <Customer>
+        {% for customer in customers %}
+        <CustomerID>{{ customer.name }}</CustomerID>
+        <AccountID>{{ customer.default_receivable_account or '' }}</AccountID>
+        <CustomerTaxID>{{ customer.tax_id or '' }}</CustomerTaxID>
+        <CompanyName>{{ customer.customer_name }}</CompanyName>
+        <Contact>{{ customer.customer_primary_contact or '' }}</Contact>
+        <BillingAddress>
+            {% set billing_address = customer.customer_primary_address_details %}
+            {% if billing_address %}
+            <BuildingNumber>{{ billing_address.address_line1.split(' ')[0] if billing_address.address_line1 else '' }}</BuildingNumber>
+            <StreetName>{{ billing_address.address_line1.split(' ', 1)[1] if billing_address.address_line1 and ' ' in billing_address.address_line1 else billing_address.address_line1 or '' }}</StreetName>
+            <AddressDetail>{{ billing_address.address_line2 or '' }}</AddressDetail>
+            <City>{{ billing_address.city or '' }}</City>
+            <PostalCode>{{ billing_address.pincode or '' }}</PostalCode>
+            <Region>{{ billing_address.state or '' }}</Region>
+            <Country>{{ billing_address.country_code or 'PT' }}</Country>
+            {% endif %}
+        </BillingAddress>
+        {% if customer.shipping_address_name and customer.shipping_address_name != customer.customer_primary_address %}
+        <ShipToAddress>
+            {% set shipping_address = customer.shipping_address_details %}
+            {% if shipping_address %}
+            <BuildingNumber>{{ shipping_address.address_line1.split(' ')[0] if shipping_address.address_line1 else '' }}</BuildingNumber>
+            <StreetName>{{ shipping_address.address_line1.split(' ', 1)[1] if shipping_address.address_line1 and ' ' in shipping_address.address_line1 else shipping_address.address_line1 or '' }}</StreetName>
+            <AddressDetail>{{ shipping_address.address_line2 or '' }}</AddressDetail>
+            <City>{{ shipping_address.city or '' }}</City>
+            <PostalCode>{{ shipping_address.pincode or '' }}</PostalCode>
+            <Region>{{ shipping_address.state or '' }}</Region>
+            <Country>{{ shipping_address.country_code or 'PT' }}</Country>
+            {% endif %}
+        </ShipToAddress>
+        {% endif %}
+        <Telephone>{{ customer.mobile_no or customer.phone or '' }}</Telephone>
+        <Fax>{{ customer.fax or '' }}</Fax>
+        <Email>{{ customer.email_id or '' }}</Email>
+        <Website>{{ customer.website or '' }}</Website>
+        <SelfBillingIndicator>{{ '1' if customer.is_self_billing else '0' }}</SelfBillingIndicator>
+        <CustomerCreationDate>{{ customer.creation.strftime('%Y-%m-%d') if customer.creation else '' }}</CustomerCreationDate>
+        {% endfor %}
+    </Customer>
+
+    <!-- Fornecedores -->
+    <Supplier>
+        {% for supplier in suppliers %}
+        <SupplierID>{{ supplier.name }}</SupplierID>
+        <AccountID>{{ supplier.default_payable_account or '' }}</AccountID>
+        <SupplierTaxID>{{ supplier.tax_id or '' }}</SupplierTaxID>
+        <CompanyName>{{ supplier.supplier_name }}</CompanyName>
+        <Contact>{{ supplier.supplier_primary_contact or '' }}</Contact>
+        <BillingAddress>
+            {% set billing_address = supplier.supplier_primary_address_details %}
+            {% if billing_address %}
+            <BuildingNumber>{{ billing_address.address_line1.split(' ')[0] if billing_address.address_line1 else '' }}</BuildingNumber>
+            <StreetName>{{ billing_address.address_line1.split(' ', 1)[1] if billing_address.address_line1 and ' ' in billing_address.address_line1 else billing_address.address_line1 or '' }}</StreetName>
+            <AddressDetail>{{ billing_address.address_line2 or '' }}</AddressDetail>
+            <City>{{ billing_address.city or '' }}</City>
+            <PostalCode>{{ billing_address.pincode or '' }}</PostalCode>
+            <Region>{{ billing_address.state or '' }}</Region>
+            <Country>{{ billing_address.country_code or 'PT' }}</Country>
+            {% endif %}
+        </BillingAddress>
+        <Telephone>{{ supplier.mobile_no or supplier.phone or '' }}</Telephone>
+        <Fax>{{ supplier.fax or '' }}</Fax>
+        <Email>{{ supplier.email_id or '' }}</Email>
+        <Website>{{ supplier.website or '' }}</Website>
+        <SelfBillingIndicator>{{ '1' if supplier.is_self_billing else '0' }}</SelfBillingIndicator>
+        <SupplierCreationDate>{{ supplier.creation.strftime('%Y-%m-%d') if supplier.creation else '' }}</SupplierCreationDate>
+        {% endfor %}
+    </Supplier>
+
+    <!-- Produtos/Serviços -->
+    <Product>
+        {% for item in items %}
+        <ProductType>{{ 'P' if item.is_stock_item else 'S' }}</ProductType>
+        <ProductCode>{{ item.item_code }}</ProductCode>
+        <ProductGroup>{{ item.item_group or '' }}</ProductGroup>
+        <ProductDescription>{{ item.item_name }}</ProductDescription>
+        <ProductNumberCode>{{ item.gtin or item.item_code }}</ProductNumberCode>
+        <ProductCreationDate>{{ item.creation.strftime('%Y-%m-%d') if item.creation else '' }}</ProductCreationDate>
+        {% if item.is_stock_item %}
+        <UOMBase>{{ item.stock_uom or 'Un' }}</UOMBase>
+        <UOMStandard>{{ item.purchase_uom or item.stock_uom or 'Un' }}</UOMStandard>
+        <UOMToUOMBaseConversionFactor>{{ item.conversion_factor or '1' }}</UOMToUOMBaseConversionFactor>
+        {% endif %}
+        {% if item.valuation_rate %}
+        <ValuationMethod>{{ item.valuation_method or 'FIFO' }}</ValuationMethod>
+        {% endif %}
+        <ProductCategory>{{ item.item_group or 'Geral' }}</ProductCategory>
+        {% if item.customs_tariff_number %}
+        <CommodityCode>{{ item.customs_tariff_number }}</CommodityCode>
+        {% endif %}
+        {% if item.weight_per_unit %}
+        <ProductWeight>{{ item.weight_per_unit }}</ProductWeight>
+        {% endif %}
+        {% if item.net_weight %}
+        <ProductNetWeight>{{ item.net_weight }}</ProductNetWeight>
+        {% endif %}
+        {% if item.is_stock_item and item.opening_stock %}
+        <OpeningStockQuantity>{{ item.opening_stock }}</OpeningStockQuantity>
+        <OpeningStockValue>{{ item.opening_stock * (item.valuation_rate or 0) }}</OpeningStockValue>
+        {% endif %}
+        {% if item.is_stock_item and item.closing_stock %}
+        <ClosingStockQuantity>{{ item.closing_stock }}</ClosingStockQuantity>
+        <ClosingStockValue>{{ item.closing_stock * (item.valuation_rate or 0) }}</ClosingStockValue>
+        {% endif %}
+        {% endfor %}
+    </Product>
+
+    <!-- Impostos -->
+    <TaxTable>
+        {% for tax in tax_accounts %}
+        <TaxType>{{ tax.tax_type or 'IVA' }}</TaxType>
+        <TaxCode>{{ tax.account_name }}</TaxCode>
+        <TaxDescription>{{ tax.account_name }}</TaxDescription>
+        <TaxPercentage>{{ tax.tax_rate or '0' }}</TaxPercentage>
+        <Country>PT</Country>
+        <TaxAmount>{{ tax.tax_amount or '0.00' }}</TaxAmount>
+        <TaxPointDate>{{ tax.creation.strftime('%Y-%m-%d') if tax.creation else '' }}</TaxPointDate>
+        {% if tax.exemption_reason %}
+        <TaxExemptionReason>{{ tax.exemption_reason }}</TaxExemptionReason>
+        <TaxExemptionCode>{{ tax.exemption_code or 'M01' }}</TaxExemptionCode>
+        {% endif %}
+        {% endfor %}
+    </TaxTable>
+
+    <!-- Unidades de Medida -->
+    <UOMTable>
+        {% for uom in uoms %}
+        <UnitOfMeasure>{{ uom.uom_name }}</UnitOfMeasure>
+        <UOMDescription>{{ uom.uom_name }}</UOMDescription>
+        {% if uom.must_be_whole_number %}
+        <UOMToUOMBaseConversionFactor>1</UOMToUOMBaseConversionFactor>
+        {% endif %}
+        {% endfor %}
+    </UOMTable>
+
+    <!-- Centros de Custo -->
+    {% if cost_centers %}
+    <Analysis>
+        <AnalysisType>CC</AnalysisType>
+        <AnalysisTypeDescription>Centros de Custo</AnalysisTypeDescription>
+        <AnalysisID>CostCenter</AnalysisID>
+        <AnalysisDescription>Análise por Centro de Custo</AnalysisDescription>
+        {% for cost_center in cost_centers %}
+        <AnalysisCategory>
+            <AnalysisCategoryCode>{{ cost_center.name }}</AnalysisCategoryCode>
+            <AnalysisCategoryDescription>{{ cost_center.cost_center_name }}</AnalysisCategoryDescription>
+        </AnalysisCategory>
+        {% endfor %}
+    </Analysis>
+    {% endif %}
+
+    <!-- Projetos -->
+    {% if projects %}
+    <Analysis>
+        <AnalysisType>PR</AnalysisType>
+        <AnalysisTypeDescription>Projetos</AnalysisTypeDescription>
+        <AnalysisID>Project</AnalysisID>
+        <AnalysisDescription>Análise por Projeto</AnalysisDescription>
+        {% for project in projects %}
+        <AnalysisCategory>
+            <AnalysisCategoryCode>{{ project.name }}</AnalysisCategoryCode>
+            <AnalysisCategoryDescription>{{ project.project_name }}</AnalysisCategoryDescription>
+        </AnalysisCategory>
+        {% endfor %}
+    </Analysis>
+    {% endif %}
+
+    <!-- Proprietários/Sócios -->
+    {% if owners %}
+    <Owner>
+        {% for owner in owners %}
+        <OwnerID>{{ owner.name }}</OwnerID>
+        <OwnerName>{{ owner.owner_name }}</OwnerName>
+        <OwnerTaxID>{{ owner.tax_id or '' }}</OwnerTaxID>
+        <OwnerAddress>
+            {% if owner.address %}
+            <BuildingNumber>{{ owner.address.address_line1.split(' ')[0] if owner.address.address_line1 else '' }}</BuildingNumber>
+            <StreetName>{{ owner.address.address_line1.split(' ', 1)[1] if owner.address.address_line1 and ' ' in owner.address.address_line1 else owner.address.address_line1 or '' }}</StreetName>
+            <AddressDetail>{{ owner.address.address_line2 or '' }}</AddressDetail>
+            <City>{{ owner.address.city or '' }}</City>
+            <PostalCode>{{ owner.address.pincode or '' }}</PostalCode>
+            <Region>{{ owner.address.state or '' }}</Region>
+            <Country>{{ owner.address.country_code or 'PT' }}</Country>
+            {% endif %}
+        </OwnerAddress>
+        <Telephone>{{ owner.phone or '' }}</Telephone>
+        <Email>{{ owner.email or '' }}</Email>
+        {% endfor %}
+    </Owner>
+    {% endif %}
+</MasterFiles>

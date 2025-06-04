@@ -1,0 +1,261 @@
+<!-- www/communicate-series-at.html -->
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>🇵🇹 Comunicação de Séries à AT</h2>
+            <p class="text-muted">Comunique as séries de documentos à Autoridade Tributária para obter códigos ATCUD</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Configuração</h5>
+                </div>
+                <div class="card-body">
+                    <form id="at-communication-form">
+                        <div class="form-group">
+                            <label>Empresa:</label>
+                            <select class="form-control" id="company" required>
+                                <option value="">Selecionar empresa...</option>
+                                {% for company in companies %}
+                                <option value="{{ company.name }}"
+                                        data-username="{{ company.at_username or '' }}"
+                                        data-environment="{{ company.at_environment or 'test' }}">
+                                    {{ company.name }} ({{ company.abbr }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Username AT:</label>
+                            <input type="text" class="form-control" id="username"
+                                   placeholder="123456789/1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Password AT:</label>
+                            <input type="password" class="form-control" id="password"
+                                   placeholder="Password AT" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Ambiente:</label>
+                            <select class="form-control" id="environment">
+                                <option value="test">Teste</option>
+                                <option value="production">Produção</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Séries Disponíveis</h5>
+                </div>
+                <div class="card-body">
+                    <div id="series-list">
+                        <p class="text-muted">Selecione uma empresa para ver as séries disponíveis</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Ações</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-info mr-2" onclick="testConnection()">
+                        <i class="fa fa-plug"></i> Testar Conexão
+                    </button>
+                    <button class="btn btn-success mr-2" onclick="communicateSelectedSeries()">
+                        <i class="fa fa-upload"></i> Comunicar Séries Selecionadas
+                    </button>
+                    <button class="btn btn-primary" onclick="communicateAllSeries()">
+                        <i class="fa fa-upload"></i> Comunicar Todas as Séries
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div id="results-area"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Atualizar séries quando empresa muda
+document.getElementById('company').addEventListener('change', function() {
+    const company = this.value;
+    const option = this.options[this.selectedIndex];
+
+    // Preencher credenciais se disponíveis
+    document.getElementById('username').value = option.dataset.username || '';
+    document.getElementById('environment').value = option.dataset.environment || 'test';
+
+    if (company) {
+        loadCompanySeries(company);
+    }
+});
+
+function loadCompanySeries(company) {
+    frappe.call({
+        method: 'portugal_compliance.www.communicate_series_at.get_company_naming_series',
+        args: { company: company },
+        callback: function(r) {
+            if (r.message) {
+                displaySeriesList(r.message);
+            }
+        }
+    });
+}
+
+function displaySeriesList(series) {
+    const seriesList = document.getElementById('series-list');
+    let html = '<h6>Séries Disponíveis:</h6>';
+
+    Object.keys(series).forEach(doctype => {
+        if (series[doctype].portuguese_options > 0) {
+            html += `
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="${doctype}" id="series-${doctype}">
+                    <label class="form-check-label" for="series-${doctype}">
+                        ${doctype} (${series[doctype].portuguese_options} séries)
+                    </label>
+                </div>
+            `;
+        }
+    });
+
+    seriesList.innerHTML = html;
+}
+
+function testConnection() {
+    const environment = document.getElementById('environment').value;
+
+    showLoading('Testando conexão...');
+
+    frappe.call({
+        method: 'portugal_compliance.utils.at_webservice.test_connection',
+        args: { environment: environment },
+        callback: function(r) {
+            if (r.message.connected) {
+                showResult('success', '✅ Conexão estabelecida com sucesso!');
+            } else {
+                showResult('danger', '❌ Erro na conexão: ' + r.message.error);
+            }
+        }
+    });
+}
+
+function communicateSelectedSeries() {
+    const selectedSeries = getSelectedSeries();
+    if (selectedSeries.length === 0) {
+        showResult('warning', '⚠️ Selecione pelo menos uma série');
+        return;
+    }
+
+    communicateSeries(selectedSeries);
+}
+
+function communicateAllSeries() {
+    const company = document.getElementById('company').value;
+    if (!company) {
+        showResult('warning', '⚠️ Selecione uma empresa');
+        return;
+    }
+
+    // Comunicar todas as séries da empresa
+    frappe.call({
+        method: 'portugal_compliance.api.get_all_company_naming_series',
+        args: { company: company },
+        callback: function(r) {
+            if (r.message) {
+                communicateSeries(r.message);
+            }
+        }
+    });
+}
+
+function communicateSeries(seriesList) {
+    const formData = {
+        company: document.getElementById('company').value,
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        environment: document.getElementById('environment').value,
+        series_list: seriesList
+    };
+
+    if (!formData.company || !formData.username || !formData.password) {
+        showResult('warning', '⚠️ Preencha todos os campos obrigatórios');
+        return;
+    }
+
+    showLoading('Comunicando séries à AT...');
+
+    frappe.call({
+        method: 'portugal_compliance.api.communicate_series_batch',
+        args: formData,
+        callback: function(r) {
+            if (r.message.success) {
+                displayCommunicationResults(r.message);
+            } else {
+                showResult('danger', '❌ Erro: ' + r.message.error);
+            }
+        }
+    });
+}
+
+function getSelectedSeries() {
+    const checkboxes = document.querySelectorAll('#series-list input[type="checkbox"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function displayCommunicationResults(results) {
+    let html = '<div class="card"><div class="card-header"><h5>Resultados da Comunicação</h5></div><div class="card-body">';
+
+    html += `<p><strong>Total processadas:</strong> ${results.total_processed}</p>`;
+    html += `<p><strong>Sucessos:</strong> ${results.successful}</p>`;
+    html += `<p><strong>Falhas:</strong> ${results.failed}</p>`;
+
+    if (results.results && results.results.length > 0) {
+        html += '<h6>Detalhes:</h6><ul>';
+        results.results.forEach(result => {
+            const icon = result.success ? '✅' : '❌';
+            const message = result.success ? `ATCUD: ${result.atcud}` : `Erro: ${result.message}`;
+            html += `<li>${icon} ${result.series}: ${message}</li>`;
+        });
+        html += '</ul>';
+    }
+
+    html += '</div></div>';
+
+    document.getElementById('results-area').innerHTML = html;
+}
+
+function showLoading(message) {
+    document.getElementById('results-area').innerHTML = `
+        <div class="alert alert-info">
+            <i class="fa fa-spinner fa-spin"></i> ${message}
+        </div>
+    `;
+}
+
+function showResult(type, message) {
+    document.getElementById('results-area').innerHTML = `
+        <div class="alert alert-${type}">${message}</div>
+    `;
+}
+</script>

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.name }} - Guia de Devolução</title>
+    <style>
+        /* Estilos para guia de devolução portuguesa */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .return-note-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid #e83e8c;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e83e8c;
+            padding-bottom: 20px;
+        }
+
+        .company-info {
+            flex: 1;
+        }
+
+        .company-logo {
+            max-width: 150px;
+            max-height: 80px;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #e83e8c;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .document-info {
+            text-align: right;
+            flex: 0 0 200px;
+        }
+
+        .document-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e83e8c;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .document-number {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .document-dates {
+            font-size: 10px;
+        }
+
+        .return-notice {
+            background-color: #f8d7da;
+            border: 2px solid #e83e8c;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .notice-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e83e8c;
+            margin-bottom: 10px;
+        }
+
+        .return-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .return-details, .original-document {
+            flex: 1;
+            margin-right: 20px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #e83e8c;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #e83e8c;
+            border-bottom: 1px solid #e83e8c;
+            padding-bottom: 3px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .reason-section {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .items-table th {
+            background-color: #e83e8c;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #e83e8c;
+        }
+
+        .items-table td {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .items-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .atcud-section {
+            background-color: #f0f8ff;
+            border: 2px solid #e83e8c;
+            padding: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .atcud-code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: #e83e8c;
+            letter-spacing: 1px;
+        }
+
+        .qr-code {
+            margin: 10px 0;
+        }
+
+        .condition-assessment {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .signatures-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            gap: 20px;
+        }
+
+        .signature-box {
+            flex: 1;
+            text-align: center;
+            border: 1px solid #ddd;
+            padding: 40px 10px 10px 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+
+        .signature-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #e83e8c;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            margin: 30px 0 5px 0;
+        }
+
+        .legal-notes {
+            font-size: 9px;
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.3;
+        }
+
+        .footer-info {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .return-qty {
+            color: #e83e8c;
+            font-weight: bold;
+        }
+
+        .condition-good {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .condition-damaged {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .condition-defective {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .totals-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .return-note-container {
+                border: none;
+                padding: 0;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="return-note-container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            <div class="company-info">
+                {% if doc.company_logo %}
+                <img src="{{ doc.company_logo }}" alt="Logo" class="company-logo">
+                {% endif %}
+                <div class="company-name">{{ frappe.db.get_value("Company", doc.company, "company_name") }}</div>
+                <div class="company-details">
+                    {% set company_address = frappe.db.get_value("Address", {"is_your_company_address": 1, "link_name": doc.company}, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True) %}
+                    {% if company_address %}
+                    {{ company_address.address_line1 }}<br>
+                    {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
+                    {{ company_address.pincode }} {{ company_address.city }}<br>
+                    {{ company_address.country }}
+                    {% endif %}
+                    <br>
+                    <strong>NIF:</strong> {{ frappe.db.get_value("Company", doc.company, "tax_id") }}<br>
+                    {% set company_phone = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "phone") %}
+                    {% if company_phone %}<strong>Tel:</strong> {{ company_phone }}<br>{% endif %}
+                    {% set company_email = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "email_id") %}
+                    {% if company_email %}<strong>Email:</strong> {{ company_email }}{% endif %}
+                </div>
+            </div>
+
+            <div class="document-info">
+                <div class="document-title">Guia de Devolução</div>
+                <div class="document-number">{{ doc.name }}</div>
+                <div class="document-dates">
+                    <strong>Data:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}<br>
+                    <strong>Hora:</strong> {{ frappe.utils.formatdate(doc.creation, "HH:mm") }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Aviso de Guia de Devolução -->
+        <div class="return-notice">
+            <div class="notice-title">↩️ DOCUMENTO DE DEVOLUÇÃO ↩️</div>
+            <div>Este documento comprova a <strong>DEVOLUÇÃO</strong> das mercadorias descritas</div>
+            <div>Motivo: <strong>{{ doc.return_reason or "Devolução de mercadoria" }}</strong></div>
+        </div>
+
+        <!-- ATCUD Section -->
+        {% if doc.atcud_code %}
+        <div class="atcud-section">
+            <div><strong>Código Único de Documento (ATCUD)</strong></div>
+            <div class="atcud-code">{{ doc.atcud_code }}</div>
+            {% if doc.qr_code_image %}
+            <div class="qr-code">
+                <img src="{{ doc.qr_code_image }}" alt="QR Code" style="width: 80px; height: 80px;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Informações da Devolução -->
+        <div class="return-info">
+            <div class="return-details">
+                <div class="section-title">📋 Detalhes da Devolução</div>
+                <strong>Cliente/Fornecedor:</strong> {{ doc.customer_name or doc.supplier_name }}<br>
+                {% if doc.customer %}
+                {% set customer_tax_id = frappe.db.get_value("Customer", doc.customer, "tax_id") %}
+                {% if customer_tax_id %}
+                <strong>NIF:</strong> {{ customer_tax_id }}<br>
+                {% endif %}
+                {% endif %}
+                {% if doc.supplier %}
+                {% set supplier_tax_id = frappe.db.get_value("Supplier", doc.supplier, "tax_id") %}
+                {% if supplier_tax_id %}
+                <strong>NIF:</strong> {{ supplier_tax_id }}<br>
+                {% endif %}
+                {% endif %}
+                <strong>Data da Devolução:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}<br>
+                <strong>Responsável:</strong> {{ frappe.session.user.split('@')[0] }}
+            </div>
+
+            <div class="original-document">
+                <div class="section-title">📄 Documento Original</div>
+                {% if doc.return_against %}
+                <strong>Documento de Referência:</strong> {{ doc.return_against }}<br>
+                {% set original_doc = frappe.get_doc(doc.doctype.replace(" Return", ""), doc.return_against) if doc.return_against else None %}
+                {% if original_doc %}
+                <strong>Data Original:</strong> {{ frappe.utils.formatdate(original_doc.posting_date, "dd/MM/yyyy") }}<br>
+                <strong>Valor Original:</strong> {{ frappe.utils.fmt_money(original_doc.grand_total, precision=2, currency=original_doc.currency) }}
+                {% endif %}
+                {% else %}
+                <strong>Tipo:</strong> Devolução Avulsa<br>
+                <strong>Sem Referência:</strong> Devolução sem documento original
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Motivo da Devolução -->
+        <div class="reason-section">
+            <div class="section-title">❓ Motivo da Devolução</div>
+            <strong>Motivo Principal:</strong> {{ doc.return_reason or "Não especificado" }}<br>
+            {% if doc.remarks %}
+            <strong>Observações Detalhadas:</strong><br>
+            {{ doc.remarks }}
+            {% endif %}
+            <br>
+            <strong>Motivos Comuns de Devolução:</strong><br>
+            • Produto defeituoso ou danificado<br>
+            • Produto não conforme com o pedido<br>
+            • Prazo de garantia/devolução<br>
+            • Erro na entrega<br>
+            • Desistência do cliente
+        </div>
+
+        <!-- Tabela de Itens Devolvidos -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">Código</th>
+                    <th style="width: 25%;">Descrição do Item</th>
+                    <th style="width: 8%;" class="text-center">Qtd Original</th>
+                    <th style="width: 8%;" class="text-center">Qtd Devolvida</th>
+                    <th style="width: 8%;" class="text-center">Unidade</th>
+                    <th style="width: 12%;" class="text-right">Valor Unit.</th>
+                    <th style="width: 12%;" class="text-right">Valor Devolvido</th>
+                    <th style="width: 15%;">Estado/Condição</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in doc.items %}
+                <tr>
+                    <td>{{ item.item_code }}</td>
+                    <td>
+                        <strong>{{ item.item_name }}</strong>
+                        {% if item.description and item.description != item.item_name %}
+                        <br><small>{{ item.description }}</small>
+                        {% endif %}
+                        {% if item.serial_no %}
+                        <br><small><strong>Nº Série:</strong> {{ item.serial_no }}</small>
+                        {% endif %}
+                        {% if item.batch_no %}
+                        <br><small><strong>Lote:</strong> {{ item.batch_no }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ frappe.utils.fmt_money(item.received_qty or item.qty, precision=2) }}</td>
+                    <td class="text-center">
+                        <span class="return-qty">{{ frappe.utils.fmt_money(item.qty, precision=2) }}</span>
+                    </td>
+                    <td class="text-center">{{ item.uom or "Un" }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.rate, precision=4, currency=doc.currency) }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount, precision=2, currency=doc.currency) }}</td>
+                    <td>
+                        {% if item.quality_inspection %}
+                        <span class="condition-good">✓ Inspecionado</span>
+                        {% else %}
+                        <span class="condition-good">Bom Estado</span>
+                        {% endif %}
+                        {% if item.rejected_qty %}
+                        <br><span class="condition-damaged">{{ item.rejected_qty }} Rejeitado(s)</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Avaliação do Estado das Mercadorias -->
+        <div class="condition-assessment">
+            <div class="section-title">🔍 Avaliação do Estado das Mercadorias</div>
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Inspeção Visual:</strong> ☐ Aprovado ☐ Rejeitado<br>
+                    <strong>Embalagem Original:</strong> ☐ Íntegra ☐ Danificada<br>
+                    <strong>Funcionamento:</strong> ☐ Normal ☐ Defeituoso
+                </div>
+                <div>
+                    <strong>Documentação:</strong> ☐ Completa ☐ Incompleta<br>
+                    <strong>Acessórios:</strong> ☐ Completos ☐ Em Falta<br>
+                    <strong>Condição Geral:</strong> ☐ Excelente ☐ Boa ☐ Aceitável ☐ Má
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <strong>Observações da Inspeção:</strong><br>
+                <div style="border: 1px solid #ccc; min-height: 40px; padding: 5px; margin-top: 5px; background: white;">
+                    {{ doc.quality_inspection_remarks or "" }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Totais da Devolução -->
+        <div class="totals-section">
+            <div class="section-title">💰 Resumo da Devolução</div>
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Total de Itens Devolvidos:</strong> {{ doc.items|length }}<br>
+                    <strong>Quantidade Total:</strong> {{ doc.total_qty or 0 }} unidades<br>
+                    <strong>Peso Total:</strong> {{ doc.total_net_weight or "N/A" }} kg
+                </div>
+                <div class="text-right">
+                    <strong>Valor Total Devolvido:</strong><br>
+                    <span style="font-size: 16px; font-weight: bold; color: #e83e8c;">
+                        {{ frappe.utils.fmt_money(doc.grand_total, precision=2, currency=doc.currency) }}
+                    </span><br>
+                    <small>(Valor a creditar/reembolsar)</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processamento da Devolução -->
+        <div class="reason-section">
+            <div class="section-title">⚙️ Processamento da Devolução</div>
+            <strong>Ação a Tomar:</strong><br>
+            ☐ Reembolso em dinheiro<br>
+            ☐ Nota de crédito<br>
+            ☐ Troca por produto equivalente<br>
+            ☐ Reparação/substituição<br>
+            ☐ Descarte (produto não recuperável)<br>
+            <br>
+            <strong>Prazo para Processamento:</strong> {{ doc.return_processing_time or "5 dias úteis" }}<br>
+            <strong>Responsável pelo Processamento:</strong> {{ doc.return_processed_by or "A definir" }}
+        </div>
+
+        <!-- Assinaturas -->
+        <div class="signatures-section">
+            <div class="signature-box">
+                <div class="signature-title">Cliente/Fornecedor</div>
+                <div class="signature-line"></div>
+                <div>{{ doc.customer_name or doc.supplier_name }}</div>
+                <small>Nome, assinatura e data</small>
+            </div>
+
+            <div class="signature-box">
+                <div class="signature-title">Responsável pela Receção</div>
+                <div class="signature-line"></div>
+                <div>{{ frappe.session.user.split('@')[0] }}</div>
+                <small>Nome, assinatura e data</small>
+            </div>
+
+            <div class="signature-box">
+                <div class="signature-title">Controlo de Qualidade</div>
+                <div class="signature-line"></div>
+                <div>A preencher</div>
+                <small>Nome, assinatura e data</small>
+            </div>
+        </div>
+
+        <!-- Informações Legais -->
+        <div class="legal-notes">
+            <strong>Informações Legais:</strong><br>
+            • Documento processado por programa certificado n.º {{ frappe.db.get_value("Company", doc.company, "at_certificate_number") or "XXXX/AT" }}<br>
+            • Guia de devolução emitida conforme legislação em vigor<br>
+            • Este documento comprova a devolução das mercadorias descritas<br>
+            • Conservar este documento para efeitos de garantia e controlo<br>
+            • Devolução sujeita aos termos e condições de venda<br>
+            • Processado por {{ frappe.session.user }} em {{ frappe.utils.now() }}
+        </div>
+
+        <!-- Rodapé -->
+        <div class="footer-info text-center">
+            <small>
+                Este documento foi gerado automaticamente pelo sistema ERPNext com o módulo Portugal Compliance<br>
+                Para mais informações visite: {{ frappe.utils.get_url() }}
+            </small>
+        </div>
+    </div>
+</body>
+</html>

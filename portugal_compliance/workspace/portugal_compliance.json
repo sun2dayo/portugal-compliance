@@ -1,0 +1,395 @@
+{
+  "charts": [
+    {
+      "chart_name": "Documentos Fiscais por Mês",
+      "chart_type": "Line",
+      "color": "#29CD42",
+      "custom_options": {
+        "type": "line",
+        "axisOptions": {
+          "xIsSeries": 1
+        },
+        "lineOptions": {
+          "regionFill": 1
+        }
+      },
+      "document_type": "Sales Invoice",
+      "filters_json": "{\"docstatus\": 1, \"company\": [\"like\", \"%Portugal%\"]}",
+      "group_by_type": "Count",
+      "group_by_based_on": "posting_date",
+      "time_interval": "Monthly",
+      "timeseries": 1,
+      "width": "Half",
+      "label": "Documentos Fiscais",
+      "y_field": ""
+    },
+    {
+      "chart_name": "Status ATCUD",
+      "chart_type": "Donut",
+      "color": "#7575ff",
+      "custom_options": {
+        "type": "donut",
+        "height": 300,
+        "maxSlices": 10
+      },
+      "document_type": "Sales Invoice",
+      "filters_json": "{\"docstatus\": 1}",
+      "group_by_type": "Count",
+      "group_by_based_on": "atcud_code",
+      "time_interval": "Monthly",
+      "timeseries": 0,
+      "width": "Half",
+      "label": "Status ATCUD",
+      "y_field": ""
+    },
+    {
+      "chart_name": "Comunicação AT por Empresa",
+      "chart_type": "Bar",
+      "color": "#ff5858",
+      "custom_options": {
+        "type": "bar",
+        "barOptions": {
+          "stacked": 0
+        }
+      },
+      "document_type": "Company",
+      "filters_json": "{\"country\": \"Portugal\", \"portugal_compliance_enabled\": 1}",
+      "group_by_type": "Count",
+      "group_by_based_on": "at_environment",
+      "time_interval": "Monthly",
+      "timeseries": 0,
+      "width": "Half",
+      "label": "Empresas AT",
+      "y_field": ""
+    },
+    {
+      "chart_name": "Faturação Mensal",
+      "chart_type": "Line",
+      "color": "#36E58E",
+      "custom_options": {
+        "type": "line",
+        "axisOptions": {
+          "xIsSeries": 1
+        },
+        "lineOptions": {
+          "regionFill": 1
+        }
+      },
+      "document_type": "Sales Invoice",
+      "filters_json": "{\"docstatus\": 1}",
+      "group_by_type": "Sum",
+      "group_by_based_on": "posting_date",
+      "time_interval": "Monthly",
+      "timeseries": 1,
+      "width": "Full",
+      "label": "Faturação €",
+      "y_field": "grand_total"
+    }
+  ],
+  "content": [
+    {
+      "id": "compliance_overview",
+      "type": "header",
+      "data": {
+        "text": "🇵🇹 Portugal Compliance Dashboard",
+        "level": 2
+      }
+    },
+    {
+      "id": "quick_stats",
+      "type": "paragraph",
+      "data": {
+        "text": "Painel de controlo para compliance fiscal português - ATCUD, Séries AT, SAF-T PT"
+      }
+    },
+    {
+      "id": "charts_section",
+      "type": "header",
+      "data": {
+        "text": "📊 Estatísticas",
+        "level": 3
+      }
+    }
+  ],
+  "creation": "2025-06-01 01:48:00.000000",
+  "creator": "Administrator",
+  "docstatus": 0,
+  "doctype": "Workspace",
+  "extends": "",
+  "extends_another_page": 0,
+  "hide_custom": 0,
+  "icon": "law",
+  "idx": 0,
+  "indicator_color": "Green",
+  "is_default": 0,
+  "is_hidden": 0,
+  "is_standard": 1,
+  "label": "Portugal Compliance",
+  "links": [
+    {
+      "dependencies": "",
+      "description": "Faturas de venda com ATCUD automático",
+      "hidden": 0,
+      "icon": "file-text",
+      "is_query_report": 0,
+      "label": "Sales Invoice",
+      "link_count": 0,
+      "link_to": "Sales Invoice",
+      "link_type": "DocType",
+      "onboard": 0,
+      "only_for": "",
+      "type": "Link"
+    },
+    {
+      "dependencies": "",
+      "description": "Faturas de compra com compliance português",
+      "hidden": 0,
+      "icon": "file-text",
+      "is_query_report": 0,
+      "label": "Purchase Invoice",
+      "link_count": 0,
+      "link_to": "Purchase Invoice",
+      "link_type": "DocType",
+      "onboard": 0,
+      "only_for": "",
+      "type": "Link"
+    },
+    {
+      "dependencies": "",
+      "description": "Recibos com ATCUD e QR code",
+      "hidden": 0,
+      "icon": "credit-card",
+      "is_query_report": 0,
+      "label": "Payment Entry",
+      "link_count": 0,
+      "link_to": "Payment Entry",
+      "link_type": "DocType",
+      "onboard": 0,
+      "only_for": "",
+      "type": "Link"
+    },
+    {
+      "dependencies": "",
+      "description": "Guias de transporte com compliance",
+      "hidden": 0,
+      "icon": "truck",
+      "is_query_report": 0,
+      "label": "Delivery Note",
+      "link_count": 0,
+      "link_to": "Delivery Note",
+      "link_type": "DocType",
+      "onboard": 0,
+      "only_for": "",
+      "type": "Link"
+    },
+    {
+      "dependencies": "",
+      "description": "Guias de receção",
+      "hidden": 0,
+      "icon": "package",
+      "is_query_report": 0,
+      "label": "Purchase Receipt",
+      "link_count": 0,
+      "link_to": "Purchase Receipt",
+      "link_type": "DocType",
+      "onboard": 0,
+      "only_for": "",
+      "type": "Link"
+    },
+    {
+      "dependencies": "",
+      "description": "Empresas portuguesas com compliance ativo",
+      "hidden": 0,
+      "icon": "building",
+      "is_query_report": 0,
+      "label": "Company",
+      "link_count": 0,
+      "link_to": "Company",
+      "link_type": "DocType",
+      "onboard": 0,
+      "only_for": "",
+      "type": "Link"
+    }
+  ],
+  "modified": "2025-06-01 01:48:00.000000",
+  "modified_by": "Administrator",
+  "module": "Portugal Compliance",
+  "name": "Portugal Compliance",
+  "number_cards": [
+    {
+      "aggregate_function_based_on": "",
+      "color": "Green",
+      "document_type": "Sales Invoice",
+      "dynamic_filters_json": "{\"company\": [\"like\", \"%Portugal%\"], \"docstatus\": 1}",
+      "filters_json": "{\"atcud_code\": [\"not like\", \"\"]}",
+      "function": "Count",
+      "hidden": 0,
+      "is_public": 1,
+      "label": "Faturas com ATCUD",
+      "show_percentage_stats": 1,
+      "stats_time_interval": "Monthly"
+    },
+    {
+      "aggregate_function_based_on": "",
+      "color": "Blue",
+      "document_type": "Company",
+      "dynamic_filters_json": "{}",
+      "filters_json": "{\"country\": \"Portugal\", \"portugal_compliance_enabled\": 1}",
+      "function": "Count",
+      "hidden": 0,
+      "is_public": 1,
+      "label": "Empresas PT Compliance",
+      "show_percentage_stats": 1,
+      "stats_time_interval": "Monthly"
+    },
+    {
+      "aggregate_function_based_on": "grand_total",
+      "color": "Orange",
+      "document_type": "Sales Invoice",
+      "dynamic_filters_json": "{\"posting_date\": [\"between\", [\"Today - 30 days\", \"Today\"]]}",
+      "filters_json": "{\"docstatus\": 1}",
+      "function": "Sum",
+      "hidden": 0,
+      "is_public": 1,
+      "label": "Faturação 30 dias (€)",
+      "show_percentage_stats": 1,
+      "stats_time_interval": "Monthly"
+    },
+    {
+      "aggregate_function_based_on": "",
+      "color": "Red",
+      "document_type": "Sales Invoice",
+      "dynamic_filters_json": "{\"posting_date\": [\"between\", [\"Today - 7 days\", \"Today\"]]}",
+      "filters_json": "{\"docstatus\": 1, \"atcud_code\": [\"\", \"is\", \"not set\"]}",
+      "function": "Count",
+      "hidden": 0,
+      "is_public": 1,
+      "label": "Documentos sem ATCUD",
+      "show_percentage_stats": 0,
+      "stats_time_interval": "Weekly"
+    }
+  ],
+  "onboarding": "Portugal Compliance Onboarding",
+  "owner": "Administrator",
+  "parent_page": "",
+  "public": 1,
+  "quick_lists": [
+    {
+      "document_type": "Sales Invoice",
+      "filters_json": "{\"docstatus\": 0, \"company\": [\"like\", \"%Portugal%\"]}",
+      "label": "Faturas Rascunho",
+      "quick_list_filter": "{\"docstatus\": 0}"
+    },
+    {
+      "document_type": "Sales Invoice",
+      "filters_json": "{\"docstatus\": 1, \"atcud_code\": [\"\", \"is\", \"not set\"]}",
+      "label": "Faturas sem ATCUD",
+      "quick_list_filter": "{\"atcud_code\": [\"\", \"is\", \"not set\"]}"
+    },
+    {
+      "document_type": "Company",
+      "filters_json": "{\"country\": \"Portugal\", \"portugal_compliance_enabled\": 1, \"at_username\": [\"\", \"is\", \"not set\"]}",
+      "label": "Empresas sem Credenciais AT",
+      "quick_list_filter": "{\"at_username\": [\"\", \"is\", \"not set\"]}"
+    },
+    {
+      "document_type": "Payment Entry",
+      "filters_json": "{\"docstatus\": 1, \"posting_date\": [\"between\", [\"Today - 7 days\", \"Today\"]]}",
+      "label": "Recibos Recentes",
+      "quick_list_filter": "{\"posting_date\": [\"between\", [\"Today - 7 days\", \"Today\"]]}"
+    }
+  ],
+  "roles": [],
+  "sequence_id": 1.0,
+  "shortcuts": [
+    {
+      "color": "Green",
+      "doc_view": "List",
+      "format": "{} Active",
+      "icon": "file-text",
+      "label": "Nova Fatura",
+      "link_to": "Sales Invoice",
+      "restrict_to_domain": "",
+      "stats_filter": "{\"docstatus\": 0}",
+      "type": "DocType"
+    },
+    {
+      "color": "Blue",
+      "doc_view": "List",
+      "format": "{} Active",
+      "icon": "credit-card",
+      "label": "Novo Recibo",
+      "link_to": "Payment Entry",
+      "restrict_to_domain": "",
+      "stats_filter": "{\"docstatus\": 0}",
+      "type": "DocType"
+    },
+    {
+      "color": "Orange",
+      "doc_view": "List",
+      "format": "{} Active",
+      "icon": "truck",
+      "label": "Nova Guia",
+      "link_to": "Delivery Note",
+      "restrict_to_domain": "",
+      "stats_filter": "{\"docstatus\": 0}",
+      "type": "DocType"
+    },
+    {
+      "color": "Purple",
+      "doc_view": "Page",
+      "format": "",
+      "icon": "upload",
+      "label": "Comunicar Séries AT",
+      "link_to": "communicate-series-at",
+      "restrict_to_domain": "",
+      "stats_filter": "{}",
+      "type": "Page"
+    },
+    {
+      "color": "Cyan",
+      "doc_view": "Page",
+      "format": "",
+      "icon": "plug",
+      "label": "Testar Webservice AT",
+      "link_to": "test-at-webservice",
+      "restrict_to_domain": "",
+      "stats_filter": "{}",
+      "type": "Page"
+    },
+    {
+      "color": "Red",
+      "doc_view": "Report",
+      "format": "",
+      "icon": "bar-chart",
+      "label": "Relatório ATCUD",
+      "link_to": "ATCUD Compliance Report",
+      "restrict_to_domain": "",
+      "stats_filter": "{}",
+      "type": "Report"
+    },
+    {
+      "color": "Yellow",
+      "doc_view": "Report",
+      "format": "",
+      "icon": "download",
+      "label": "SAF-T PT",
+      "link_to": "SAF-T Portugal Export",
+      "restrict_to_domain": "",
+      "stats_filter": "{}",
+      "type": "Report"
+    },
+    {
+      "color": "Light Blue",
+      "doc_view": "List",
+      "format": "{} Portuguese",
+      "icon": "building",
+      "label": "Empresas PT",
+      "link_to": "Company",
+      "restrict_to_domain": "",
+      "stats_filter": "{\"country\": \"Portugal\", \"portugal_compliance_enabled\": 1}",
+      "type": "DocType"
+    }
+  ],
+  "title": "Portugal Compliance"
+}

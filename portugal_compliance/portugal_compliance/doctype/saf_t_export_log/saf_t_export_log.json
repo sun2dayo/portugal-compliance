@@ -1,0 +1,387 @@
+{
+    "actions": [],
+    "allow_rename": 0,
+    "autoname": "naming_series:",
+    "creation": "2025-01-01 12:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "naming_series",
+        "export_details",
+        "company",
+        "from_date",
+        "to_date",
+        "column_break_5",
+        "export_type",
+        "fiscal_year",
+        "status",
+        "section_break_9",
+        "file_information",
+        "file_name",
+        "file_path",
+        "file_size",
+        "column_break_14",
+        "file_hash",
+        "download_count",
+        "last_downloaded",
+        "section_break_18",
+        "export_statistics",
+        "total_records",
+        "sales_invoices_count",
+        "purchase_invoices_count",
+        "column_break_23",
+        "payment_entries_count",
+        "journal_entries_count",
+        "processing_time",
+        "section_break_27",
+        "validation_details",
+        "xml_validation_status",
+        "xsd_validation_errors",
+        "column_break_31",
+        "at_submission_status",
+        "at_submission_date",
+        "at_response_code",
+        "section_break_35",
+        "audit_information",
+        "created_by_user",
+        "export_reason",
+        "ip_address",
+        "column_break_40",
+        "user_agent",
+        "system_version",
+        "module_version"
+    ],
+    "fields": [
+        {
+            "default": "SAFT-EXP-.YYYY.-.####",
+            "fieldname": "naming_series",
+            "fieldtype": "Select",
+            "label": "Naming Series",
+            "options": "SAFT-EXP-.YYYY.-.####",
+            "reqd": 1
+        },
+        {
+            "fieldname": "export_details",
+            "fieldtype": "Section Break",
+            "label": "Export Details"
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "label": "Company",
+            "options": "Company",
+            "reqd": 1,
+            "description": "Company for which SAF-T was exported"
+        },
+        {
+            "fieldname": "from_date",
+            "fieldtype": "Date",
+            "label": "From Date",
+            "reqd": 1,
+            "description": "Start date of the export period"
+        },
+        {
+            "fieldname": "to_date",
+            "fieldtype": "Date",
+            "label": "To Date",
+            "reqd": 1,
+            "description": "End date of the export period"
+        },
+        {
+            "fieldname": "column_break_5",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "export_type",
+            "fieldtype": "Select",
+            "label": "Export Type",
+            "options": "Full\nInvoicing\nAccounting\nMovement of Goods\nAT Communication",
+            "default": "Full",
+            "reqd": 1,
+            "description": "Type of SAF-T export performed"
+        },
+        {
+            "fieldname": "fiscal_year",
+            "fieldtype": "Link",
+            "label": "Fiscal Year",
+            "options": "Fiscal Year",
+            "description": "Fiscal year of the export"
+        },
+        {
+            "fieldname": "status",
+            "fieldtype": "Select",
+            "label": "Status",
+            "options": "Pending\nIn Progress\nCompleted\nFailed\nCancelled",
+            "default": "Pending",
+            "reqd": 1,
+            "description": "Current status of the export"
+        },
+        {
+            "fieldname": "section_break_9",
+            "fieldtype": "Section Break",
+            "label": "File Information"
+        },
+        {
+            "fieldname": "file_information",
+            "fieldtype": "Section Break",
+            "label": "Generated File Details"
+        },
+        {
+            "fieldname": "file_name",
+            "fieldtype": "Data",
+            "label": "File Name",
+            "description": "Name of the generated SAF-T file"
+        },
+        {
+            "fieldname": "file_path",
+            "fieldtype": "Data",
+            "label": "File Path",
+            "description": "Server path where the file is stored"
+        },
+        {
+            "fieldname": "file_size",
+            "fieldtype": "Int",
+            "label": "File Size (bytes)",
+            "description": "Size of the generated file in bytes"
+        },
+        {
+            "fieldname": "column_break_14",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "file_hash",
+            "fieldtype": "Data",
+            "label": "File Hash (SHA256)",
+            "description": "SHA256 hash of the file for integrity verification"
+        },
+        {
+            "fieldname": "download_count",
+            "fieldtype": "Int",
+            "label": "Download Count",
+            "default": "0",
+            "description": "Number of times the file has been downloaded"
+        },
+        {
+            "fieldname": "last_downloaded",
+            "fieldtype": "Datetime",
+            "label": "Last Downloaded",
+            "description": "Date and time of last download"
+        },
+        {
+            "fieldname": "section_break_18",
+            "fieldtype": "Section Break",
+            "label": "Export Statistics"
+        },
+        {
+            "fieldname": "export_statistics",
+            "fieldtype": "Section Break",
+            "label": "Data Statistics"
+        },
+        {
+            "fieldname": "total_records",
+            "fieldtype": "Int",
+            "label": "Total Records",
+            "default": "0",
+            "description": "Total number of records exported"
+        },
+        {
+            "fieldname": "sales_invoices_count",
+            "fieldtype": "Int",
+            "label": "Sales Invoices",
+            "default": "0",
+            "description": "Number of sales invoices exported"
+        },
+        {
+            "fieldname": "purchase_invoices_count",
+            "fieldtype": "Int",
+            "label": "Purchase Invoices",
+            "default": "0",
+            "description": "Number of purchase invoices exported"
+        },
+        {
+            "fieldname": "column_break_23",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "payment_entries_count",
+            "fieldtype": "Int",
+            "label": "Payment Entries",
+            "default": "0",
+            "description": "Number of payment entries exported"
+        },
+        {
+            "fieldname": "journal_entries_count",
+            "fieldtype": "Int",
+            "label": "Journal Entries",
+            "default": "0",
+            "description": "Number of journal entries exported"
+        },
+        {
+            "fieldname": "processing_time",
+            "fieldtype": "Float",
+            "label": "Processing Time (seconds)",
+            "precision": "2",
+            "description": "Time taken to generate the SAF-T file"
+        },
+        {
+            "fieldname": "section_break_27",
+            "fieldtype": "Section Break",
+            "label": "Validation & Submission"
+        },
+        {
+            "fieldname": "validation_details",
+            "fieldtype": "Section Break",
+            "label": "XML Validation"
+        },
+        {
+            "fieldname": "xml_validation_status",
+            "fieldtype": "Select",
+            "label": "XML Validation Status",
+            "options": "Not Validated\nValid\nInvalid\nValidation Error",
+            "default": "Not Validated",
+            "description": "Status of XML schema validation"
+        },
+        {
+            "fieldname": "xsd_validation_errors",
+            "fieldtype": "Long Text",
+            "label": "XSD Validation Errors",
+            "description": "Detailed validation errors if any"
+        },
+        {
+            "fieldname": "column_break_31",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "at_submission_status",
+            "fieldtype": "Select",
+            "label": "AT Submission Status",
+            "options": "Not Submitted\nSubmitted\nAccepted\nRejected\nPending",
+            "default": "Not Submitted",
+            "description": "Status of submission to AT"
+        },
+        {
+            "fieldname": "at_submission_date",
+            "fieldtype": "Datetime",
+            "label": "AT Submission Date",
+            "description": "Date when file was submitted to AT"
+        },
+        {
+            "fieldname": "at_response_code",
+            "fieldtype": "Data",
+            "label": "AT Response Code",
+            "description": "Response code received from AT"
+        },
+        {
+            "fieldname": "section_break_35",
+            "fieldtype": "Section Break",
+            "label": "Audit Trail"
+        },
+        {
+            "fieldname": "audit_information",
+            "fieldtype": "Section Break",
+            "label": "Audit Information"
+        },
+        {
+            "fieldname": "created_by_user",
+            "fieldtype": "Link",
+            "label": "Created By",
+            "options": "User",
+            "default": "user",
+            "description": "User who initiated the export"
+        },
+        {
+            "fieldname": "export_reason",
+            "fieldtype": "Select",
+            "label": "Export Reason",
+            "options": "Monthly Submission\nAnnual Submission\nAudit Request\nTax Inspection\nManual Export\nSystem Test",
+            "description": "Reason for generating the SAF-T export"
+        },
+        {
+            "fieldname": "ip_address",
+            "fieldtype": "Data",
+            "label": "IP Address",
+            "description": "IP address of the user who initiated export"
+        },
+        {
+            "fieldname": "column_break_40",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "user_agent",
+            "fieldtype": "Text",
+            "label": "User Agent",
+            "description": "Browser user agent string"
+        },
+        {
+            "fieldname": "system_version",
+            "fieldtype": "Data",
+            "label": "ERPNext Version",
+            "description": "Version of ERPNext when export was generated"
+        },
+        {
+            "fieldname": "module_version",
+            "fieldtype": "Data",
+            "label": "Module Version",
+            "description": "Version of Portugal Compliance module"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "is_submittable": 0,
+    "links": [
+        {
+            "link_doctype": "File",
+            "link_fieldname": "attached_to_name"
+        }
+    ],
+    "modified": "2025-01-01 12:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Portugal Compliance",
+    "name": "SAF-T Export Log",
+    "naming_rule": "By \"Naming Series\" field",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 1,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Accounts Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Accounts User",
+            "share": 1,
+            "write": 0
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1,
+    "track_seen": 1,
+    "track_views": 1
+}

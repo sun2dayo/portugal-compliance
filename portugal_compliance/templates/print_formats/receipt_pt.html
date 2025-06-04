@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.name }} - Recibo</title>
+    <style>
+        /* Estilos para recibo português */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .receipt-container {
+            max-width: 180mm;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid #046a38;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #046a38;
+            padding-bottom: 15px;
+        }
+
+        .company-logo {
+            max-width: 120px;
+            max-height: 60px;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #046a38;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 10px;
+            line-height: 1.3;
+            color: #666;
+        }
+
+        .document-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #046a38;
+            text-align: center;
+            margin: 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .receipt-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .receipt-number {
+            font-size: 16px;
+            font-weight: bold;
+            color: #046a38;
+        }
+
+        .receipt-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .customer-section {
+            margin-bottom: 25px;
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #046a38;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #046a38;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .customer-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .payment-details {
+            margin-bottom: 25px;
+        }
+
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        .payment-table th {
+            background-color: #046a38;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #046a38;
+        }
+
+        .payment-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .payment-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .amount-section {
+            background-color: #e8f5e8;
+            border: 2px solid #046a38;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        .amount-received {
+            font-size: 24px;
+            font-weight: bold;
+            color: #046a38;
+            margin-bottom: 5px;
+        }
+
+        .amount-words {
+            font-style: italic;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .atcud-section {
+            background-color: #f0f8ff;
+            border: 2px solid #046a38;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .atcud-code {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            font-weight: bold;
+            color: #046a38;
+            letter-spacing: 1px;
+            margin: 10px 0;
+        }
+
+        .qr-code {
+            margin: 10px 0;
+        }
+
+        .payment-method {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .references-section {
+            margin: 20px 0;
+        }
+
+        .references-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .references-table th {
+            background-color: #f5f5f5;
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+
+        .references-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        .signature-box {
+            width: 200px;
+            text-align: center;
+            border-top: 1px solid #333;
+            padding-top: 5px;
+            font-size: 11px;
+        }
+
+        .legal-notes {
+            font-size: 9px;
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.3;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .footer-info {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+            color: #999;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .receipt-container {
+                border: 1px solid #333;
+                padding: 15px;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            {% if doc.company_logo %}
+            <img src="{{ doc.company_logo }}" alt="Logo" class="company-logo">
+            {% endif %}
+            <div class="company-name">{{ frappe.db.get_value("Company", doc.company, "company_name") }}</div>
+            <div class="company-details">
+                {% set company_address = frappe.db.get_value("Address", {"is_your_company_address": 1, "link_name": doc.company}, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True) %}
+                {% if company_address %}
+                {{ company_address.address_line1 }}
+                {% if company_address.address_line2 %}, {{ company_address.address_line2 }}{% endif %}<br>
+                {{ company_address.pincode }} {{ company_address.city }}, {{ company_address.country }}
+                {% endif %}
+                <br>
+                <strong>NIF:</strong> {{ frappe.db.get_value("Company", doc.company, "tax_id") }}
+                {% set company_phone = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "phone") %}
+                {% if company_phone %} | <strong>Tel:</strong> {{ company_phone }}{% endif %}
+            </div>
+        </div>
+
+        <!-- Título do Documento -->
+        <div class="document-title">RECIBO</div>
+
+        <!-- Informações do Recibo -->
+        <div class="receipt-info">
+            <div>
+                <div class="receipt-number">N.º {{ doc.name }}</div>
+                <div class="receipt-date">Data: {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}</div>
+            </div>
+            <div class="text-right">
+                {% if doc.reference_no %}
+                <div><strong>Ref.:</strong> {{ doc.reference_no }}</div>
+                {% endif %}
+                {% if doc.reference_date %}
+                <div><strong>Data Ref.:</strong> {{ frappe.utils.formatdate(doc.reference_date, "dd/MM/yyyy") }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ATCUD Section -->
+        {% if doc.atcud_code %}
+        <div class="atcud-section">
+            <div><strong>Código Único de Documento (ATCUD)</strong></div>
+            <div class="atcud-code">{{ doc.atcud_code }}</div>
+            {% if doc.qr_code_image %}
+            <div class="qr-code">
+                <img src="{{ doc.qr_code_image }}" alt="QR Code" style="width: 60px; height: 60px;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Informações do Cliente -->
+        <div class="customer-section">
+            <div class="section-title">Recebi de</div>
+            <div class="customer-name">{{ doc.party_name }}</div>
+            {% if doc.party_type == "Customer" %}
+                {% set party_address = frappe.db.get_value("Address", {"link_name": doc.party, "link_doctype": "Customer"}, ["address_line1", "address_line2", "city", "pincode"], as_dict=True) %}
+                {% if party_address %}
+                <div>
+                    {{ party_address.address_line1 }}
+                    {% if party_address.address_line2 %}, {{ party_address.address_line2 }}{% endif %}<br>
+                    {{ party_address.pincode }} {{ party_address.city }}
+                </div>
+                {% endif %}
+                {% set party_tax_id = frappe.db.get_value("Customer", doc.party, "tax_id") %}
+                {% if party_tax_id %}
+                <div><strong>NIF:</strong> {{ party_tax_id }}</div>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Valor Recebido -->
+        <div class="amount-section">
+            <div class="amount-received">{{ frappe.utils.fmt_money(doc.paid_amount, precision=2, currency=doc.paid_to_account_currency) }}</div>
+            <div class="amount-words">
+                ({{ frappe.utils.money_in_words(doc.paid_amount, doc.paid_to_account_currency) }})
+            </div>
+        </div>
+
+        <!-- Método de Pagamento -->
+        <div class="payment-method">
+            <div class="section-title">Método de Pagamento</div>
+            <strong>{{ doc.mode_of_payment or "Numerário" }}</strong>
+            {% if doc.mode_of_payment != "Cash" and doc.reference_no %}
+            <br><strong>Referência:</strong> {{ doc.reference_no }}
+            {% endif %}
+            {% if doc.reference_date %}
+            <br><strong>Data da Operação:</strong> {{ frappe.utils.formatdate(doc.reference_date, "dd/MM/yyyy") }}
+            {% endif %}
+        </div>
+
+        <!-- Referências de Documentos -->
+        {% if doc.references %}
+        <div class="references-section">
+            <div class="section-title">Referente aos seguintes documentos</div>
+            <table class="references-table">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Data</th>
+                        <th class="text-right">Valor Original</th>
+                        <th class="text-right">Valor Pago</th>
+                        <th class="text-right">Pendente</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ref in doc.references %}
+                    <tr>
+                        <td>{{ ref.reference_name }}</td>
+                        <td>{{ frappe.utils.formatdate(ref.due_date, "dd/MM/yyyy") if ref.due_date else "-" }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(ref.total_amount, precision=2, currency=doc.paid_to_account_currency) }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(ref.allocated_amount, precision=2, currency=doc.paid_to_account_currency) }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(ref.outstanding_amount, precision=2, currency=doc.paid_to_account_currency) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Detalhes do Pagamento -->
+        <div class="payment-details">
+            <div class="section-title">Detalhes do Pagamento</div>
+            <table class="payment-table">
+                <tr>
+                    <th style="width: 30%;">Descrição</th>
+                    <th style="width: 70%;">Valor</th>
+                </tr>
+                <tr>
+                    <td><strong>Valor Recebido</strong></td>
+                    <td class="text-right"><strong>{{ frappe.utils.fmt_money(doc.paid_amount, precision=2, currency=doc.paid_to_account_currency) }}</strong></td>
+                </tr>
+                {% if doc.difference_amount %}
+                <tr>
+                    <td>Diferença de Câmbio</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.difference_amount, precision=2, currency=doc.paid_to_account_currency) }}</td>
+                </tr>
+                {% endif %}
+                {% if doc.base_paid_amount != doc.paid_amount %}
+                <tr>
+                    <td>Valor em {{ doc.company_currency }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.base_paid_amount, precision=2, currency=doc.company_currency) }}</td>
+                </tr>
+                <tr>
+                    <td>Taxa de Câmbio</td>
+                    <td class="text-right">{{ doc.source_exchange_rate }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+
+        <!-- Observações -->
+        {% if doc.remarks %}
+        <div class="payment-method">
+            <div class="section-title">Observações</div>
+            {{ doc.remarks }}
+        </div>
+        {% endif %}
+
+        <!-- Assinaturas -->
+        <div class="signature-section">
+            <div class="signature-box">
+                O Emitente<br>
+                {{ frappe.db.get_value("Company", doc.company, "company_name") }}
+            </div>
+            <div class="signature-box">
+                O Recebedor<br>
+                {{ doc.party_name }}
+            </div>
+        </div>
+
+        <!-- Informações Legais -->
+        <div class="legal-notes">
+            <strong>Informações Legais:</strong><br>
+            • Documento processado por programa certificado n.º {{ frappe.db.get_value("Company", doc.company, "at_certificate_number") or "XXXX/AT" }}<br>
+            • Este recibo comprova o pagamento dos valores acima discriminados<br>
+            • Em caso de dúvida sobre este documento, contacte-nos através dos dados indicados<br>
+            • Processado por {{ frappe.session.user }} em {{ frappe.utils.formatdate(frappe.utils.now(), "dd/MM/yyyy HH:mm") }}
+        </div>
+
+        <!-- Rodapé -->
+        <div class="footer-info">
+            <small>
+                Este documento foi gerado automaticamente pelo sistema ERPNext com o módulo Portugal Compliance<br>
+                Para mais informações visite: {{ frappe.utils.get_url() }}
+            </small>
+        </div>
+    </div>
+</body>
+</html>

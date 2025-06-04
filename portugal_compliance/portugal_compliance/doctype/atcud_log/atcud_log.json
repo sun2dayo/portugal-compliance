@@ -1,0 +1,315 @@
+{
+    "actions": [],
+    "allow_rename": 0,
+    "autoname": "naming_series:",
+    "creation": "2025-01-01 12:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "naming_series",
+        "document_details",
+        "document_type",
+        "document_name",
+        "document_date",
+        "column_break_5",
+        "company",
+        "series_used",
+        "fiscal_year",
+        "section_break_9",
+        "atcud_details",
+        "atcud_code",
+        "validation_code_used",
+        "sequence_number",
+        "column_break_14",
+        "generation_status",
+        "generation_date",
+        "processing_time",
+        "section_break_18",
+        "error_details",
+        "error_message",
+        "error_traceback",
+        "column_break_22",
+        "retry_count",
+        "last_retry_date",
+        "next_retry_date",
+        "section_break_26",
+        "audit_trail",
+        "created_by_user",
+        "ip_address",
+        "user_agent",
+        "column_break_31",
+        "system_info",
+        "erpnext_version",
+        "module_version"
+    ],
+    "fields": [
+        {
+            "default": "ATCUD-LOG-.YYYY.-.####",
+            "fieldname": "naming_series",
+            "fieldtype": "Select",
+            "label": "Naming Series",
+            "options": "ATCUD-LOG-.YYYY.-.####",
+            "reqd": 1
+        },
+        {
+            "fieldname": "document_details",
+            "fieldtype": "Section Break",
+            "label": "Document Details"
+        },
+        {
+            "fieldname": "document_type",
+            "fieldtype": "Link",
+            "label": "Document Type",
+            "options": "DocType",
+            "reqd": 1,
+            "description": "Type of document for which ATCUD was generated"
+        },
+        {
+            "fieldname": "document_name",
+            "fieldtype": "Dynamic Link",
+            "label": "Document Name",
+            "options": "document_type",
+            "reqd": 1,
+            "description": "Name/ID of the document"
+        },
+        {
+            "fieldname": "document_date",
+            "fieldtype": "Date",
+            "label": "Document Date",
+            "description": "Date of the original document"
+        },
+        {
+            "fieldname": "column_break_5",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "label": "Company",
+            "options": "Company",
+            "reqd": 1,
+            "description": "Company that issued the document"
+        },
+        {
+            "fieldname": "series_used",
+            "fieldtype": "Link",
+            "label": "Series Used",
+            "options": "Portugal Series Configuration",
+            "description": "Portugal series configuration used"
+        },
+        {
+            "fieldname": "fiscal_year",
+            "fieldtype": "Link",
+            "label": "Fiscal Year",
+            "options": "Fiscal Year",
+            "description": "Fiscal year of the document"
+        },
+        {
+            "fieldname": "section_break_9",
+            "fieldtype": "Section Break",
+            "label": "ATCUD Details"
+        },
+        {
+            "fieldname": "atcud_details",
+            "fieldtype": "Section Break",
+            "label": "ATCUD Information"
+        },
+        {
+            "fieldname": "atcud_code",
+            "fieldtype": "Data",
+            "label": "ATCUD Code",
+            "reqd": 1,
+            "description": "Generated ATCUD code"
+        },
+        {
+            "fieldname": "validation_code_used",
+            "fieldtype": "Data",
+            "label": "Validation Code Used",
+            "description": "AT validation code used in ATCUD generation"
+        },
+        {
+            "fieldname": "sequence_number",
+            "fieldtype": "Int",
+            "label": "Sequence Number",
+            "description": "Sequential number used in ATCUD"
+        },
+        {
+            "fieldname": "column_break_14",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "generation_status",
+            "fieldtype": "Select",
+            "label": "Generation Status",
+            "options": "Success\nFailed\nPending\nRetrying",
+            "default": "Pending",
+            "reqd": 1,
+            "description": "Status of ATCUD generation"
+        },
+        {
+            "fieldname": "generation_date",
+            "fieldtype": "Datetime",
+            "label": "Generation Date",
+            "default": "now",
+            "description": "Date and time when ATCUD was generated"
+        },
+        {
+            "fieldname": "processing_time",
+            "fieldtype": "Float",
+            "label": "Processing Time (seconds)",
+            "precision": "3",
+            "description": "Time taken to generate ATCUD"
+        },
+        {
+            "fieldname": "section_break_18",
+            "fieldtype": "Section Break",
+            "label": "Error Information",
+            "depends_on": "eval:doc.generation_status == 'Failed'"
+        },
+        {
+            "fieldname": "error_details",
+            "fieldtype": "Section Break",
+            "label": "Error Details"
+        },
+        {
+            "fieldname": "error_message",
+            "fieldtype": "Text",
+            "label": "Error Message",
+            "description": "Error message if generation failed"
+        },
+        {
+            "fieldname": "error_traceback",
+            "fieldtype": "Code",
+            "label": "Error Traceback",
+            "description": "Full error traceback for debugging"
+        },
+        {
+            "fieldname": "column_break_22",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "retry_count",
+            "fieldtype": "Int",
+            "label": "Retry Count",
+            "default": "0",
+            "description": "Number of retry attempts"
+        },
+        {
+            "fieldname": "last_retry_date",
+            "fieldtype": "Datetime",
+            "label": "Last Retry Date",
+            "description": "Date of last retry attempt"
+        },
+        {
+            "fieldname": "next_retry_date",
+            "fieldtype": "Datetime",
+            "label": "Next Retry Date",
+            "description": "Scheduled date for next retry"
+        },
+        {
+            "fieldname": "section_break_26",
+            "fieldtype": "Section Break",
+            "label": "Audit Trail"
+        },
+        {
+            "fieldname": "audit_trail",
+            "fieldtype": "Section Break",
+            "label": "Audit Information"
+        },
+        {
+            "fieldname": "created_by_user",
+            "fieldtype": "Link",
+            "label": "Created By User",
+            "options": "User",
+            "default": "user",
+            "description": "User who triggered ATCUD generation"
+        },
+        {
+            "fieldname": "ip_address",
+            "fieldtype": "Data",
+            "label": "IP Address",
+            "description": "IP address of the user"
+        },
+        {
+            "fieldname": "user_agent",
+            "fieldtype": "Text",
+            "label": "User Agent",
+            "description": "Browser user agent string"
+        },
+        {
+            "fieldname": "column_break_31",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "system_info",
+            "fieldtype": "Section Break",
+            "label": "System Information"
+        },
+        {
+            "fieldname": "erpnext_version",
+            "fieldtype": "Data",
+            "label": "ERPNext Version",
+            "description": "Version of ERPNext when ATCUD was generated"
+        },
+        {
+            "fieldname": "module_version",
+            "fieldtype": "Data",
+            "label": "Module Version",
+            "description": "Version of Portugal Compliance module"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "is_submittable": 0,
+    "links": [],
+    "modified": "2025-01-01 12:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Portugal Compliance",
+    "name": "ATCUD Log",
+    "naming_rule": "By \"Naming Series\" field",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Accounts Manager",
+            "share": 1,
+            "write": 0
+        },
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Accounts User",
+            "share": 1,
+            "write": 0
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1,
+    "track_seen": 1,
+    "track_views": 1
+}

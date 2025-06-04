@@ -1,0 +1,556 @@
+{
+  "tax_templates": {
+    "name": "Templates de Impostos Portugal 2025",
+    "country": "Portugal",
+    "currency": "EUR",
+    "description": "Templates de impostos conforme legislação portuguesa 2025 - Código do IVA e atualizações do Orçamento de Estado",
+    "compliance": "Código do IVA, Orçamento de Estado 2025, Circular 25069/2025",
+    "version": "2025.1",
+    "effective_date": "2025-01-01",
+    "last_updated": "2025-05-31",
+    "templates": [
+      {
+        "template_name": "IVA 23% - Taxa Normal",
+        "template_type": "Sales Tax Template",
+        "tax_category": "IVA",
+        "description": "IVA à taxa normal de 23% - aplicável à generalidade dos bens e serviços",
+        "taxes": [
+          {
+            "account_head": "IVA - Liquidado",
+            "rate": 23.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IVA 23% - Taxa Normal",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 1,
+        "disabled": 0,
+        "legal_reference": "Artigo 18.º, n.º 1, alínea a) do Código do IVA",
+        "saft_code": "NOR",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01"
+      },
+      {
+        "template_name": "IVA 13% - Taxa Intermédia",
+        "template_type": "Sales Tax Template",
+        "tax_category": "IVA",
+        "description": "IVA à taxa intermédia de 13% - bens e serviços da Lista I anexa ao Código do IVA",
+        "taxes": [
+          {
+            "account_head": "IVA - Liquidado",
+            "rate": 13.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IVA 13% - Taxa Intermédia",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Artigo 18.º, n.º 1, alínea b) do Código do IVA e Lista I",
+        "saft_code": "INT",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01"
+      },
+      {
+        "template_name": "IVA 6% - Taxa Reduzida",
+        "template_type": "Sales Tax Template",
+        "tax_category": "IVA",
+        "description": "IVA à taxa reduzida de 6% - bens e serviços da Lista II anexa ao Código do IVA",
+        "taxes": [
+          {
+            "account_head": "IVA - Liquidado",
+            "rate": 6.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IVA 6% - Taxa Reduzida",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Artigo 18.º, n.º 1, alínea c) do Código do IVA e Lista II",
+        "saft_code": "RED",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01"
+      },
+      {
+        "template_name": "IVA 0% - Isento",
+        "template_type": "Sales Tax Template",
+        "tax_category": "IVA",
+        "description": "IVA isento ou taxa zero - operações isentas ou não sujeitas",
+        "taxes": [
+          {
+            "account_head": "IVA - Liquidado",
+            "rate": 0.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IVA 0% - Isento",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Artigos 9.º, 14.º e 15.º do Código do IVA",
+        "saft_code": "ISE",
+        "exemption_reason": "Operação isenta de IVA",
+        "applicable_from": "2025-01-01"
+      },
+      {
+        "template_name": "IVA 6% - Produtos Alimentares Infantis (2025)",
+        "template_type": "Sales Tax Template",
+        "tax_category": "IVA",
+        "description": "IVA 6% para produtos alimentares destinados a lactentes e crianças - Nova adição Lista I item 1.14",
+        "taxes": [
+          {
+            "account_head": "IVA - Liquidado",
+            "rate": 6.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IVA 6% - Produtos Alimentares Infantis",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Lista I, item 1.14 do Código do IVA - Orçamento Estado 2025",
+        "saft_code": "RED",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01",
+        "applicable_items": "Produtos alimentares para lactentes e crianças, fórmulas e alimentos para fins medicinais específicos"
+      },
+      {
+        "template_name": "IVA 6% - Bicicletas (2025)",
+        "template_type": "Sales Tax Template",
+        "tax_category": "IVA",
+        "description": "IVA 6% para bicicletas - Exclusão da limitação ao direito de dedução",
+        "taxes": [
+          {
+            "account_head": "IVA - Liquidado",
+            "rate": 6.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IVA 6% - Bicicletas",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Orçamento de Estado 2025 - Exclusão art. 21.º do Código do IVA",
+        "saft_code": "RED",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01",
+        "applicable_items": "Bicicletas e equipamentos relacionados"
+      },
+      {
+        "template_name": "IRS - Retenção na Fonte 25%",
+        "template_type": "Purchase Tax Template",
+        "tax_category": "IRS",
+        "description": "Retenção de IRS na fonte à taxa de 25% - Rendimentos de trabalho dependente",
+        "taxes": [
+          {
+            "account_head": "IRS",
+            "rate": 25.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IRS - Retenção na Fonte 25%",
+            "is_tax_withholding_account": 1,
+            "add_deduct_tax": "Deduct",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Artigo 99.º do Código do IRS",
+        "saft_code": "IRS",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01"
+      },
+      {
+        "template_name": "IRS - Retenção na Fonte 20%",
+        "template_type": "Purchase Tax Template",
+        "tax_category": "IRS",
+        "description": "Retenção de IRS na fonte à taxa de 20% - Rendimentos de trabalho independente",
+        "taxes": [
+          {
+            "account_head": "IRS",
+            "rate": 20.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IRS - Retenção na Fonte 20%",
+            "is_tax_withholding_account": 1,
+            "add_deduct_tax": "Deduct",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Artigo 101.º do Código do IRS",
+        "saft_code": "IRS",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01"
+      },
+      {
+        "template_name": "IRC - Pagamento por Conta",
+        "template_type": "Purchase Tax Template",
+        "tax_category": "IRC",
+        "description": "IRC - Pagamento por conta - Taxa reduzida para 20% em 2025",
+        "taxes": [
+          {
+            "account_head": "IRC",
+            "rate": 20.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IRC - Pagamento por Conta 20%",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Orçamento de Estado 2025 - Redução de 21% para 20%",
+        "saft_code": "IRC",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01",
+        "notes": "Taxa reduzida de 21% para 20% conforme Orçamento Estado 2025"
+      },
+      {
+        "template_name": "IRC - PME Taxa Reduzida 16%",
+        "template_type": "Purchase Tax Template",
+        "tax_category": "IRC",
+        "description": "IRC para PME - Taxa reduzida de 16% para primeiros €50.000 de matéria coletável",
+        "taxes": [
+          {
+            "account_head": "IRC",
+            "rate": 16.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "IRC - PME Taxa Reduzida 16%",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Orçamento de Estado 2025 - Redução de 17% para 16% para PME",
+        "saft_code": "IRC",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01",
+        "applicable_limit": "Primeiros €50.000 de matéria coletável",
+        "notes": "Taxa reduzida de 17% para 16% para PME conforme Decreto-Lei 372/2007"
+      },
+      {
+        "template_name": "Segurança Social - Taxa Contributiva 23,75%",
+        "template_type": "Purchase Tax Template",
+        "tax_category": "SS",
+        "description": "Contribuições para a Segurança Social - Taxa contributiva geral",
+        "taxes": [
+          {
+            "account_head": "Contribuições para a Segurança Social",
+            "rate": 23.75,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "Segurança Social 23,75%",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Decreto-Lei n.º 199/99 de 8 de Junho",
+        "saft_code": "SS",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01"
+      },
+      {
+        "template_name": "Imposto do Selo 4%",
+        "template_type": "Purchase Tax Template",
+        "tax_category": "IS",
+        "description": "Imposto do Selo à taxa de 4% - Contratos de prestação de serviços",
+        "taxes": [
+          {
+            "account_head": "Imposto do Selo",
+            "rate": 4.0,
+            "tax_type": "On Net Total",
+            "charge_type": "On Net Total",
+            "description": "Imposto do Selo 4%",
+            "is_tax_withholding_account": 0,
+            "add_deduct_tax": "Add",
+            "category": "Total",
+            "tax_amount": 0,
+            "total": 0,
+            "tax_amount_after_discount_amount": 0,
+            "base_tax_amount": 0,
+            "base_total": 0,
+            "base_tax_amount_after_discount_amount": 0,
+            "item_wise_tax_detail": "{}",
+            "dont_recompute_tax": 0
+          }
+        ],
+        "company": "",
+        "is_default": 0,
+        "disabled": 0,
+        "legal_reference": "Código do Imposto do Selo",
+        "saft_code": "IS",
+        "exemption_reason": "",
+        "applicable_from": "2025-01-01"
+      }
+    ]
+  },
+  "regional_variations": {
+    "azores": {
+      "description": "Taxas especiais para Região Autónoma dos Açores",
+      "variations": [
+        {
+          "template_name": "IVA 16% - Taxa Normal Açores",
+          "base_template": "IVA 23% - Taxa Normal",
+          "rate": 16.0,
+          "legal_reference": "Decreto Legislativo Regional n.º 29/2001/A"
+        },
+        {
+          "template_name": "IVA 9% - Taxa Intermédia Açores",
+          "base_template": "IVA 13% - Taxa Intermédia",
+          "rate": 9.0,
+          "legal_reference": "Decreto Legislativo Regional n.º 29/2001/A"
+        },
+        {
+          "template_name": "IVA 4% - Taxa Reduzida Açores",
+          "base_template": "IVA 6% - Taxa Reduzida",
+          "rate": 4.0,
+          "legal_reference": "Decreto Legislativo Regional n.º 29/2001/A"
+        }
+      ]
+    },
+    "madeira": {
+      "description": "Taxas especiais para Região Autónoma da Madeira",
+      "variations": [
+        {
+          "template_name": "IVA 22% - Taxa Normal Madeira",
+          "base_template": "IVA 23% - Taxa Normal",
+          "rate": 22.0,
+          "legal_reference": "Decreto Legislativo Regional n.º 29/2001/M"
+        },
+        {
+          "template_name": "IVA 12% - Taxa Intermédia Madeira",
+          "base_template": "IVA 13% - Taxa Intermédia",
+          "rate": 12.0,
+          "legal_reference": "Decreto Legislativo Regional n.º 29/2001/M"
+        },
+        {
+          "template_name": "IVA 5% - Taxa Reduzida Madeira",
+          "base_template": "IVA 6% - Taxa Reduzida",
+          "rate": 5.0,
+          "legal_reference": "Decreto Legislativo Regional n.º 29/2001/M"
+        }
+      ]
+    }
+  },
+  "compliance_settings": {
+    "vat_return_simplification": {
+      "effective_date": "2025-07-01",
+      "description": "Simplificação das declarações de IVA conforme Circular 25069/2025",
+      "monthly_threshold": 650000,
+      "monthly_threshold_currency": "EUR",
+      "flexible_filing_frequency": true,
+      "new_cover_sheet": true,
+      "eliminated_annexes": ["Anexo A", "Anexo B"]
+    },
+    "eu_sme_scheme": {
+      "effective_date": "2025-01-01",
+      "description": "Regime UE para pequenas empresas conforme Decreto 35/2025",
+      "applicable_to": ["Portuguese businesses in EU", "EU businesses in Portugal"],
+      "circular_reference": "Circular 25065/2025"
+    },
+    "pdf_invoice_equivalence": {
+      "extended_until": "2025-12-31",
+      "description": "Equivalência de faturas em PDF a faturas eletrónicas",
+      "legal_reference": "Orçamento de Estado 2025"
+    },
+    "health_insurance_deduction": {
+      "rate": 120,
+      "description": "Dedução de 120% para seguros de saúde e bem-estar",
+      "applicable_to": "Corporate taxpayers",
+      "effective_date": "2025-01-01"
+    }
+  },
+  "saft_pt_mapping": {
+    "tax_codes": {
+      "NOR": "Taxa Normal",
+      "INT": "Taxa Intermédia",
+      "RED": "Taxa Reduzida",
+      "ISE": "Isento",
+      "IRS": "IRS - Retenção na Fonte",
+      "IRC": "IRC - Imposto sobre Rendimento Coletivo",
+      "SS": "Segurança Social",
+      "IS": "Imposto do Selo"
+    },
+    "exemption_codes": {
+      "M01": "Artigo 16.º, n.º 6 do Código do IVA",
+      "M02": "Artigo 6.º do Decreto-Lei n.º 198/90",
+      "M03": "Exigibilidade de caixa",
+      "M04": "Regime de IVA de Caixa",
+      "M05": "Regime do Pequeno Agricultor",
+      "M06": "Regime especial dos bens em segunda mão",
+      "M07": "Regime especial das agências de viagens",
+      "M08": "Regime especial dos bens usados",
+      "M09": "Regime especial dos objetos de arte",
+      "M10": "Regime especial dos objetos de coleção e antiguidades",
+      "M11": "Regime especial aplicável aos tabacaleiros",
+      "M12": "Regime especial aplicável aos metais preciosos",
+      "M13": "Regime especial do ouro para investimento",
+      "M14": "Regime especial das transmissões intracomunitárias",
+      "M15": "Regime especial das prestações de serviços",
+      "M16": "Regime especial das importações",
+      "M17": "Regime especial das exportações",
+      "M18": "Regime especial das operações triangulares",
+      "M19": "Regime especial aplicável à navegação marítima e aérea",
+      "M20": "Regime especial dos serviços de telecomunicações",
+      "M21": "Regime especial dos serviços de radiodifusão e televisão",
+      "M22": "Regime especial dos serviços prestados por via eletrónica",
+      "M23": "Regime especial aplicável às operações realizadas em zonas francas",
+      "M24": "Regime especial aplicável aos armazéns fiscais",
+      "M25": "Regime especial aplicável aos entrepostos fiscais"
+    }
+  },
+  "validation_rules": {
+    "mandatory_fields": [
+      "template_name",
+      "tax_category",
+      "rate",
+      "account_head",
+      "legal_reference",
+      "saft_code"
+    ],
+    "rate_validation": {
+      "min_rate": 0.0,
+      "max_rate": 100.0,
+      "decimal_places": 2
+    },
+    "saft_compliance": true,
+    "atcud_integration": true,
+    "naming_series_integration": true
+  },
+  "installation_notes": {
+    "auto_create_accounts": true,
+    "default_company_setup": true,
+    "regional_detection": true,
+    "compliance_validation": true,
+    "update_existing_templates": false,
+    "backup_before_install": true
+  }
+}

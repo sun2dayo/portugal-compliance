@@ -1,0 +1,37 @@
+{
+    "doctype": "DocType",
+    "name": "Portugal Auth Settings",
+    "module": "Portugal Compliance",
+    "issingle": 1,
+    "fields": [
+        {
+            "fieldname": "ssl_certificate_path",
+            "label": "SSL Certificate Path",
+            "fieldtype": "Password",
+            "description": "Caminho para o certificado .pfx da AT"
+        },
+        {
+            "fieldname": "certificate_password",
+            "label": "Certificate Password",
+            "fieldtype": "Password"
+        },
+        {
+            "fieldname": "at_webservice_url",
+            "label": "AT Webservice URL",
+            "fieldtype": "Data",
+            "default": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
+        },
+        {
+            "fieldname": "sandbox_mode",
+            "label": "Sandbox Mode",
+            "fieldtype": "Check",
+            "default": 1
+        },
+        {
+            "fieldname": "session_tokens",
+            "label": "Session Tokens",
+            "fieldtype": "Table",
+            "options": "Portugal Session Token"
+        }
+    ]
+}

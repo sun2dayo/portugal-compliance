@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.name }} - Fatura Simplificada</title>
+    <style>
+        /* Estilos para fatura simplificada portuguesa */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .simplified-invoice-container {
+            max-width: 150mm;
+            margin: 0 auto;
+            background: white;
+            border: 1px solid #046a38;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #046a38;
+            padding-bottom: 15px;
+        }
+
+        .company-logo {
+            max-width: 100px;
+            max-height: 50px;
+            margin-bottom: 8px;
+        }
+
+        .company-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #046a38;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 9px;
+            line-height: 1.3;
+            color: #666;
+        }
+
+        .document-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #046a38;
+            text-align: center;
+            margin: 15px 0;
+            text-transform: uppercase;
+        }
+
+        .document-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .simplified-notice {
+            background-color: #e8f5e8;
+            border: 1px solid #046a38;
+            padding: 10px;
+            margin: 15px 0;
+            text-align: center;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        .customer-section {
+            margin-bottom: 20px;
+            background-color: #f0f8ff;
+            padding: 10px;
+            border-radius: 3px;
+            border-left: 3px solid #046a38;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #046a38;
+            font-size: 12px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 10px;
+        }
+
+        .items-table th {
+            background-color: #046a38;
+            color: white;
+            padding: 6px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #046a38;
+        }
+
+        .items-table td {
+            padding: 5px 6px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .items-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .totals-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .totals-table td {
+            padding: 3px 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .totals-table .total-label {
+            font-weight: bold;
+        }
+
+        .totals-table .grand-total {
+            background-color: #046a38;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .atcud-section {
+            background-color: #f0f8ff;
+            border: 2px solid #046a38;
+            padding: 10px;
+            margin: 15px 0;
+            text-align: center;
+            border-radius: 3px;
+        }
+
+        .atcud-code {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: bold;
+            color: #046a38;
+            letter-spacing: 1px;
+        }
+
+        .qr-code {
+            margin: 8px 0;
+        }
+
+        .tax-summary {
+            margin-bottom: 15px;
+        }
+
+        .tax-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+
+        .tax-table th {
+            background-color: #f5f5f5;
+            padding: 4px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+
+        .tax-table td {
+            padding: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .payment-info {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        .legal-notes {
+            font-size: 8px;
+            color: #666;
+            margin-top: 15px;
+            line-height: 1.3;
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 3px;
+        }
+
+        .footer-info {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 8px;
+            color: #999;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .simplified-limits {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-size: 9px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .simplified-invoice-container {
+                border: 1px solid #333;
+                padding: 10px;
+                max-width: none;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="simplified-invoice-container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            {% if doc.company_logo %}
+            <img src="{{ doc.company_logo }}" alt="Logo" class="company-logo">
+            {% endif %}
+            <div class="company-name">{{ frappe.db.get_value("Company", doc.company, "company_name") }}</div>
+            <div class="company-details">
+                {% set company_address = frappe.db.get_value("Address", {"is_your_company_address": 1, "link_name": doc.company}, ["address_line1", "city", "pincode"], as_dict=True) %}
+                {% if company_address %}
+                {{ company_address.address_line1 }}, {{ company_address.pincode }} {{ company_address.city }}
+                {% endif %}
+                <br>
+                <strong>NIF:</strong> {{ frappe.db.get_value("Company", doc.company, "tax_id") }}
+                {% set company_phone = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "phone") %}
+                {% if company_phone %} | <strong>Tel:</strong> {{ company_phone }}{% endif %}
+            </div>
+        </div>
+
+        <!-- Título do Documento -->
+        <div class="document-title">Fatura Simplificada</div>
+
+        <!-- Informações do Documento -->
+        <div class="document-info">
+            <div>
+                <strong>N.º:</strong> {{ doc.name }}<br>
+                <strong>Data:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}
+            </div>
+            <div class="text-right">
+                <strong>Hora:</strong> {{ frappe.utils.formatdate(doc.creation, "HH:mm") }}<br>
+                <strong>Operador:</strong> {{ frappe.session.user.split('@')[0] }}
+            </div>
+        </div>
+
+        <!-- Aviso de Fatura Simplificada -->
+        <div class="simplified-notice">
+            <strong>📋 FATURA SIMPLIFICADA</strong><br>
+            Documento emitido nos termos do art.º 40.º do CIVA
+        </div>
+
+        <!-- ATCUD Section -->
+        {% if doc.atcud_code %}
+        <div class="atcud-section">
+            <div><strong>ATCUD</strong></div>
+            <div class="atcud-code">{{ doc.atcud_code }}</div>
+            {% if doc.qr_code_image %}
+            <div class="qr-code">
+                <img src="{{ doc.qr_code_image }}" alt="QR Code" style="width: 50px; height: 50px;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Informações do Cliente (Opcional para FS) -->
+        {% if doc.customer_name and doc.customer_name != "Consumidor Final" %}
+        <div class="customer-section">
+            <div class="section-title">Cliente</div>
+            <strong>{{ doc.customer_name }}</strong><br>
+            {% set customer_tax_id = frappe.db.get_value("Customer", doc.customer, "tax_id") %}
+            {% if customer_tax_id %}
+            <strong>NIF:</strong> {{ customer_tax_id }}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Limites da Fatura Simplificada -->
+        <div class="simplified-limits">
+            <strong>ℹ️ Limites da Fatura Simplificada:</strong><br>
+            • Valor máximo: €1.000,00 (com IVA incluído)<br>
+            • Destinatário: Consumidor final ou empresa<br>
+            • Não serve como documento de transporte
+        </div>
+
+        <!-- Tabela de Itens -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 40%;">Descrição</th>
+                    <th style="width: 10%;" class="text-center">Qtd</th>
+                    <th style="width: 15%;" class="text-right">Preço</th>
+                    <th style="width: 10%;" class="text-center">IVA</th>
+                    <th style="width: 15%;" class="text-right">Subtotal</th>
+                    <th style="width: 10%;" class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in doc.items %}
+                <tr>
+                    <td>
+                        <strong>{{ item.item_name }}</strong>
+                        {% if item.item_code != item.item_name %}
+                        <br><small>{{ item.item_code }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ frappe.utils.fmt_money(item.qty, precision=0) }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.rate, precision=2, currency=doc.currency) }}</td>
+                    <td class="text-center">
+                        {% set tax_rate = 0 %}
+                        {% for tax in doc.taxes %}
+                            {% if tax.account_head and "IVA" in tax.account_head %}
+                                {% set tax_rate = tax.rate %}
+                            {% endif %}
+                        {% endfor %}
+                        {{ tax_rate }}%
+                    </td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount, precision=2, currency=doc.currency) }}</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount * (1 + tax_rate/100), precision=2, currency=doc.currency) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Resumo de Impostos Simplificado -->
+        {% if doc.taxes %}
+        <div class="tax-summary">
+            <div class="section-title">Resumo IVA</div>
+            <table class="tax-table">
+                <thead>
+                    <tr>
+                        <th>Taxa IVA</th>
+                        <th class="text-right">Incidência</th>
+                        <th class="text-right">Valor IVA</th>
+                        <th class="text-right">Total c/ IVA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tax in doc.taxes %}
+                    <tr>
+                        <td>{{ tax.rate }}%</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(tax.total, precision=2, currency=doc.currency) }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(tax.tax_amount, precision=2, currency=doc.currency) }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(tax.total + tax.tax_amount, precision=2, currency=doc.currency) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Totais -->
+        <div class="totals-section">
+            <table class="totals-table">
+                <tr>
+                    <td class="total-label">Subtotal (s/ IVA):</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.net_total, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                <tr>
+                    <td class="total-label">Total IVA:</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.total_taxes_and_charges, precision=2, currency=doc.currency) }}</td>
+                </tr>
+                <tr class="grand-total">
+                    <td>TOTAL A PAGAR:</td>
+                    <td class="text-right">{{ frappe.utils.fmt_money(doc.grand_total, precision=2, currency=doc.currency) }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Informações de Pagamento -->
+        <div class="payment-info">
+            <div class="section-title">Pagamento</div>
+            <strong>Método:</strong> {{ doc.mode_of_payment or "Numerário" }}<br>
+            <strong>Valor Recebido:</strong> {{ frappe.utils.fmt_money(doc.grand_total, precision=2, currency=doc.currency) }}<br>
+            <strong>Troco:</strong> {{ frappe.utils.fmt_money(0, precision=2, currency=doc.currency) }}
+        </div>
+
+        <!-- Informações sobre Fatura Simplificada -->
+        <div class="simplified-limits">
+            <div class="section-title">Informações Importantes</div>
+            • Esta fatura simplificada não serve como documento de transporte<br>
+            • Para efeitos de garantia, conserve este documento<br>
+            • Documento válido sem assinatura, nos termos da lei<br>
+            • Emitido por sistema certificado pela AT
+        </div>
+
+        <!-- Informações Legais -->
+        <div class="legal-notes">
+            <strong>Informações Legais:</strong><br>
+            • Documento processado por programa certificado n.º {{ frappe.db.get_value("Company", doc.company, "at_certificate_number") or "XXXX/AT" }}<br>
+            • Fatura simplificada emitida nos termos do artigo 40.º do CIVA<br>
+            • IVA incluído conforme legislação em vigor<br>
+            • Processado em {{ frappe.utils.formatdate(frappe.utils.now(), "dd/MM/yyyy HH:mm") }}
+        </div>
+
+        <!-- Rodapé -->
+        <div class="footer-info">
+            <strong>Obrigado pela sua preferência!</strong><br>
+            <small>
+                Sistema ERPNext com módulo Portugal Compliance<br>
+                {{ frappe.utils.get_url() }}
+            </small>
+        </div>
+    </div>
+</body>
+</html>

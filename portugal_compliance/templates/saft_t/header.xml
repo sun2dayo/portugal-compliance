@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template para cabeçalho do ficheiro SAF-T (PT) -->
+<Header>
+    <!-- Código de auditoria obrigatório -->
+    <AuditFileVersion>1.04_01</AuditFileVersion>
+
+    <!-- Identificação da empresa -->
+    <CompanyID>{{ company.tax_id }}</CompanyID>
+
+    <!-- Número de identificação fiscal -->
+    <TaxRegistrationNumber>{{ company.tax_id }}</TaxRegistrationNumber>
+
+    <!-- Nome da empresa -->
+    <CompanyName>{{ company.company_name }}</CompanyName>
+
+    <!-- Endereço da empresa -->
+    <CompanyAddress>
+        <BuildingNumber>{{ company_address.address_line1.split(' ')[0] if company_address.address_line1 else '' }}</BuildingNumber>
+        <StreetName>{{ company_address.address_line1.split(' ', 1)[1] if company_address.address_line1 and ' ' in company_address.address_line1 else company_address.address_line1 or '' }}</StreetName>
+        <AddressDetail>{{ company_address.address_line2 or '' }}</AddressDetail>
+        <City>{{ company_address.city or '' }}</City>
+        <PostalCode>{{ company_address.pincode or '' }}</PostalCode>
+        <Region>{{ company_address.state or '' }}</Region>
+        <Country>{{ company_address.country_code or 'PT' }}</Country>
+    </CompanyAddress>
+
+    <!-- Período fiscal -->
+    <FiscalYear>{{ fiscal_year }}</FiscalYear>
+
+    <!-- Data de início do período -->
+    <StartDate>{{ start_date.strftime('%Y-%m-%d') }}</StartDate>
+
+    <!-- Data de fim do período -->
+    <EndDate>{{ end_date.strftime('%Y-%m-%d') }}</EndDate>
+
+    <!-- Moeda base -->
+    <CurrencyCode>{{ company.default_currency or 'EUR' }}</CurrencyCode>
+
+    <!-- Data e hora de criação do ficheiro -->
+    <DateCreated>{{ creation_date.strftime('%Y-%m-%d') }}</DateCreated>
+    <TimeCreated>{{ creation_time.strftime('%H:%M:%S') }}</TimeCreated>
+
+    <!-- Versão do produto que gerou o ficheiro -->
+    <ProductID>ERPNext Portugal Compliance</ProductID>
+    <ProductVersion>{{ erpnext_version }}</ProductVersion>
+
+    <!-- Identificação da empresa de software -->
+    <ProductCompanyTaxID>{{ software_company_nif or '999999999' }}</ProductCompanyTaxID>
+
+    <!-- Número de certificação do software -->
+    <SoftwareCertificateNumber>{{ company.at_certificate_number or 'XXXX/AT' }}</SoftwareCertificateNumber>
+
+    <!-- Hash do ficheiro anterior (se aplicável) -->
+    {% if previous_hash %}
+    <PreviousFileHash>{{ previous_hash }}</PreviousFileHash>
+    {% endif %}
+
+    <!-- Número sequencial do ficheiro -->
+    <FileSequenceNumber>{{ file_sequence_number or '1' }}</FileSequenceNumber>
+
+    <!-- Observações -->
+    <HeaderComment>Ficheiro SAF-T (PT) gerado automaticamente pelo sistema ERPNext com módulo Portugal Compliance. Período: {{ start_date.strftime('%d/%m/%Y') }} a {{ end_date.strftime('%d/%m/%Y') }}. Total de registos: {{ total_records or '0' }}.</HeaderComment>
+
+    <!-- Informações técnicas adicionais -->
+    <TechnicalInformation>
+        <FileSize>{{ file_size or '0' }}</FileSize>
+        <NumberOfEntries>{{ total_records or '0' }}</NumberOfEntries>
+        <TotalDebit>{{ total_debit or '0.00' }}</TotalDebit>
+        <TotalCredit>{{ total_credit or '0.00' }}</TotalCredit>
+        <ProcessingDate>{{ processing_date.strftime('%Y-%m-%d') if processing_date else creation_date.strftime('%Y-%m-%d') }}</ProcessingDate>
+        <ProcessingTime>{{ processing_time.strftime('%H:%M:%S') if processing_time else creation_time.strftime('%H:%M:%S') }}</ProcessingTime>
+        <ProcessedBy>{{ processed_by or 'Sistema' }}</ProcessedBy>
+    </TechnicalInformation>
+</Header>

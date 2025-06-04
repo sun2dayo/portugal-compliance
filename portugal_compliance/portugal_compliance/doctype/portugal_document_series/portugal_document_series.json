@@ -1,0 +1,455 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "field:series_name",
+    "creation": "2025-01-01 12:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "series_information",
+        "series_name",
+        "document_type",
+        "prefix",
+        "column_break_4",
+        "current_number",
+        "company",
+        "fiscal_year",
+        "is_active",
+        "section_break_config",
+        "series_configuration",
+        "at_environment",
+        "column_break_config",
+        "validation_code",
+        "is_communicated",
+        "communication_date",
+        "section_break_9",
+        "at_communication_section",
+        "communication_status",
+        "communication_attempts",
+        "error_message",
+        "column_break_14",
+        "last_sync_date",
+        "retry_count",
+        "next_retry_time",
+        "section_break_18",
+        "usage_statistics",
+        "total_documents_issued",
+        "last_document_date",
+        "average_monthly_usage",
+        "column_break_22",
+        "projected_annual_usage",
+        "peak_usage_month",
+        "usage_trend",
+        "section_break_26",
+        "audit_information",
+        "created_by_user",
+        "creation_notes",
+        "column_break_30",
+        "last_modified_by_user",
+        "modification_notes",
+        "migrated_from_existing"
+    ],
+    "fields": [
+        {
+            "fieldname": "series_information",
+            "fieldtype": "Section Break",
+            "label": "Series Information"
+        },
+        {
+            "fieldname": "series_name",
+            "fieldtype": "Data",
+            "label": "Series Name",
+            "reqd": 1,
+            "unique": 1,
+            "description": "Nome único para esta série de documentos",
+            "length": 100
+        },
+        {
+            "fieldname": "document_type",
+            "fieldtype": "Select",
+            "label": "Document Type",
+            "options": "Sales Invoice\nPurchase Invoice\nPayment Entry\nDelivery Note\nPurchase Receipt\nJournal Entry\nStock Entry\nQuotation\nSales Order\nPurchase Order\nMaterial Request",
+            "reqd": 1,
+            "description": "Tipo de documento para esta série (todos os tipos exigidos pela legislação portuguesa)"
+        },
+        {
+            "fieldname": "prefix",
+            "fieldtype": "Data",
+            "label": "Series Prefix",
+            "reqd": 1,
+            "description": "Prefixo da série no formato XX-YYYY-EMPRESA",
+            "length": 50
+        },
+        {
+            "fieldname": "column_break_4",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "current_number",
+            "fieldtype": "Int",
+            "label": "Current Number",
+            "default": 1,
+            "reqd": 1,
+            "description": "Número sequencial atual para esta série"
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "label": "Company",
+            "options": "Company",
+            "reqd": 1,
+            "description": "Empresa proprietária desta série"
+        },
+        {
+            "fieldname": "fiscal_year",
+            "fieldtype": "Link",
+            "label": "Fiscal Year",
+            "options": "Fiscal Year",
+            "description": "Ano fiscal para esta série"
+        },
+        {
+            "fieldname": "is_active",
+            "fieldtype": "Check",
+            "label": "Is Active",
+            "default": 1,
+            "description": "Se esta série está ativa para uso"
+        },
+        {
+            "fieldname": "section_break_config",
+            "fieldtype": "Section Break",
+            "label": "Configuração AT"
+        },
+        {
+            "fieldname": "series_configuration",
+            "fieldtype": "Link",
+            "label": "Portugal Series Configuration",
+            "options": "Portugal Series Configuration",
+            "description": "Configuração AT ligada a esta série operacional"
+        },
+        {
+            "fieldname": "at_environment",
+            "fieldtype": "Select",
+            "label": "Ambiente AT",
+            "options": "test\nproduction",
+            "read_only": 1,
+            "description": "Ambiente AT (sincronizado da configuração)"
+        },
+        {
+            "fieldname": "column_break_config",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "validation_code",
+            "fieldtype": "Data",
+            "label": "ATCUD Code",
+            "read_only": 1,
+            "description": "Código ATCUD base recebido da AT"
+        },
+        {
+            "fieldname": "is_communicated",
+            "fieldtype": "Check",
+            "label": "Communicated to AT",
+            "default": 0,
+            "read_only": 1,
+            "description": "Se esta série foi comunicada à AT"
+        },
+        {
+            "fieldname": "communication_date",
+            "fieldtype": "Datetime",
+            "label": "Communication Date",
+            "read_only": 1,
+            "description": "Data de comunicação com a AT"
+        },
+        {
+            "fieldname": "section_break_9",
+            "fieldtype": "Section Break",
+            "label": "AT Communication Details"
+        },
+        {
+            "fieldname": "at_communication_section",
+            "fieldtype": "Section Break",
+            "label": "Detalhes de Comunicação AT"
+        },
+        {
+            "fieldname": "communication_status",
+            "fieldtype": "Select",
+            "label": "Communication Status",
+            "options": "Pending\nSuccess\nFailed\nRetrying",
+            "default": "Pending",
+            "read_only": 1,
+            "description": "Status da comunicação com a AT"
+        },
+        {
+            "fieldname": "communication_attempts",
+            "fieldtype": "Int",
+            "label": "Communication Attempts",
+            "default": 0,
+            "read_only": 1,
+            "description": "Número de tentativas de comunicação"
+        },
+        {
+            "fieldname": "error_message",
+            "fieldtype": "Text",
+            "label": "Error Message",
+            "read_only": 1,
+            "description": "Mensagem de erro se comunicação falhou"
+        },
+        {
+            "fieldname": "column_break_14",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "last_sync_date",
+            "fieldtype": "Datetime",
+            "label": "Last Sync Date",
+            "read_only": 1,
+            "description": "Última sincronização com configuração AT"
+        },
+        {
+            "fieldname": "retry_count",
+            "fieldtype": "Int",
+            "label": "Retry Count",
+            "default": 0,
+            "read_only": 1,
+            "description": "Contador de tentativas de retry"
+        },
+        {
+            "fieldname": "next_retry_time",
+            "fieldtype": "Datetime",
+            "label": "Next Retry Time",
+            "read_only": 1,
+            "description": "Próxima tentativa de comunicação"
+        },
+        {
+            "fieldname": "section_break_18",
+            "fieldtype": "Section Break",
+            "label": "Usage Statistics"
+        },
+        {
+            "fieldname": "usage_statistics",
+            "fieldtype": "Section Break",
+            "label": "Estatísticas de Uso"
+        },
+        {
+            "fieldname": "total_documents_issued",
+            "fieldtype": "Int",
+            "label": "Total Documents Issued",
+            "default": 0,
+            "read_only": 1,
+            "description": "Total de documentos emitidos com esta série"
+        },
+        {
+            "fieldname": "last_document_date",
+            "fieldtype": "Date",
+            "label": "Last Document Date",
+            "read_only": 1,
+            "description": "Data do último documento emitido"
+        },
+        {
+            "fieldname": "average_monthly_usage",
+            "fieldtype": "Float",
+            "label": "Average Monthly Usage",
+            "read_only": 1,
+            "precision": 2,
+            "description": "Uso médio mensal da série"
+        },
+        {
+            "fieldname": "column_break_22",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "projected_annual_usage",
+            "fieldtype": "Int",
+            "label": "Projected Annual Usage",
+            "read_only": 1,
+            "description": "Projeção de uso anual baseado em tendências"
+        },
+        {
+            "fieldname": "peak_usage_month",
+            "fieldtype": "Data",
+            "label": "Peak Usage Month",
+            "read_only": 1,
+            "description": "Mês de maior uso da série"
+        },
+        {
+            "fieldname": "usage_trend",
+            "fieldtype": "Select",
+            "label": "Usage Trend",
+            "options": "New\nIncreasing\nStable\nDecreasing\nSeasonal",
+            "read_only": 1,
+            "description": "Tendência atual de uso desta série"
+        },
+        {
+            "fieldname": "section_break_26",
+            "fieldtype": "Section Break",
+            "label": "Audit Information"
+        },
+        {
+            "fieldname": "audit_information",
+            "fieldtype": "Section Break",
+            "label": "Informações de Auditoria"
+        },
+        {
+            "fieldname": "created_by_user",
+            "fieldtype": "Link",
+            "label": "Created By",
+            "options": "User",
+            "read_only": 1,
+            "description": "Usuário que criou esta série"
+        },
+        {
+            "fieldname": "creation_notes",
+            "fieldtype": "Text",
+            "label": "Creation Notes",
+            "description": "Notas sobre a criação desta série"
+        },
+        {
+            "fieldname": "column_break_30",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "last_modified_by_user",
+            "fieldtype": "Link",
+            "label": "Last Modified By",
+            "options": "User",
+            "read_only": 1,
+            "description": "Usuário que modificou esta série por último"
+        },
+        {
+            "fieldname": "modification_notes",
+            "fieldtype": "Text",
+            "label": "Modification Notes",
+            "description": "Notas sobre modificações na série"
+        },
+        {
+            "fieldname": "migrated_from_existing",
+            "fieldtype": "Check",
+            "label": "Migrated from Existing",
+            "default": 0,
+            "read_only": 1,
+            "hidden": 1,
+            "description": "Indica se esta série foi migrada de dados existentes"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "is_submittable": 0,
+    "links": [
+        {
+            "link_doctype": "Sales Invoice",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Purchase Invoice",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Payment Entry",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Delivery Note",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Purchase Receipt",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Journal Entry",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Stock Entry",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Quotation",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Sales Order",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Purchase Order",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "Material Request",
+            "link_fieldname": "portugal_series"
+        },
+        {
+            "link_doctype": "ATCUD Log",
+            "link_fieldname": "series_used"
+        },
+        {
+            "link_doctype": "Portugal Series Configuration",
+            "link_fieldname": "series_configuration"
+        }
+    ],
+    "modified": "2025-05-29 14:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Portugal Compliance",
+    "name": "Portugal Document Series",
+    "naming_rule": "By fieldname",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 1,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Accounts Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Accounts User",
+            "share": 1,
+            "write": 0
+        },
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Portugal Compliance User",
+            "share": 1,
+            "write": 0
+        }
+    ],
+    "quick_entry": 1,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "title_field": "series_name",
+    "track_changes": 1,
+    "track_seen": 1,
+    "track_views": 1
+}

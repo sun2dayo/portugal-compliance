@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template para documentos fonte do SAF-T (PT) -->
+<SourceDocuments>
+    <!-- Documentos de Faturação -->
+    <SalesInvoices>
+        <NumberOfEntries>{{ sales_invoices|length }}</NumberOfEntries>
+        <TotalDebit>{{ total_sales_debit }}</TotalDebit>
+        <TotalCredit>{{ total_sales_credit }}</TotalCredit>
+        {% for invoice in sales_invoices %}
+        <Invoice>
+            <InvoiceNo>{{ invoice.name }}</InvoiceNo>
+            <ATCUD>{{ invoice.atcud_code or '' }}</ATCUD>
+            <DocumentStatus>
+                <InvoiceStatus>{{ 'N' if invoice.docstatus == 1 else 'A' if invoice.docstatus == 2 else 'T' }}</InvoiceStatus>
+                <InvoiceStatusDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</InvoiceStatusDate>
+                <Reason>{{ invoice.reason_for_cancellation or '' if invoice.docstatus == 2 else '' }}</Reason>
+                <SourceID>{{ invoice.owner }}</SourceID>
+                <SourceBilling>{{ 'P' if invoice.is_pos else 'I' }}</SourceBilling>
+            </DocumentStatus>
+            <Hash>{{ invoice.hash_control or '' }}</Hash>
+            <HashControl>{{ invoice.hash_control_version or '1' }}</HashControl>
+            <Period>{{ invoice.posting_date.month }}</Period>
+            <InvoiceDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</InvoiceDate>
+            <InvoiceType>{{ invoice.invoice_type or 'FT' }}</InvoiceType>
+            <SpecialRegimes>
+                <SelfBillingIndicator>{{ '1' if invoice.is_self_billing else '0' }}</SelfBillingIndicator>
+                <CashVATSchemeIndicator>{{ '1' if invoice.is_cash_vat else '0' }}</CashVATSchemeIndicator>
+                <ThirdPartiesBillingIndicator>{{ '1' if invoice.is_third_party_billing else '0' }}</ThirdPartiesBillingIndicator>
+            </SpecialRegimes>
+            <SourceID>{{ invoice.owner }}</SourceID>
+            <EACCode>{{ invoice.eac_code or '' }}</EACCode>
+            <SystemEntryDate>{{ invoice.creation.strftime('%Y-%m-%dT%H:%M:%S') }}</SystemEntryDate>
+            <TransactionID>{{ invoice.name }}</TransactionID>
+            <CustomerID>{{ invoice.customer }}</CustomerID>
+            {% if invoice.shipping_address_name %}
+            <ShipTo>
+                {% set shipping_address = frappe.get_doc("Address", invoice.shipping_address_name) %}
+                <DeliveryID>{{ invoice.shipping_address_name }}</DeliveryID>
+                <DeliveryDate>{{ invoice.delivery_date.strftime('%Y-%m-%d') if invoice.delivery_date else invoice.posting_date.strftime('%Y-%m-%d') }}</DeliveryDate>
+                <Address>
+                    <BuildingNumber>{{ shipping_address.address_line1.split(' ')[0] if shipping_address.address_line1 else '' }}</BuildingNumber>
+                    <StreetName>{{ shipping_address.address_line1.split(' ', 1)[1] if shipping_address.address_line1 and ' ' in shipping_address.address_line1 else shipping_address.address_line1 or '' }}</StreetName>
+                    <AddressDetail>{{ shipping_address.address_line2 or '' }}</AddressDetail>
+                    <City>{{ shipping_address.city or '' }}</City>
+                    <PostalCode>{{ shipping_address.pincode or '' }}</PostalCode>
+                    <Region>{{ shipping_address.state or '' }}</Region>
+                    <Country>{{ shipping_address.country_code or 'PT' }}</Country>
+                </Address>
+            </ShipTo>
+            {% endif %}
+            {% for item in invoice.items %}
+            <Line>
+                <LineNumber>{{ loop.index }}</LineNumber>
+                <ProductCode>{{ item.item_code }}</ProductCode>
+                <ProductDescription>{{ item.item_name }}</ProductDescription>
+                <Quantity>{{ item.qty }}</Quantity>
+                <UnitOfMeasure>{{ item.uom or 'Un' }}</UnitOfMeasure>
+                <UnitPrice>{{ item.rate }}</UnitPrice>
+                <TaxPointDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</TaxPointDate>
+                <References>
+                    {% if item.sales_order %}
+                    <Reference>{{ item.sales_order }}</Reference>
+                    {% endif %}
+                </References>
+                <Description>{{ item.description or item.item_name }}</Description>
+                {% if item.serial_no %}
+                <ProductSerialNumber>{{ item.serial_no }}</ProductSerialNumber>
+                {% endif %}
+                <DebitAmount>{{ item.amount if item.amount > 0 else '0.00' }}</DebitAmount>
+                <CreditAmount>{{ item.amount if item.amount < 0 else '0.00' }}</CreditAmount>
+                <Tax>
+                    <TaxType>IVA</TaxType>
+                    <TaxCountryRegion>PT</TaxCountryRegion>
+                    <TaxCode>{{ item.item_tax_template or 'NOR' }}</TaxCode>
+                    <TaxPercentage>{{ item.tax_rate or '23' }}</TaxPercentage>
+                    {% if item.tax_amount %}
+                    <TaxAmount>{{ item.tax_amount }}</TaxAmount>
+                    {% endif %}
+                    {% if item.exemption_reason %}
+                    <TaxExemptionReason>{{ item.exemption_reason }}</TaxExemptionReason>
+                    <TaxExemptionCode>{{ item.exemption_code or 'M01' }}</TaxExemptionCode>
+                    {% endif %}
+                </Tax>
+                <TaxExemptionReason>{{ item.exemption_reason or '' }}</TaxExemptionReason>
+                <SettlementAmount>{{ item.settlement_amount or '0.00' }}</SettlementAmount>
+            </Line>
+            {% endfor %}
+            <DocumentTotals>
+                <TaxPayable>{{ invoice.total_taxes_and_charges or '0.00' }}</TaxPayable>
+                <NetTotal>{{ invoice.net_total }}</NetTotal>
+                <GrossTotal>{{ invoice.grand_total }}</GrossTotal>
+                {% if invoice.currency != company.default_currency %}
+                <Currency>
+                    <CurrencyCode>{{ invoice.currency }}</CurrencyCode>
+                    <CurrencyAmount>{{ invoice.grand_total }}</CurrencyAmount>
+                    <ExchangeRate>{{ invoice.conversion_rate }}</ExchangeRate>
+                </Currency>
+                {% endif %}
+            </DocumentTotals>
+            {% if invoice.return_against %}
+            <WithholdingTax>
+                <WithholdingTaxType>{{ invoice.withholding_tax_type or 'IRS' }}</WithholdingTaxType>
+                <WithholdingTaxDescription>{{ invoice.withholding_tax_description or '' }}</WithholdingTaxDescription>
+                <WithholdingTaxAmount>{{ invoice.withholding_tax_amount or '0.00' }}</WithholdingTaxAmount>
+            </WithholdingTax>
+            {% endif %}
+        </Invoice>
+        {% endfor %}
+    </SalesInvoices>
+
+    <!-- Documentos de Compra -->
+    <PurchaseInvoices>
+        <NumberOfEntries>{{ purchase_invoices|length }}</NumberOfEntries>
+        <TotalDebit>{{ total_purchase_debit }}</TotalDebit>
+        <TotalCredit>{{ total_purchase_credit }}</TotalCredit>
+        {% for invoice in purchase_invoices %}
+        <Invoice>
+            <InvoiceNo>{{ invoice.name }}</InvoiceNo>
+            <ATCUD>{{ invoice.atcud_code or '' }}</ATCUD>
+            <DocumentStatus>
+                <InvoiceStatus>{{ 'N' if invoice.docstatus == 1 else 'A' if invoice.docstatus == 2 else 'T' }}</InvoiceStatus>
+                <InvoiceStatusDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</InvoiceStatusDate>
+                <Reason>{{ invoice.reason_for_cancellation or '' if invoice.docstatus == 2 else '' }}</Reason>
+                <SourceID>{{ invoice.owner }}</SourceID>
+                <SourceBilling>P</SourceBilling>
+            </DocumentStatus>
+            <Hash>{{ invoice.hash_control or '' }}</Hash>
+            <HashControl>{{ invoice.hash_control_version or '1' }}</HashControl>
+            <Period>{{ invoice.posting_date.month }}</Period>
+            <InvoiceDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</InvoiceDate>
+            <InvoiceType>{{ invoice.invoice_type or 'FC' }}</InvoiceType>
+            <SpecialRegimes>
+                <SelfBillingIndicator>{{ '1' if invoice.is_self_billing else '0' }}</SelfBillingIndicator>
+                <CashVATSchemeIndicator>{{ '1' if invoice.is_cash_vat else '0' }}</CashVATSchemeIndicator>
+                <ThirdPartiesBillingIndicator>{{ '1' if invoice.is_third_party_billing else '0' }}</ThirdPartiesBillingIndicator>
+            </SpecialRegimes>
+            <SourceID>{{ invoice.owner }}</SourceID>
+            <SystemEntryDate>{{ invoice.creation.strftime('%Y-%m-%dT%H:%M:%S') }}</SystemEntryDate>
+            <TransactionID>{{ invoice.name }}</TransactionID>
+            <SupplierID>{{ invoice.supplier }}</SupplierID>
+            <SupplierInvoiceNo>{{ invoice.bill_no or invoice.name }}</SupplierInvoiceNo>
+            {% for item in invoice.items %}
+            <Line>
+                <LineNumber>{{ loop.index }}</LineNumber>
+                <ProductCode>{{ item.item_code }}</ProductCode>
+                <ProductDescription>{{ item.item_name }}</ProductDescription>
+                <Quantity>{{ item.qty }}</Quantity>
+                <UnitOfMeasure>{{ item.uom or 'Un' }}</UnitOfMeasure>
+                <UnitPrice>{{ item.rate }}</UnitPrice>
+                <TaxPointDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</TaxPointDate>
+                <Description>{{ item.description or item.item_name }}</Description>
+                <DebitAmount>{{ item.amount if item.amount > 0 else '0.00' }}</DebitAmount>
+                <CreditAmount>{{ item.amount if item.amount < 0 else '0.00' }}</CreditAmount>
+                <Tax>
+                    <TaxType>IVA</TaxType>
+                    <TaxCountryRegion>PT</TaxCountryRegion>
+                    <TaxCode>{{ item.item_tax_template or 'NOR' }}</TaxCode>
+                    <TaxPercentage>{{ item.tax_rate or '23' }}</TaxPercentage>
+                    {% if item.tax_amount %}
+                    <TaxAmount>{{ item.tax_amount }}</TaxAmount>
+                    {% endif %}
+                </Tax>
+            </Line>
+            {% endfor %}
+            <DocumentTotals>
+                <TaxPayable>{{ invoice.total_taxes_and_charges or '0.00' }}</TaxPayable>
+                <NetTotal>{{ invoice.net_total }}</NetTotal>
+                <GrossTotal>{{ invoice.grand_total }}</GrossTotal>
+                {% if invoice.currency != company.default_currency %}
+                <Currency>
+                    <CurrencyCode>{{ invoice.currency }}</CurrencyCode>
+                    <CurrencyAmount>{{ invoice.grand_total }}</CurrencyAmount>
+                    <ExchangeRate>{{ invoice.conversion_rate }}</ExchangeRate>
+                </Currency>
+                {% endif %}
+            </DocumentTotals>
+        </Invoice>
+        {% endfor %}
+    </PurchaseInvoices>
+
+    <!-- Documentos de Pagamento -->
+    <Payments>
+        <NumberOfEntries>{{ payments|length }}</NumberOfEntries>
+        <TotalDebit>{{ total_payments_debit }}</TotalDebit>
+        <TotalCredit>{{ total_payments_credit }}</TotalCredit>
+        {% for payment in payments %}
+        <Payment>
+            <PaymentRefNo>{{ payment.name }}</PaymentRefNo>
+            <ATCUD>{{ payment.atcud_code or '' }}</ATCUD>
+            <Period>{{ payment.posting_date.month }}</Period>
+            <TransactionID>{{ payment.name }}</TransactionID>
+            <TransactionDate>{{ payment.posting_date.strftime('%Y-%m-%d') }}</TransactionDate>
+            <PaymentType>{{ payment.payment_type or 'RC' }}</PaymentType>
+            <Description>{{ payment.remarks or 'Pagamento' }}</Description>
+            <SystemID>{{ payment.owner }}</SystemID>
+            <DocumentStatus>
+                <PaymentStatus>{{ 'N' if payment.docstatus == 1 else 'A' if payment.docstatus == 2 else 'T' }}</PaymentStatus>
+                <PaymentStatusDate>{{ payment.posting_date.strftime('%Y-%m-%d') }}</PaymentStatusDate>
+                <Reason>{{ payment.reason_for_cancellation or '' if payment.docstatus == 2 else '' }}</Reason>
+                <SourceID>{{ payment.owner }}</SourceID>
+                <SourcePayment>P</SourcePayment>
+            </DocumentStatus>
+            <PaymentMethod>
+                <PaymentMechanism>{{ payment.mode_of_payment or 'OU' }}</PaymentMechanism>
+                <PaymentAmount>{{ payment.paid_amount }}</PaymentAmount>
+                <PaymentDate>{{ payment.posting_date.strftime('%Y-%m-%d') }}</PaymentDate>
+            </PaymentMethod>
+            <SourceID>{{ payment.owner }}</SourceID>
+            <SystemEntryDate>{{ payment.creation.strftime('%Y-%m-%dT%H:%M:%S') }}</SystemEntryDate>
+            <CustomerID>{{ payment.party if payment.party_type == 'Customer' else '' }}</CustomerID>
+            <SupplierID>{{ payment.party if payment.party_type == 'Supplier' else '' }}</SupplierID>
+            {% for reference in payment.references %}
+            <Line>
+                <LineNumber>{{ loop.index }}</LineNumber>
+                <SourceDocumentID>{{ reference.reference_name }}</SourceDocumentID>
+                {% if reference.reference_doctype == 'Sales Invoice' %}
+                <InvoiceDate>{{ reference.due_date.strftime('%Y-%m-%d') if reference.due_date else payment.posting_date.strftime('%Y-%m-%d') }}</InvoiceDate>
+                {% endif %}
+                <DebitAmount>{{ reference.allocated_amount if reference.allocated_amount > 0 else '0.00' }}</DebitAmount>
+                <CreditAmount>{{ reference.allocated_amount if reference.allocated_amount < 0 else '0.00' }}</CreditAmount>
+                {% if payment.currency != company.default_currency %}
+                <Currency>
+                    <CurrencyCode>{{ payment.currency }}</CurrencyCode>
+                    <CurrencyAmount>{{ reference.allocated_amount }}</CurrencyAmount>
+                    <ExchangeRate>{{ payment.source_exchange_rate }}</ExchangeRate>
+                </Currency>
+                {% endif %}
+            </Line>
+            {% endfor %}
+            <DocumentTotals>
+                <TaxPayable>0.00</TaxPayable>
+                <NetTotal>{{ payment.paid_amount }}</NetTotal>
+                <GrossTotal>{{ payment.paid_amount }}</GrossTotal>
+            </DocumentTotals>
+        </Payment>
+        {% endfor %}
+    </Payments>
+
+    <!-- Movimentos de Conta -->
+    <MovementOfGoods>
+        <NumberOfMovementLines>{{ stock_entries|length }}</NumberOfMovementLines>
+        <TotalQuantityIssued>{{ total_quantity_issued }}</TotalQuantityIssued>
+        {% for movement in stock_entries %}
+        <StockMovement>
+            <DocumentNumber>{{ movement.name }}</DocumentNumber>
+            <ATCUD>{{ movement.atcud_code or '' }}</ATCUD>
+            <DocumentStatus>
+                <MovementStatus>{{ 'N' if movement.docstatus == 1 else 'A' if movement.docstatus == 2 else 'T' }}</MovementStatus>
+                <MovementStatusDate>{{ movement.posting_date.strftime('%Y-%m-%d') }}</MovementStatusDate>
+                <Reason>{{ movement.reason_for_cancellation or '' if movement.docstatus == 2 else '' }}</Reason>
+                <SourceID>{{ movement.owner }}</SourceID>
+                <SourceBilling>P</SourceBilling>
+            </DocumentStatus>
+            <Hash>{{ movement.hash_control or '' }}</Hash>
+            <HashControl>1</HashControl>
+            <Period>{{ movement.posting_date.month }}</Period>
+            <MovementDate>{{ movement.posting_date.strftime('%Y-%m-%d') }}</MovementDate>
+            <MovementType>{{ movement.purpose or 'GR' }}</MovementType>
+            <SystemEntryDate>{{ movement.creation.strftime('%Y-%m-%dT%H:%M:%S') }}</SystemEntryDate>
+            <TransactionID>{{ movement.name }}</TransactionID>
+            <CustomerID>{{ movement.customer if movement.customer else '' }}</CustomerID>
+            <SupplierID>{{ movement.supplier if movement.supplier else '' }}</SupplierID>
+            <SourceID>{{ movement.owner }}</SourceID>
+            <EACCode>{{ movement.eac_code or '' }}</EACCode>
+            <MovementComments>{{ movement.remarks or '' }}</MovementComments>
+            <ShipTo>
+                <DeliveryID>{{ movement.to_warehouse or '' }}</DeliveryID>
+                <DeliveryDate>{{ movement.posting_date.strftime('%Y-%m-%d') }}</DeliveryDate>
+                <WarehouseID>{{ movement.to_warehouse or '' }}</WarehouseID>
+            </ShipTo>
+            <ShipFrom>
+                <DeliveryID>{{ movement.from_warehouse or '' }}</DeliveryID>
+                <DeliveryDate>{{ movement.posting_date.strftime('%Y-%m-%d') }}</DeliveryDate>
+                <WarehouseID>{{ movement.from_warehouse or '' }}</WarehouseID>
+            </ShipFrom>
+            {% for item in movement.items %}
+            <Line>
+                <LineNumber>{{ loop.index }}</LineNumber>
+                <ProductCode>{{ item.item_code }}</ProductCode>
+                <ProductDescription>{{ item.item_name }}</ProductDescription>
+                <Quantity>{{ item.qty }}</Quantity>
+                <UnitOfMeasure>{{ item.uom or 'Un' }}</UnitOfMeasure>
+                <UnitPrice>{{ item.basic_rate or '0.00' }}</UnitPrice>
+                <Description>{{ item.description or item.item_name }}</Description>
+                {% if item.serial_no %}
+                <ProductSerialNumber>{{ item.serial_no }}</ProductSerialNumber>
+                {% endif %}
+                <OrderReferences>
+                    <OriginatingON>{{ item.purchase_order or item.sales_order or '' }}</OriginatingON>
+                    <OrderDate>{{ movement.posting_date.strftime('%Y-%m-%d') }}</OrderDate>
+                </OrderReferences>
+            </Line>
+            {% endfor %}
+            <DocumentTotals>
+                <TaxPayable>0.00</TaxPayable>
+                <NetTotal>{{ movement.total_outgoing_value or movement.total_incoming_value or '0.00' }}</NetTotal>
+                <GrossTotal>{{ movement.total_outgoing_value or movement.total_incoming_value or '0.00' }}</GrossTotal>
+            </DocumentTotals>
+        </StockMovement>
+        {% endfor %}
+    </MovementOfGoods>
+</SourceDocuments>

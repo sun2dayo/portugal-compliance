@@ -1,0 +1,106 @@
+[
+  {
+    "doctype": "Sales Taxes and Charges Template",
+    "name": "IVA 23% - Taxa Normal",
+    "title": "IVA 23% - Taxa Normal",
+    "is_default": 1,
+    "disabled": 0,
+    "taxes": [
+      {
+        "charge_type": "On Net Total",
+        "account_head": "IVA - Liquidado",
+        "rate": 23.0,
+        "description": "IVA 23% - Taxa Normal",
+        "included_in_print_rate": 0,
+        "included_in_paid_amount": 0,
+        "cost_center": "",
+        "tax_amount": 0,
+        "total": 0,
+        "tax_amount_after_discount_amount": 0,
+        "base_tax_amount": 0,
+        "base_total": 0,
+        "base_tax_amount_after_discount_amount": 0,
+        "item_wise_tax_detail": "{}",
+        "dont_recompute_tax": 0
+      }
+    ]
+  },
+  {
+    "doctype": "Sales Taxes and Charges Template",
+    "name": "IVA 13% - Taxa Intermédia",
+    "title": "IVA 13% - Taxa Intermédia",
+    "is_default": 0,
+    "disabled": 0,
+    "taxes": [
+      {
+        "charge_type": "On Net Total",
+        "account_head": "IVA - Liquidado",
+        "rate": 13.0,
+        "description": "IVA 13% - Taxa Intermédia",
+        "included_in_print_rate": 0,
+        "included_in_paid_amount": 0,
+        "cost_center": "",
+        "tax_amount": 0,
+        "total": 0,
+        "tax_amount_after_discount_amount": 0,
+        "base_tax_amount": 0,
+        "base_total": 0,
+        "base_tax_amount_after_discount_amount": 0,
+        "item_wise_tax_detail": "{}",
+        "dont_recompute_tax": 0
+      }
+    ]
+  },
+  {
+    "doctype": "Sales Taxes and Charges Template",
+    "name": "IVA 6% - Taxa Reduzida",
+    "title": "IVA 6% - Taxa Reduzida",
+    "is_default": 0,
+    "disabled": 0,
+    "taxes": [
+      {
+        "charge_type": "On Net Total",
+        "account_head": "IVA - Liquidado",
+        "rate": 6.0,
+        "description": "IVA 6% - Taxa Reduzida",
+        "included_in_print_rate": 0,
+        "included_in_paid_amount": 0,
+        "cost_center": "",
+        "tax_amount": 0,
+        "total": 0,
+        "tax_amount_after_discount_amount": 0,
+        "base_tax_amount": 0,
+        "base_total": 0,
+        "base_tax_amount_after_discount_amount": 0,
+        "item_wise_tax_detail": "{}",
+        "dont_recompute_tax": 0
+      }
+    ]
+  },
+  {
+    "doctype": "Sales Taxes and Charges Template",
+    "name": "IVA 0% - Isento",
+    "title": "IVA 0% - Isento",
+    "is_default": 0,
+    "disabled": 0,
+    "taxes": [
+      {
+        "charge_type": "On Net Total",
+        "account_head": "IVA - Liquidado",
+        "rate": 0.0,
+        "description": "IVA 0% - Isento",
+        "included_in_print_rate": 0,
+        "included_in_paid_amount": 0,
+        "cost_center": "",
+        "tax_amount": 0,
+        "total": 0,
+        "tax_amount_after_discount_amount": 0,
+        "base_tax_amount": 0,
+        "base_total": 0,
+        "base_tax_amount_after_discount_amount": 0,
+        "item_wise_tax_detail": "{}",
+        "dont_recompute_tax": 0
+      }
+    ]
+  }
+]

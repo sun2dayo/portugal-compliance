@@ -1,0 +1,332 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:series_name",
+ "creation": "2025-01-01 00:00:00.000000",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "basic_information_section",
+  "series_name",
+  "company",
+  "document_type",
+  "column_break_4",
+  "prefix",
+  "naming_series",
+  "is_active",
+  "section_break_8",
+  "current_sequence",
+  "total_documents_issued",
+  "last_document_date",
+  "column_break_12",
+  "last_document_name",
+  "next_sequence_preview",
+  "sample_atcud",
+  "communication_section",
+  "is_communicated",
+  "communication_date",
+  "validation_code",
+  "column_break_18",
+  "at_environment",
+  "communication_response",
+  "last_at_check",
+  "technical_section",
+  "document_code",
+  "year_code",
+  "company_code",
+  "column_break_25",
+  "full_prefix_breakdown",
+  "naming_pattern",
+  "atcud_pattern",
+  "notes_section",
+  "notes",
+  "technical_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic_information_section",
+   "fieldtype": "Section Break",
+   "label": "Informações Básicas"
+  },
+  {
+   "fieldname": "series_name",
+   "fieldtype": "Data",
+   "label": "Nome da Série",
+   "reqd": 1,
+   "unique": 1,
+   "description": "Nome único para identificar a série (ex: Fatura - FT2025NDX)"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Empresa",
+   "options": "Company",
+   "reqd": 1,
+   "description": "Empresa portuguesa com compliance ativo"
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Select",
+   "label": "Tipo de Documento",
+   "options": "Sales Invoice\nPOS Invoice\nSales Order\nQuotation\nDelivery Note\nPurchase Invoice\nPurchase Order\nPurchase Receipt\nStock Entry\nPayment Entry\nJournal Entry\nMaterial Request",
+   "reqd": 1,
+   "description": "Tipo de documento português suportado"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "prefix",
+   "fieldtype": "Data",
+   "label": "Prefixo",
+   "reqd": 1,
+   "uppercase": 1,
+   "description": "Prefixo da série (formato: XXYYYY + EMPRESA, ex: FT2025NDX)"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Data",
+   "label": "Naming Series",
+   "read_only": 1,
+   "description": "Série gerada automaticamente (formato: PREFIX.####)"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Ativa",
+   "default": 1,
+   "description": "Indica se a série está ativa para uso"
+  },
+  {
+   "fieldname": "section_break_8",
+   "fieldtype": "Section Break",
+   "label": "Controle de Sequência"
+  },
+  {
+   "fieldname": "current_sequence",
+   "fieldtype": "Int",
+   "label": "Sequência Atual",
+   "default": 1,
+   "description": "Próximo número a ser usado na série"
+  },
+  {
+   "fieldname": "total_documents_issued",
+   "fieldtype": "Int",
+   "label": "Total de Documentos Emitidos",
+   "read_only": 1,
+   "default": 0,
+   "description": "Total de documentos emitidos com esta série"
+  },
+  {
+   "fieldname": "last_document_date",
+   "fieldtype": "Date",
+   "label": "Data do Último Documento",
+   "read_only": 1,
+   "description": "Data do último documento emitido"
+  },
+  {
+   "fieldname": "column_break_12",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_document_name",
+   "fieldtype": "Data",
+   "label": "Nome do Último Documento",
+   "read_only": 1,
+   "description": "Nome do último documento emitido"
+  },
+  {
+   "fieldname": "next_sequence_preview",
+   "fieldtype": "Data",
+   "label": "Próximo Número (Preview)",
+   "read_only": 1,
+   "description": "Preview do próximo número da série"
+  },
+  {
+   "fieldname": "sample_atcud",
+   "fieldtype": "Data",
+   "label": "ATCUD de Exemplo",
+   "read_only": 1,
+   "description": "Exemplo de ATCUD que será gerado"
+  },
+  {
+   "fieldname": "communication_section",
+   "fieldtype": "Section Break",
+   "label": "Comunicação com AT"
+  },
+  {
+   "fieldname": "is_communicated",
+   "fieldtype": "Check",
+   "label": "Comunicada à AT",
+   "default": 0,
+   "description": "Indica se a série foi comunicada à Autoridade Tributária"
+  },
+  {
+   "fieldname": "communication_date",
+   "fieldtype": "Datetime",
+   "label": "Data de Comunicação",
+   "read_only": 1,
+   "description": "Data e hora da comunicação à AT"
+  },
+  {
+   "fieldname": "validation_code",
+   "fieldtype": "Data",
+   "label": "Código de Validação",
+   "read_only": 1,
+   "description": "Código de validação obtido da AT"
+  },
+  {
+   "fieldname": "column_break_18",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "at_environment",
+   "fieldtype": "Select",
+   "label": "Ambiente AT",
+   "options": "Produção\nTeste",
+   "default": "Produção",
+   "description": "Ambiente da AT (Produção ou Teste)"
+  },
+  {
+   "fieldname": "communication_response",
+   "fieldtype": "Long Text",
+   "label": "Resposta da Comunicação",
+   "read_only": 1,
+   "description": "Resposta completa da AT à comunicação"
+  },
+  {
+   "fieldname": "last_at_check",
+   "fieldtype": "Datetime",
+   "label": "Última Verificação AT",
+   "read_only": 1,
+   "description": "Data da última verificação do status na AT"
+  },
+  {
+   "fieldname": "technical_section",
+   "fieldtype": "Section Break",
+   "label": "Informações Técnicas",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "document_code",
+   "fieldtype": "Data",
+   "label": "Código do Documento",
+   "read_only": 1,
+   "description": "Código de 2 letras do tipo de documento (ex: FT, FS, FC)"
+  },
+  {
+   "fieldname": "year_code",
+   "fieldtype": "Data",
+   "label": "Código do Ano",
+   "read_only": 1,
+   "description": "Ano extraído do prefixo (ex: 2025)"
+  },
+  {
+   "fieldname": "company_code",
+   "fieldtype": "Data",
+   "label": "Código da Empresa",
+   "read_only": 1,
+   "description": "Código da empresa extraído do prefixo (ex: NDX)"
+  },
+  {
+   "fieldname": "column_break_25",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "full_prefix_breakdown",
+   "fieldtype": "Long Text",
+   "label": "Breakdown do Prefixo",
+   "read_only": 1,
+   "description": "Análise completa do prefixo da série"
+  },
+  {
+   "fieldname": "naming_pattern",
+   "fieldtype": "Data",
+   "label": "Padrão de Nomenclatura",
+   "read_only": 1,
+   "description": "Padrão usado para gerar nomes de documentos"
+  },
+  {
+   "fieldname": "atcud_pattern",
+   "fieldtype": "Data",
+   "label": "Padrão ATCUD",
+   "read_only": 1,
+   "description": "Padrão usado para gerar códigos ATCUD"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Observações",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Observações",
+   "description": "Observações sobre a configuração da série"
+  },
+  {
+   "fieldname": "technical_notes",
+   "fieldtype": "Long Text",
+   "label": "Notas Técnicas",
+   "description": "Notas técnicas para desenvolvedores"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-06-03 07:22:00.000000",
+ "modified_by": "Administrator",
+ "module": "Portugal Compliance",
+ "name": "Portugal Series Configuration",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "series_name",
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

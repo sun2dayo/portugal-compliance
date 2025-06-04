@@ -1,0 +1,773 @@
+/**
+ * Portugal Compliance Module - CSS Styles
+ * Custom styling for Portugal fiscal compliance features
+ */
+
+/* ========================================
+   GLOBAL STYLES
+   ======================================== */
+
+.portugal-compliance-module {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Portugal flag colors for accents */
+:root {
+    --portugal-green: #046a38;
+    --portugal-red: #da020e;
+    --portugal-yellow: #ffd700;
+    --compliance-blue: #0066cc;
+    --compliance-gray: #6c757d;
+    --success-green: #28a745;
+    --warning-orange: #fd7e14;
+    --danger-red: #dc3545;
+}
+
+/* ========================================
+   ATCUD STYLES
+   ======================================== */
+
+.atcud-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.atcud-code {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 14px;
+    color: var(--portugal-green);
+    background-color: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 4px;
+    padding: 8px 12px;
+    letter-spacing: 1px;
+}
+
+.atcud-code.valid {
+    border-color: var(--success-green);
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.atcud-code.invalid {
+    border-color: var(--danger-red);
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.atcud-code.pending {
+    border-color: var(--warning-orange);
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* ATCUD Input Validation */
+.valid-atcud {
+    border-color: var(--success-green) !important;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25) !important;
+}
+
+.invalid-atcud {
+    border-color: var(--danger-red) !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+/* ATCUD Validation Icons */
+.atcud-validation-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    font-size: 16px;
+}
+
+.atcud-validation-icon.success {
+    color: var(--success-green);
+}
+
+.atcud-validation-icon.error {
+    color: var(--danger-red);
+}
+
+/* ATCUD Copy Button */
+.copy-atcud-btn {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    background: transparent;
+    border: none;
+    color: var(--compliance-gray);
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.copy-atcud-btn:hover {
+    background-color: var(--compliance-blue);
+    color: white;
+}
+
+/* ========================================
+   SERIES CONFIGURATION STYLES
+   ======================================== */
+
+.series-configuration-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.series-prefix {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: var(--portugal-green);
+    background-color: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.series-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.series-status.communicated {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.series-status.not-communicated {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.series-status.failed {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Series Wizard */
+.series-wizard {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.document-types-selection {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    background-color: #f8f9fa;
+}
+
+.document-types-selection .checkbox {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+}
+
+.document-types-selection .checkbox:hover {
+    background-color: #e9ecef;
+}
+
+.document-types-selection .checkbox label {
+    margin-bottom: 0;
+    cursor: pointer;
+    width: 100%;
+}
+
+/* ========================================
+   VALIDATION TOOLTIPS
+   ======================================== */
+
+.validation-tooltip {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    z-index: 1000;
+    margin-top: 2px;
+    animation: fadeIn 0.3s ease;
+}
+
+.tooltip-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.tooltip-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.tooltip-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================================
+   SAF-T EXPORT STYLES
+   ======================================== */
+
+.saft-export-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.saft-export-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.saft-export-status.pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.saft-export-status.in-progress {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.saft-export-status.completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.saft-export-status.failed {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.saft-file-info {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.saft-file-size {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: var(--compliance-blue);
+}
+
+/* ========================================
+   DASHBOARD STYLES
+   ======================================== */
+
+.compliance-dashboard {
+    padding: 20px;
+}
+
+.compliance-metric-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.compliance-metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.compliance-metric-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.compliance-metric-value.success {
+    color: var(--success-green);
+}
+
+.compliance-metric-value.warning {
+    color: var(--warning-orange);
+}
+
+.compliance-metric-value.danger {
+    color: var(--danger-red);
+}
+
+.compliance-metric-label {
+    font-size: 14px;
+    color: var(--compliance-gray);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Progress Bars */
+.compliance-progress {
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.compliance-progress-bar {
+    height: 100%;
+    transition: width 0.6s ease;
+}
+
+.compliance-progress-bar.success {
+    background-color: var(--success-green);
+}
+
+.compliance-progress-bar.warning {
+    background-color: var(--warning-orange);
+}
+
+.compliance-progress-bar.danger {
+    background-color: var(--danger-red);
+}
+
+/* ========================================
+   FORM ENHANCEMENTS
+   ======================================== */
+
+.portugal-compliance-section {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.portugal-compliance-section h5 {
+    color: var(--portugal-green);
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.compliance-field-group {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.compliance-field-group .control-label {
+    min-width: 120px;
+    font-weight: 600;
+    color: var(--compliance-gray);
+}
+
+/* Required field indicators */
+.portugal-compliance-required::after {
+    content: " *";
+    color: var(--danger-red);
+    font-weight: bold;
+}
+
+/* ========================================
+   BUTTONS AND ACTIONS
+   ======================================== */
+
+.btn-portugal-primary {
+    background-color: var(--portugal-green);
+    border-color: var(--portugal-green);
+    color: white;
+}
+
+.btn-portugal-primary:hover {
+    background-color: #035a2f;
+    border-color: #035a2f;
+    color: white;
+}
+
+.btn-portugal-secondary {
+    background-color: var(--compliance-blue);
+    border-color: var(--compliance-blue);
+    color: white;
+}
+
+.btn-portugal-secondary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+    color: white;
+}
+
+.btn-communicate-series {
+    background: linear-gradient(45deg, var(--portugal-green), var(--compliance-blue));
+    border: none;
+    color: white;
+    font-weight: bold;
+}
+
+.btn-communicate-series:hover {
+    background: linear-gradient(45deg, #035a2f, #0056b3);
+    color: white;
+}
+
+/* Action button groups */
+.compliance-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.compliance-actions .btn {
+    flex: 1;
+    min-width: 120px;
+}
+
+/* ========================================
+   TABLES AND LISTS
+   ======================================== */
+
+.compliance-table {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.compliance-table th {
+    background-color: var(--portugal-green);
+    color: white;
+    font-weight: bold;
+    padding: 12px;
+    border: none;
+}
+
+.compliance-table td {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.compliance-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* List view enhancements */
+.list-row-container.portugal-compliance-row {
+    border-left: 4px solid var(--portugal-green);
+}
+
+.list-row-container.portugal-compliance-row.warning {
+    border-left-color: var(--warning-orange);
+}
+
+.list-row-container.portugal-compliance-row.error {
+    border-left-color: var(--danger-red);
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 768px) {
+    .compliance-field-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .compliance-field-group .control-label {
+        min-width: auto;
+        margin-bottom: 5px;
+    }
+
+    .compliance-actions {
+        flex-direction: column;
+    }
+
+    .compliance-actions .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .compliance-metric-card {
+        margin-bottom: 15px;
+    }
+
+    .compliance-metric-value {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .portugal-compliance-section {
+        padding: 15px;
+        margin: 15px 0;
+    }
+
+    .compliance-metric-value {
+        font-size: 1.8rem;
+    }
+
+    .atcud-code {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+}
+
+/* ========================================
+   ANIMATIONS AND TRANSITIONS
+   ======================================== */
+
+.compliance-fade-in {
+    animation: complianceFadeIn 0.5s ease;
+}
+
+@keyframes complianceFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.compliance-slide-in {
+    animation: complianceSlideIn 0.3s ease;
+}
+
+@keyframes complianceSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Loading spinner for compliance operations */
+.compliance-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--portugal-green);
+    border-radius: 50%;
+    animation: complianceSpin 1s linear infinite;
+}
+
+@keyframes complianceSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+    .atcud-code {
+        background: white !important;
+        border: 2px solid #000 !important;
+        color: #000 !important;
+        font-weight: bold;
+        page-break-inside: avoid;
+    }
+
+    .portugal-compliance-section {
+        background: white !important;
+        border: 1px solid #000 !important;
+        page-break-inside: avoid;
+    }
+
+    .compliance-actions,
+    .copy-atcud-btn,
+    .btn {
+        display: none !important;
+    }
+}
+
+/* ========================================
+   ACCESSIBILITY IMPROVEMENTS
+   ======================================== */
+
+.compliance-focus:focus {
+    outline: 3px solid var(--compliance-blue);
+    outline-offset: 2px;
+}
+
+.compliance-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .atcud-code {
+        border-width: 3px;
+    }
+
+    .compliance-metric-card {
+        border-width: 2px;
+    }
+
+    .series-status {
+        border-width: 2px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .compliance-fade-in,
+    .compliance-slide-in,
+    .compliance-loading {
+        animation: none;
+    }
+
+    .compliance-metric-card {
+        transition: none;
+    }
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.text-portugal-green {
+    color: var(--portugal-green) !important;
+}
+
+.text-portugal-red {
+    color: var(--portugal-red) !important;
+}
+
+.bg-portugal-green {
+    background-color: var(--portugal-green) !important;
+}
+
+.bg-portugal-red {
+    background-color: var(--portugal-red) !important;
+}
+
+.border-portugal-green {
+    border-color: var(--portugal-green) !important;
+}
+
+.border-portugal-red {
+    border-color: var(--portugal-red) !important;
+}
+
+.compliance-text-bold {
+    font-weight: bold !important;
+}
+
+.compliance-text-mono {
+    font-family: 'Courier New', monospace !important;
+}
+
+.compliance-margin-top {
+    margin-top: 20px !important;
+}
+
+.compliance-margin-bottom {
+    margin-bottom: 20px !important;
+}
+
+.compliance-padding {
+    padding: 20px !important;
+}
+
+.compliance-no-margin {
+    margin: 0 !important;
+}
+
+.compliance-no-padding {
+    padding: 0 !important;
+}
+
+/* ========================================
+   DARK MODE SUPPORT
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+    .portugal-compliance-section {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+
+    .compliance-metric-card {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+
+    .atcud-code {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        color: #68d391;
+    }
+
+    .series-prefix {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        color: #68d391;
+    }
+
+    .compliance-table th {
+        background-color: #1a202c;
+    }
+
+    .compliance-table td {
+        border-color: #4a5568;
+    }
+
+    .compliance-table tr:hover {
+        background-color: #2d3748;
+    }
+}

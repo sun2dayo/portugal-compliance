@@ -1,0 +1,336 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2025, NovaDX - Octávio Daio and contributors
+# For license information, please see license.txt
+
+from setuptools import setup, find_packages
+import re
+import ast
+import os
+
+
+# Substituir a função get_version() no setup.py:
+
+# Substituir toda a função get_version() por:
+
+def get_version():
+    """Versão fixa para evitar problemas de importação"""
+    return "0.0.1"
+
+
+
+# ✅ OBTER REQUIREMENTS
+def get_requirements():
+    """Obter requirements do arquivo requirements.txt"""
+    try:
+        with open("requirements.txt") as f:
+            requirements = f.read().strip().split("\n")
+            # Filtrar linhas vazias e comentários
+            return [req for req in requirements if req and not req.startswith("#")]
+    except FileNotFoundError:
+        # Requirements padrão se arquivo não existir
+        return [
+            "frappe>=15.0.0",
+            "erpnext>=15.0.0",
+            "cryptography>=3.4.8",
+            "requests>=2.25.1",
+            "lxml>=4.6.3",
+            "qrcode[pil]>=7.3.1",
+            "Pillow>=8.3.2",
+            "python-dateutil>=2.8.2"
+        ]
+
+# ✅ OBTER DESCRIÇÃO LONGA
+def get_long_description():
+    """Obter descrição longa do README"""
+    try:
+        with open("README.md", "r", encoding="utf-8") as fh:
+            return fh.read()
+    except FileNotFoundError:
+        return """
+# Portugal Compliance for ERPNext
+
+Compliance com regulamentações fiscais portuguesas incluindo:
+- ATCUD (Código Único de Documento)
+- SAF-T PT (Standard Audit File for Tax)
+- QR Codes em documentos
+- Assinaturas digitais
+- Comunicação com a AT (Autoridade Tributária)
+- Séries documentais portuguesas
+
+## Funcionalidades
+
+- ✅ Comunicação automática de séries com a AT
+- ✅ Geração automática de códigos ATCUD
+- ✅ Validação de NIFs portugueses
+- ✅ Exportação SAF-T PT
+- ✅ QR Codes em faturas
+- ✅ Compliance total com legislação portuguesa
+
+## Instalação
+
+## Suporte
+
+- Email: app@novadx.pt
+- Website: https://novadx.pt
+"""
+
+# ✅ VERIFICAR SE É DESENVOLVIMENTO
+def is_development():
+    """Verificar se está em ambiente de desenvolvimento"""
+    return os.path.exists('.git') or os.environ.get('FRAPPE_DEV_MODE')
+
+# ✅ SETUP PRINCIPAL
+setup(
+    name="portugal_compliance",
+    version=get_version(),
+    description="Compliance with Portuguese fiscal regulations for ERPNext",
+    long_description=get_long_description(),
+    long_description_content_type="text/markdown",
+
+    # ✅ INFORMAÇÕES DO AUTOR
+    author="NovaDX - Octávio Daio",
+    author_email="app@novadx.pt",
+    maintainer="NovaDX - Octávio Daio",
+    maintainer_email="app@novadx.pt",
+
+    # ✅ URLs DO PROJETO
+    url="https://github.com/novadx/portugal_compliance",
+    project_urls={
+        "Bug Reports": "https://github.com/novadx/portugal_compliance/issues",
+        "Source": "https://github.com/novadx/portugal_compliance",
+        "Documentation": "https://novadx.pt/docs/portugal-compliance",
+        "Homepage": "https://novadx.pt",
+        "Support": "mailto:app@novadx.pt"
+    },
+
+    # ✅ LICENÇA E CLASSIFICAÇÃO
+    license="GPL-3.0",
+    packages=find_packages(),
+    zip_safe=False,
+    include_package_data=True,
+    python_requires=">=3.8",
+
+    # ✅ DEPENDÊNCIAS
+    install_requires=get_requirements(),
+
+    # ✅ CLASSIFICADORES PARA PYPI
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Environment :: Web Environment",
+        "Framework :: Frappe",
+        "Intended Audience :: Developers",
+        "Intended Audience :: End Users/Desktop",
+        "Intended Audience :: Financial and Insurance Industry",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Natural Language :: Portuguese",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: JavaScript",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+        "Topic :: Office/Business",
+        "Topic :: Office/Business :: Financial",
+        "Topic :: Office/Business :: Financial :: Accounting",
+        "Topic :: Software Development :: Libraries :: Application Frameworks",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Typing :: Typed"
+    ],
+
+    # ✅ PALAVRAS-CHAVE
+    keywords=[
+        "frappe", "erpnext", "portugal", "compliance", "atcud", "saft",
+        "tax", "accounting", "fiscal", "at", "autoridade tributaria",
+        "qr-code", "digital-signature", "invoice", "receipt", "series",
+        "document", "validation", "nif", "iva", "portuguese", "legislation"
+    ],
+
+    # ✅ ENTRY POINTS
+    entry_points={
+        "frappe": [
+            "portugal_compliance = portugal_compliance.hooks"
+        ],
+        "console_scripts": [
+            "portugal-compliance = portugal_compliance.cli:main"
+        ]
+    },
+
+    # ✅ PACKAGE DATA
+    package_data={
+        "portugal_compliance": [
+            "templates/*",
+            "templates/**/*",
+            "public/*",
+            "public/**/*",
+            "public/css/*",
+            "public/js/*",
+            "public/images/*",
+            "fixtures/*",
+            "fixtures/**/*",
+            "config/*",
+            "config/**/*",
+            "config/certificates/*",
+            "config/certificates/**/*",
+            "translations/*",
+            "translations/**/*",
+            "www/*",
+            "www/**/*",
+            "patches/*",
+            "patches/**/*",
+            "install/*",
+            "install/**/*",
+            "utils/*",
+            "utils/**/*",
+            "hooks/*",
+            "hooks/**/*",
+            "overrides/*",
+            "overrides/**/*",
+            "dashboards/*",
+            "dashboards/**/*",
+            "tasks/*",
+            "tasks/**/*",
+            "*.json",
+            "**/*.json",
+            "*.py",
+            "**/*.py",
+            "*.js",
+            "**/*.js",
+            "*.css",
+            "**/*.css",
+            "*.html",
+            "**/*.html",
+            "*.md",
+            "**/*.md",
+            "*.txt",
+            "**/*.txt"
+        ]
+    },
+
+    # ✅ DATA FILES
+    data_files=[
+        ("", ["MANIFEST.in", "requirements.txt", "README.md", "license.txt"]),
+        ("config", ["config/desktop.py"] if os.path.exists("config/desktop.py") else []),
+        ("patches", ["patches.txt"] if os.path.exists("patches.txt") else [])
+    ],
+
+    # ✅ EXTRAS REQUIRE
+    extras_require={
+        "dev": [
+            "pytest>=6.2.4",
+            "pytest-cov>=2.12.1",
+            "pytest-mock>=3.6.1",
+            "black>=21.6b0",
+            "flake8>=3.9.2",
+            "isort>=5.9.3",
+            "mypy>=0.910",
+            "pre-commit>=2.13.0"
+        ],
+        "test": [
+            "pytest>=6.2.4",
+            "pytest-mock>=3.6.1",
+            "responses>=0.13.3",
+            "factory-boy>=3.2.0",
+            "faker>=8.10.0"
+        ],
+        "docs": [
+            "sphinx>=4.0.0",
+            "sphinx-rtd-theme>=0.5.2",
+            "myst-parser>=0.15.0"
+        ],
+        "security": [
+            "cryptography>=3.4.8",
+            "pycryptodome>=3.10.1"
+        ]
+    },
+
+    # ✅ METADADOS ESPECÍFICOS DO FRAPPE
+    # Estes são usados pelo Frappe para identificar o app
+    **{
+        "app_name": "portugal_compliance",
+        "app_title": "Portugal Compliance",
+        "app_publisher": "NovaDX - Octávio Daio",
+        "app_description": "Compliance with Portuguese fiscal regulations (ATCUD, SAFT-PT, QR-Code, Digital Signatures, Audit T).",
+        "app_icon": "octicon octicon-file-directory",
+        "app_color": "blue",
+        "app_email": "app@novadx.pt",
+        "app_license": "GPL-3.0",
+        "app_version": get_version(),
+        "required_apps": ["frappe", "erpnext"],
+        "app_include_css": "/assets/portugal_compliance/css/portugal_compliance.css",
+        "app_include_js": "/assets/portugal_compliance/js/portugal_compliance.js"
+    },
+
+    # ✅ CONFIGURAÇÕES DE BUILD
+    options={
+        "build": {
+            "build_base": "build"
+        },
+        "sdist": {
+            "formats": ["gztar", "zip"]
+        },
+        "bdist_wheel": {
+            "universal": False
+        },
+        "egg_info": {
+            "tag_build": ".dev" if is_development() else ""
+        }
+    },
+
+    # ✅ COMANDOS CUSTOMIZADOS
+    cmdclass={},
+
+    # ✅ CONFIGURAÇÕES ADICIONAIS
+    #zip_safe=False,
+    #include_package_data=True,
+    platforms=["any"],
+
+    # ✅ CONFIGURAÇÕES DE TESTE
+    test_suite="tests",
+    tests_require=[
+        "pytest>=6.2.4",
+        "pytest-cov>=2.12.1"
+    ],
+
+    # ✅ CONFIGURAÇÕES DE NAMESPACE
+    namespace_packages=[],
+
+    # ✅ SCRIPTS (se houver)
+    scripts=[],
+
+    # ✅ CONFIGURAÇÕES DE EXTENSÃO
+    ext_modules=[],
+
+    # ✅ CONFIGURAÇÕES DE HEADERS
+    headers=[],
+
+    # ✅ CONFIGURAÇÕES DE DISTUTILS
+    distclass=None,
+    script_name=None,
+    script_args=None,
+
+    # ✅ METADADOS ADICIONAIS
+    download_url=f"https://github.com/novadx/portugal_compliance/archive/v{get_version()}.tar.gz",
+    bugtrack_url="https://github.com/novadx/portugal_compliance/issues",
+
+    # ✅ CONFIGURAÇÕES DE COMPATIBILIDADE
+    obsoletes=[],
+    provides=["portugal_compliance"],
+    requires=[],
+
+    # ✅ CONFIGURAÇÕES FINAIS
+    eager_resources=[],
+    dependency_links=[],
+    setup_requires=[],
+
+    # ✅ CONFIGURAÇÕES DE DESENVOLVIMENTO
+    use_2to3=False,
+    convert_2to3_doctests=[],
+    use_2to3_fixers=[],
+    use_2to3_exclude_fixers=[]
+)
+

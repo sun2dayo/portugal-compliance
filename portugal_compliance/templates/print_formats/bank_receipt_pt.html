@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.name }} - Recibo Bancário</title>
+    <style>
+        /* Estilos para recibo bancário português */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .bank-receipt-container {
+            max-width: 180mm;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid #20c997;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #20c997;
+            padding-bottom: 15px;
+        }
+
+        .company-logo {
+            max-width: 120px;
+            max-height: 60px;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #20c997;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            font-size: 10px;
+            line-height: 1.3;
+            color: #666;
+        }
+
+        .document-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #20c997;
+            text-align: center;
+            margin: 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .receipt-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .receipt-number {
+            font-size: 16px;
+            font-weight: bold;
+            color: #20c997;
+        }
+
+        .receipt-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .bank-notice {
+            background-color: #d1ecf1;
+            border: 2px solid #20c997;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .notice-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #20c997;
+            margin-bottom: 10px;
+        }
+
+        .customer-section {
+            margin-bottom: 25px;
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #20c997;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #20c997;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .customer-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .bank-details {
+            background-color: #e8f5e8;
+            border: 2px solid #20c997;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .bank-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #20c997;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .bank-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .amount-section {
+            background-color: #d4edda;
+            border: 2px solid #20c997;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        .amount-received {
+            font-size: 24px;
+            font-weight: bold;
+            color: #20c997;
+            margin-bottom: 5px;
+        }
+
+        .amount-words {
+            font-style: italic;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .atcud-section {
+            background-color: #f0f8ff;
+            border: 2px solid #20c997;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .atcud-code {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            font-weight: bold;
+            color: #20c997;
+            letter-spacing: 1px;
+            margin: 10px 0;
+        }
+
+        .qr-code {
+            margin: 10px 0;
+        }
+
+        .transaction-details {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .references-section {
+            margin: 20px 0;
+        }
+
+        .references-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .references-table th {
+            background-color: #f5f5f5;
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+
+        .references-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        .signature-box {
+            width: 200px;
+            text-align: center;
+            border-top: 1px solid #333;
+            padding-top: 5px;
+            font-size: 11px;
+        }
+
+        .legal-notes {
+            font-size: 9px;
+            color: #666;
+            margin-top: 20px;
+            line-height: 1.3;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .footer-info {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+            color: #999;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .bank-transfer-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .bank-receipt-container {
+                border: 1px solid #333;
+                padding: 15px;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bank-receipt-container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            {% if doc.company_logo %}
+            <img src="{{ doc.company_logo }}" alt="Logo" class="company-logo">
+            {% endif %}
+            <div class="company-name">{{ frappe.db.get_value("Company", doc.company, "company_name") }}</div>
+            <div class="company-details">
+                {% set company_address = frappe.db.get_value("Address", {"is_your_company_address": 1, "link_name": doc.company}, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True) %}
+                {% if company_address %}
+                {{ company_address.address_line1 }}
+                {% if company_address.address_line2 %}, {{ company_address.address_line2 }}{% endif %}<br>
+                {{ company_address.pincode }} {{ company_address.city }}, {{ company_address.country }}
+                {% endif %}
+                <br>
+                <strong>NIF:</strong> {{ frappe.db.get_value("Company", doc.company, "tax_id") }}
+                {% set company_phone = frappe.db.get_value("Contact", {"is_primary_contact": 1, "link_name": doc.company}, "phone") %}
+                {% if company_phone %} | <strong>Tel:</strong> {{ company_phone }}{% endif %}
+            </div>
+        </div>
+
+        <!-- Título do Documento -->
+        <div class="document-title">Recibo Bancário</div>
+
+        <!-- Informações do Recibo -->
+        <div class="receipt-info">
+            <div>
+                <div class="receipt-number">N.º {{ doc.name }}</div>
+                <div class="receipt-date">Data: {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}</div>
+            </div>
+            <div class="text-right">
+                {% if doc.reference_no %}
+                <div><strong>Ref. Bancária:</strong> {{ doc.reference_no }}</div>
+                {% endif %}
+                {% if doc.reference_date %}
+                <div><strong>Data Operação:</strong> {{ frappe.utils.formatdate(doc.reference_date, "dd/MM/yyyy") }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Aviso de Recibo Bancário -->
+        <div class="bank-notice">
+            <div class="notice-title">🏦 RECIBO BANCÁRIO 🏦</div>
+            <div>Documento que comprova <strong>PAGAMENTO VIA TRANSFERÊNCIA BANCÁRIA</strong></div>
+            <div>Valor: <strong>{{ frappe.utils.fmt_money(doc.paid_amount, precision=2, currency=doc.paid_to_account_currency) }}</strong> - TRANSFERIDO</div>
+        </div>
+
+        <!-- ATCUD Section -->
+        {% if doc.atcud_code %}
+        <div class="atcud-section">
+            <div><strong>Código Único de Documento (ATCUD)</strong></div>
+            <div class="atcud-code">{{ doc.atcud_code }}</div>
+            {% if doc.qr_code_image %}
+            <div class="qr-code">
+                <img src="{{ doc.qr_code_image }}" alt="QR Code" style="width: 60px; height: 60px;">
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Informações do Cliente -->
+        <div class="customer-section">
+            <div class="section-title">Pagamento Recebido de</div>
+            <div class="customer-name">{{ doc.party_name }}</div>
+            {% if doc.party_type == "Customer" %}
+                {% set party_address = frappe.db.get_value("Address", {"link_name": doc.party, "link_doctype": "Customer"}, ["address_line1", "address_line2", "city", "pincode"], as_dict=True) %}
+                {% if party_address %}
+                <div>
+                    {{ party_address.address_line1 }}
+                    {% if party_address.address_line2 %}, {{ party_address.address_line2 }}{% endif %}<br>
+                    {{ party_address.pincode }} {{ party_address.city }}
+                </div>
+                {% endif %}
+                {% set party_tax_id = frappe.db.get_value("Customer", doc.party, "tax_id") %}
+                {% if party_tax_id %}
+                <div><strong>NIF:</strong> {{ party_tax_id }}</div>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Detalhes Bancários -->
+        <div class="bank-details">
+            <div class="bank-title">💳 DETALHES DA TRANSFERÊNCIA BANCÁRIA</div>
+            <div class="bank-info">
+                <div>
+                    <strong>Banco de Origem:</strong> {{ doc.paid_from_account_bank or "A especificar" }}<br>
+                    <strong>Conta de Origem:</strong> {{ doc.paid_from or "Conta do Cliente" }}<br>
+                    <strong>Titular:</strong> {{ doc.party_name }}
+                </div>
+                <div class="text-right">
+                    <strong>Banco de Destino:</strong> {{ doc.paid_to_account_bank or frappe.db.get_value("Bank Account", doc.paid_to, "bank") }}<br>
+                    <strong>Conta de Destino:</strong> {{ frappe.db.get_value("Bank Account", doc.paid_to, "bank_account_no") or doc.paid_to }}<br>
+                    <strong>Beneficiário:</strong> {{ frappe.db.get_value("Company", doc.company, "company_name") }}
+                </div>
+            </div>
+            <div class="text-center" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #20c997;">
+                <strong>Referência da Transferência:</strong> {{ doc.reference_no or "A especificar" }}<br>
+                <strong>Data da Operação:</strong> {{ frappe.utils.formatdate(doc.reference_date or doc.posting_date, "dd/MM/yyyy") }}
+            </div>
+        </div>
+
+        <!-- Valor Recebido -->
+        <div class="amount-section">
+            <div class="amount-received">{{ frappe.utils.fmt_money(doc.paid_amount, precision=2, currency=doc.paid_to_account_currency) }}</div>
+            <div class="amount-words">
+                ({{ frappe.utils.money_in_words(doc.paid_amount, doc.paid_to_account_currency) }})
+            </div>
+        </div>
+
+        <!-- Detalhes da Transação -->
+        <div class="transaction-details">
+            <div class="section-title">Detalhes da Transação Bancária</div>
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Tipo de Operação:</strong> Transferência Bancária<br>
+                    <strong>Moeda:</strong> {{ doc.paid_to_account_currency }}<br>
+                    <strong>Data de Processamento:</strong> {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}
+                </div>
+                <div class="text-right">
+                    <strong>Valor Transferido:</strong> {{ frappe.utils.fmt_money(doc.paid_amount, precision=2, currency=doc.paid_to_account_currency) }}<br>
+                    {% if doc.base_paid_amount != doc.paid_amount %}
+                    <strong>Valor em {{ doc.company_currency }}:</strong> {{ frappe.utils.fmt_money(doc.base_paid_amount, precision=2, currency=doc.company_currency) }}<br>
+                    <strong>Taxa de Câmbio:</strong> {{ doc.source_exchange_rate }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Informações da Conta Bancária -->
+        {% set bank_account = frappe.get_doc("Bank Account", doc.paid_to) if doc.paid_to else None %}
+        {% if bank_account %}
+        <div class="bank-transfer-info">
+            <div class="section-title">🏛️ Informações da Conta Beneficiária</div>
+            <div style="display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Banco:</strong> {{ bank_account.bank }}<br>
+                    <strong>Agência:</strong> {{ bank_account.branch_code or "N/A" }}<br>
+                    <strong>SWIFT/BIC:</strong> {{ bank_account.swift_number or "N/A" }}
+                </div>
+                <div class="text-right">
+                    <strong>Nº da Conta:</strong> {{ bank_account.bank_account_no }}<br>
+                    <strong>IBAN:</strong> {{ bank_account.iban or "N/A" }}<br>
+                    <strong>Titular:</strong> {{ bank_account.account_name }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Referências de Documentos -->
+        {% if doc.references %}
+        <div class="references-section">
+            <div class="section-title">Documentos Pagos com esta Transferência</div>
+            <table class="references-table">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Data</th>
+                        <th class="text-right">Valor Original</th>
+                        <th class="text-right">Valor Pago</th>
+                        <th class="text-right">Pendente</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ref in doc.references %}
+                    <tr>
+                        <td>{{ ref.reference_name }}</td>
+                        <td>{{ frappe.utils.formatdate(ref.due_date, "dd/MM/yyyy") if ref.due_date else "-" }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(ref.total_amount, precision=2, currency=doc.paid_to_account_currency) }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(ref.allocated_amount, precision=2, currency=doc.paid_to_account_currency) }}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(ref.outstanding_amount, precision=2, currency=doc.paid_to_account_currency) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Observações -->
+        {% if doc.remarks %}
+        <div class="transaction-details">
+            <div class="section-title">Observações</div>
+            {{ doc.remarks }}
+        </div>
+        {% endif %}
+
+        <!-- Confirmação Bancária -->
+        <div class="bank-notice">
+            <div class="notice-title">✅ CONFIRMAÇÃO DE TRANSFERÊNCIA</div>
+            <div>Este recibo confirma que a transferência bancária foi <strong>PROCESSADA COM SUCESSO</strong></div>
+            <div>O valor foi creditado na conta da empresa em {{ frappe.utils.formatdate(doc.posting_date, "dd/MM/yyyy") }}</div>
+        </div>
+
+        <!-- Assinaturas -->
+        <div class="signature-section">
+            <div class="signature-box">
+                O Beneficiário<br>
+                {{ frappe.db.get_value("Company", doc.company, "company_name") }}
+            </div>
+            <div class="signature-box">
+                O Ordenante<br>
+                {{ doc.party_name }}
+            </div>
+        </div>
+
+        <!-- Informações Legais -->
+        <div class="legal-notes">
+            <strong>Informações Legais:</strong><br>
+            • Documento processado por programa certificado n.º {{ frappe.db.get_value("Company", doc.company, "at_certificate_number") or "XXXX/AT" }}<br>
+            • Este recibo comprova o pagamento via transferência bancária<br>
+            • Operação bancária sujeita às condições do banco emissor<br>
+            • Em caso de dúvida sobre este documento, contacte-nos através dos dados indicados<br>
+            • Conservar este documento para efeitos de controlo financeiro<br>
+            • Processado por {{ frappe.session.user }} em {{ frappe.utils.formatdate(frappe.utils.now(), "dd/MM/yyyy HH:mm") }}
+        </div>
+
+        <!-- Rodapé -->
+        <div class="footer-info">
+            <strong>Obrigado pela sua preferência!</strong><br>
+            <small>
+                Este documento foi gerado automaticamente pelo sistema ERPNext com o módulo Portugal Compliance<br>
+                Para mais informações visite: {{ frappe.utils.get_url() }}
+            </small>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,282 @@
+{
+  "creation": "2025-05-31 23:50:00.000000",
+  "creator": "Administrator",
+  "docstatus": 0,
+  "doctype": "Onboarding",
+  "documentation_url": "https://docs.novadx.eu/portugal-compliance",
+  "idx": 0,
+  "introduction": "🇵🇹 **Bem-vindo ao Portugal Compliance!**\n\nEste assistente irá configurar automaticamente o seu ERPNext para compliance fiscal português, incluindo:\n\n✅ **ATCUD** - Códigos únicos de documento\n✅ **Naming Series** - Séries portuguesas nativas\n✅ **Comunicação AT** - Webservices Autoridade Tributária\n✅ **SAF-T PT** - Arquivo fiscal eletrónico\n✅ **QR Codes** - Conforme legislação\n\nO processo demora aproximadamente **5-10 minutos** e é totalmente automático.",
+  "is_complete": 0,
+  "modified": "2025-05-31 23:50:00.000000",
+  "modified_by": "Administrator",
+  "name": "Portugal Compliance Onboarding",
+  "owner": "Administrator",
+  "steps": [
+    {
+      "action": "Create Entry",
+      "action_label": "Configurar Empresa",
+      "creation_doctype": "Company",
+      "description": "Configure a sua empresa portuguesa com os dados necessários para compliance fiscal.",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 1,
+      "is_skipped": 0,
+      "path": "/app/company",
+      "reference_document": "",
+      "show_form_tour": 1,
+      "show_full_form": 1,
+      "step": 1,
+      "title": "🏢 Configurar Empresa Portuguesa",
+      "validate_action": 1,
+      "validation_logic": "{\n  \"doctype\": \"Company\",\n  \"filters\": {\n    \"country\": \"Portugal\",\n    \"portugal_compliance_enabled\": 1\n  },\n  \"minimum_count\": 1\n}",
+      "field_data": [
+        {
+          "fieldname": "company_name",
+          "label": "Nome da Empresa",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Nome oficial da empresa"
+        },
+        {
+          "fieldname": "abbr",
+          "label": "Abreviatura",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Abreviatura da empresa (2-4 caracteres)"
+        },
+        {
+          "fieldname": "country",
+          "label": "País",
+          "fieldtype": "Link",
+          "options": "Country",
+          "default": "Portugal",
+          "reqd": 1
+        },
+        {
+          "fieldname": "tax_id",
+          "label": "NIF",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Número de Identificação Fiscal da empresa"
+        },
+        {
+          "fieldname": "portugal_compliance_enabled",
+          "label": "Ativar Portugal Compliance",
+          "fieldtype": "Check",
+          "default": 1,
+          "description": "Ativar compliance fiscal português"
+        }
+      ]
+    },
+    {
+      "action": "Show Form Tour",
+      "action_label": "Configurar Credenciais AT",
+      "creation_doctype": "Company",
+      "description": "Configure as credenciais para comunicação com a Autoridade Tributária (AT). Estas credenciais são necessárias para comunicar séries e obter códigos ATCUD.",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 0,
+      "is_skipped": 0,
+      "path": "/app/company",
+      "reference_document": "",
+      "show_form_tour": 1,
+      "show_full_form": 0,
+      "step": 2,
+      "title": "🔐 Configurar Credenciais AT",
+      "validate_action": 0,
+      "validation_logic": "",
+      "form_tour": [
+        {
+          "fieldname": "at_username",
+          "title": "Username AT",
+          "description": "Introduza o NIF/sequencial para acesso aos webservices da AT (ex: 123456789/1)"
+        },
+        {
+          "fieldname": "at_password",
+          "title": "Password AT",
+          "description": "Password fornecida pela AT para acesso aos webservices"
+        },
+        {
+          "fieldname": "at_environment",
+          "title": "Ambiente AT",
+          "description": "Selecione 'test' para testes ou 'production' para produção"
+        }
+      ]
+    },
+    {
+      "action": "Server Action",
+      "action_label": "Configurar Naming Series",
+      "creation_doctype": "",
+      "description": "Configure automaticamente as naming series portuguesas para todos os tipos de documentos. Isto irá adicionar séries no formato XX-YYYY-EMPRESA.#### aos DocTypes do ERPNext.",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 1,
+      "is_skipped": 0,
+      "path": "",
+      "reference_document": "",
+      "show_form_tour": 0,
+      "show_full_form": 0,
+      "step": 3,
+      "title": "📋 Configurar Naming Series Nativas",
+      "validate_action": 1,
+      "validation_logic": "{\n  \"server_action\": \"portugal_compliance.utils.naming_series_customizer.setup_all_portuguese_naming_series\",\n  \"expected_result\": {\n    \"success\": true,\n    \"updated_doctypes\": {\n      \"$gte\": 5\n    }\n  }\n}",
+      "server_action": "portugal_compliance.utils.naming_series_customizer.setup_all_portuguese_naming_series"
+    },
+    {
+      "action": "Create Entry",
+      "action_label": "Testar Comunicação AT",
+      "creation_doctype": "",
+      "description": "Teste a comunicação com os webservices da Autoridade Tributária para verificar se as credenciais estão corretas.",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 0,
+      "is_skipped": 0,
+      "path": "",
+      "reference_document": "",
+      "show_form_tour": 0,
+      "show_full_form": 0,
+      "step": 4,
+      "title": "🔗 Testar Comunicação AT",
+      "validate_action": 0,
+      "validation_logic": "",
+      "server_action": "portugal_compliance.utils.at_webservice.test_connection",
+      "action_description": "Clique para testar a ligação aos webservices da AT"
+    },
+    {
+      "action": "Server Action",
+      "action_label": "Comunicar Séries à AT",
+      "creation_doctype": "",
+      "description": "Comunique as séries principais à Autoridade Tributária para obter os códigos de validação ATCUD. Este passo é obrigatório para emissão de documentos fiscais.",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 1,
+      "is_skipped": 0,
+      "path": "",
+      "reference_document": "",
+      "show_form_tour": 0,
+      "show_full_form": 0,
+      "step": 5,
+      "title": "📡 Comunicar Séries à AT",
+      "validate_action": 1,
+      "validation_logic": "{\n  \"server_action\": \"portugal_compliance.onboarding.portugal_setup.communicate_default_series\",\n  \"expected_result\": {\n    \"success\": true,\n    \"communicated_series\": {\n      \"$gte\": 3\n    }\n  }\n}",
+      "server_action": "portugal_compliance.onboarding.portugal_setup.communicate_default_series",
+      "series_to_communicate": ["FT", "NC", "RC"]
+    },
+    {
+      "action": "Create Entry",
+      "action_label": "Criar Fatura de Teste",
+      "creation_doctype": "Sales Invoice",
+      "description": "Crie uma fatura de teste para verificar se o ATCUD é gerado automaticamente e se todos os campos de compliance estão funcionando.",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 0,
+      "is_skipped": 0,
+      "path": "/app/sales-invoice/new",
+      "reference_document": "",
+      "show_form_tour": 1,
+      "show_full_form": 1,
+      "step": 6,
+      "title": "🧪 Criar Fatura de Teste",
+      "validate_action": 1,
+      "validation_logic": "{\n  \"doctype\": \"Sales Invoice\",\n  \"filters\": {\n    \"atcud_code\": [\"not like\", \"\"]\n  },\n  \"minimum_count\": 1\n}",
+      "field_data": [
+        {
+          "fieldname": "customer",
+          "label": "Cliente",
+          "fieldtype": "Link",
+          "options": "Customer",
+          "reqd": 1,
+          "description": "Selecione um cliente para a fatura de teste"
+        },
+        {
+          "fieldname": "naming_series",
+          "label": "Naming Series",
+          "fieldtype": "Select",
+          "reqd": 1,
+          "description": "Selecione uma naming series portuguesa (formato XX-YYYY-EMPRESA.####)"
+        },
+        {
+          "fieldname": "items",
+          "label": "Itens",
+          "fieldtype": "Table",
+          "reqd": 1,
+          "description": "Adicione pelo menos um item à fatura"
+        }
+      ],
+      "form_tour": [
+        {
+          "fieldname": "naming_series",
+          "title": "Naming Series Portuguesa",
+          "description": "Selecione uma naming series no formato português. O ATCUD será gerado automaticamente."
+        },
+        {
+          "fieldname": "atcud_code",
+          "title": "Código ATCUD",
+          "description": "Este campo será preenchido automaticamente após salvar o documento."
+        }
+      ]
+    },
+    {
+      "action": "Show Form Tour",
+      "action_label": "Configurações Avançadas",
+      "creation_doctype": "Portugal Compliance Settings",
+      "description": "Configure opções avançadas do Portugal Compliance, como geração automática de ATCUD, QR codes e endpoints da AT.",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 0,
+      "is_skipped": 0,
+      "path": "/app/portugal-compliance-settings",
+      "reference_document": "",
+      "show_form_tour": 1,
+      "show_full_form": 0,
+      "step": 7,
+      "title": "⚙️ Configurações Avançadas",
+      "validate_action": 0,
+      "validation_logic": "",
+      "form_tour": [
+        {
+          "fieldname": "auto_generate_atcud",
+          "title": "Gerar ATCUD Automaticamente",
+          "description": "Ative para gerar códigos ATCUD automaticamente em todos os documentos"
+        },
+        {
+          "fieldname": "auto_generate_qr",
+          "title": "Gerar QR Code Automaticamente",
+          "description": "Ative para gerar QR codes automaticamente em faturas e recibos"
+        },
+        {
+          "fieldname": "at_test_endpoint",
+          "title": "Endpoint AT Teste",
+          "description": "URL do webservice da AT para ambiente de teste"
+        },
+        {
+          "fieldname": "at_production_endpoint",
+          "title": "Endpoint AT Produção",
+          "description": "URL do webservice da AT para ambiente de produção"
+        }
+      ]
+    },
+    {
+      "action": "Show Message",
+      "action_label": "Concluído",
+      "creation_doctype": "",
+      "description": "",
+      "intro_video_url": "",
+      "is_complete": 0,
+      "is_mandatory": 0,
+      "is_skipped": 0,
+      "path": "",
+      "reference_document": "",
+      "show_form_tour": 0,
+      "show_full_form": 0,
+      "step": 8,
+      "title": "🎉 Portugal Compliance Configurado!",
+      "validate_action": 0,
+      "validation_logic": "",
+      "message": "**Parabéns!** O Portugal Compliance foi configurado com sucesso.\n\n## ✅ O que foi configurado:\n\n- **Empresa portuguesa** com compliance ativo\n- **Naming series nativas** no formato português\n- **Credenciais AT** para comunicação\n- **Séries comunicadas** à Autoridade Tributária\n- **ATCUD automático** em documentos fiscais\n- **Templates de impostos** portugueses\n- **Print formats** com compliance\n\n## 🚀 Próximos passos:\n\n1. **Criar clientes** com NIFs portugueses\n2. **Emitir documentos** fiscais (faturas, recibos)\n3. **Verificar ATCUD** gerado automaticamente\n4. **Configurar SAF-T PT** para arquivo fiscal\n5. **Treinar utilizadores** nas novas funcionalidades\n\n## 📚 Recursos úteis:\n\n- **Documentação**: [docs.novadx.eu/portugal-compliance](https://docs.novadx.eu/portugal-compliance)\n- **Suporte**: [support@novadx.eu](mailto:support@novadx.eu)\n- **Workspace**: Aceda ao workspace 'Portugal Compliance' para gestão diária\n\n**O seu ERPNext está agora 100% conforme a legislação portuguesa!** 🇵🇹"
+    }
+  ],
+  "subtitle": "Configure o ERPNext para compliance fiscal português em poucos minutos",
+  "success_message": "🎉 **Portugal Compliance configurado com sucesso!**\n\nO seu ERPNext está agora totalmente conforme a legislação portuguesa. Pode começar a emitir documentos fiscais com ATCUD automático.\n\n**Aceda ao workspace 'Portugal Compliance' para gestão diária.**",
+  "title": "Portugal Compliance Setup"
+}

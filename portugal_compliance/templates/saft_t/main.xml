@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AuditFile xmlns="urn:OECD:StandardAuditFile-Tax:PT_1.04_01">
+    {% include "portugal_compliance/templates/saf_t/header.xml" %}
+    {% include "portugal_compliance/templates/saf_t/master_files.xml" %}
+    {% include "portugal_compliance/templates/saf_t/source_documents.xml" %}
+</AuditFile>
