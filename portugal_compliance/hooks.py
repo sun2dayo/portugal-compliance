@@ -71,29 +71,30 @@ before_uninstall = "portugal_compliance.regional.portugal.before_uninstall"
 # ✅ MIGRATION HOOKS
 #after_migrate = "portugal_compliance.utils.migrate_to_native_approach.sync_all_naming_series_after_migrate"
 
-# ✅ DOCUMENT EVENTS - CORRIGIDO (estrutura simplificada)
+# ✅ DOCUMENT EVENTS - VERSÃO CORRIGIDA E SEGURA
+# Baseado nos testes bem-sucedidos com programação.teste_no_console
 doc_events = {
 	# ========== DOCUMENTOS FISCAIS CRÍTICOS ==========
 	"Sales Invoice": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 	"Purchase Invoice": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 	"POS Invoice": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 	"Payment Entry": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
@@ -101,43 +102,43 @@ doc_events = {
 
 	# ========== DOCUMENTOS DE TRANSPORTE ==========
 	"Delivery Note": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 	"Purchase Receipt": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 	"Stock Entry": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 
 	# ========== DOCUMENTOS CONTABILÍSTICOS ==========
 	"Journal Entry": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
+		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 
-	# ========== DOCUMENTOS COMERCIAIS ==========
+	# ========== DOCUMENTOS COMERCIAIS (SEM ATCUD OBRIGATÓRIO) ==========
 	"Quotation": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance"
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
 	},
 	"Sales Order": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance"
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
 	},
 	"Purchase Order": {
-		"before_save": "portugal_compliance.utils.document_hooks.set_portugal_series_and_atcud",
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance"
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
+	},
+	"Material Request": {
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
 	},
 
 	# ========== CONFIGURAÇÃO DA EMPRESA ==========
@@ -152,8 +153,15 @@ doc_events = {
 	},
 	"Supplier": {
 		"validate": "portugal_compliance.utils.document_hooks.validate_supplier_nif"
+	},
+
+	# ========== CONFIGURAÇÃO DE SÉRIES PORTUGUESAS ==========
+	"Portugal Series Configuration": {
+		"validate": "portugal_compliance.utils.document_hooks.validate_series_configuration",
+		"before_save": "portugal_compliance.utils.document_hooks.update_series_pattern"
 	}
 }
+
 
 # ✅ PERMISSIONS
 permission_query_conditions = {
@@ -242,7 +250,7 @@ regional_overrides = {
 		"get_series": "portugal_compliance.regional.portugal.get_series",
 		"validate_tax_id": "portugal_compliance.utils.validation.validate_portuguese_nif",
 		"get_tax_template": "portugal_compliance.regional.portugal.get_tax_template_for_transaction",
-		"format_currency": "portugal_compliance.utils.formatting.format_portuguese_currency",
+		#"format_currency": "portugal_compliance.utils.formatting.format_portuguese_currency",
 		"currency": "EUR",
 		"date_format": "dd/MM/yyyy",
 		"time_format": "HH:mm:ss",

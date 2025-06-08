@@ -69,16 +69,16 @@
             "fieldname": "document_type",
             "fieldtype": "Select",
             "label": "Document Type",
-            "options": "Sales Invoice\nPurchase Invoice\nPayment Entry\nDelivery Note\nPurchase Receipt\nJournal Entry\nStock Entry\nQuotation\nSales Order\nPurchase Order\nMaterial Request",
+            "options": "Sales Invoice\nPOS Invoice\nPurchase Invoice\nPayment Entry\nDelivery Note\nPurchase Receipt\nJournal Entry\nStock Entry\nQuotation\nSales Order\nPurchase Order\nMaterial Request",
             "reqd": 1,
-            "description": "Tipo de documento para esta série (todos os tipos exigidos pela legislação portuguesa)"
+            "description": "Tipo de documento para esta série (alinhado com nova abordagem)"
         },
         {
             "fieldname": "prefix",
             "fieldtype": "Data",
             "label": "Series Prefix",
             "reqd": 1,
-            "description": "Prefixo da série no formato XX-YYYY-EMPRESA",
+            "description": "Prefixo da série: XXYYYY+EMPRESA (ex: FT2025DSY) ou XX-YYYY-EMPRESA (ex: FT-2025-DSY)",
             "length": 50
         },
         {
@@ -118,21 +118,20 @@
         {
             "fieldname": "section_break_config",
             "fieldtype": "Section Break",
-            "label": "Configuração AT"
+            "label": "Sincronização com Nova Abordagem"
         },
         {
             "fieldname": "series_configuration",
             "fieldtype": "Link",
             "label": "Portugal Series Configuration",
             "options": "Portugal Series Configuration",
-            "description": "Configuração AT ligada a esta série operacional"
+            "description": "Configuração AT sincronizada com esta série operacional"
         },
         {
             "fieldname": "at_environment",
             "fieldtype": "Select",
             "label": "Ambiente AT",
             "options": "test\nproduction",
-            "read_only": 1,
             "description": "Ambiente AT (sincronizado da configuração)"
         },
         {
@@ -142,9 +141,9 @@
         {
             "fieldname": "validation_code",
             "fieldtype": "Data",
-            "label": "ATCUD Code",
+            "label": "Validation Code",
             "read_only": 1,
-            "description": "Código ATCUD base recebido da AT"
+            "description": "Código de validação recebido da AT"
         },
         {
             "fieldname": "is_communicated",
@@ -336,50 +335,6 @@
     "is_submittable": 0,
     "links": [
         {
-            "link_doctype": "Sales Invoice",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Purchase Invoice",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Payment Entry",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Delivery Note",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Purchase Receipt",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Journal Entry",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Stock Entry",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Quotation",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Sales Order",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Purchase Order",
-            "link_fieldname": "portugal_series"
-        },
-        {
-            "link_doctype": "Material Request",
-            "link_fieldname": "portugal_series"
-        },
-        {
             "link_doctype": "ATCUD Log",
             "link_fieldname": "series_used"
         },
@@ -388,7 +343,7 @@
             "link_fieldname": "series_configuration"
         }
     ],
-    "modified": "2025-05-29 14:00:00.000000",
+    "modified": "2025-06-04 20:00:00.000000",
     "modified_by": "Administrator",
     "module": "Portugal Compliance",
     "name": "Portugal Document Series",

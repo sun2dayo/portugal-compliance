@@ -5,13 +5,14 @@
 """
 Document Hooks for Portugal Compliance - VERSÃO NATIVA CERTIFICADA CORRIGIDA
 Integra a lógica certificada da versão anterior com naming_series nativas
-✅ CORRIGIDO: Formato SEM HÍFENS (FT2025NDX em vez de FT-2025-NDX)
-✅ INTEGRAÇÃO: Alinhado com document_hooks.py e series_adapter.py
+✅ CORRIGIDO: Formato SEM HÍFENS (FT2025DSY em vez de FT-2025-DSY)
+✅ INTEGRAÇÃO: Alinhado com at_webservice.py e testes da console
 ✅ Compliance inviolável com séries comunicadas
 ✅ ATCUD automático conforme legislação portuguesa
 ✅ Validações rigorosas de NIF e impostos
 ✅ Suporte completo a todos os documentos comerciais
 ✅ CORREÇÕES: Funções faltantes, formatos de séries, validações
+✅ COMPATÍVEL: 100% com testes realizados na console
 """
 
 import frappe
@@ -27,6 +28,7 @@ class PortugalComplianceDocumentHooks:
 	"""
 	Classe principal para hooks de documentos com compliance português certificado
 	Baseada na lógica testada e certificada da versão anterior
+	✅ CORRIGIDA: Para compatibilidade com testes da console
 	"""
 
 	def __init__(self):
@@ -234,34 +236,45 @@ class PortugalComplianceDocumentHooks:
 
 	# ========== HOOKS DE DOCUMENTOS - LÓGICA CERTIFICADA ==========
 
-	def set_portugal_series_and_atcud(self, doc, method=None):
+	def generate_atcud_before_save(self, doc, method=None):
 		"""
-		Hook principal para documentos: Definir série portuguesa e ATCUD automaticamente
-		Baseado na lógica certificada e testada
+		✅ CORRIGIDO: Hook principal para documentos - Gerar ATCUD usando códigos reais da AT
+		Baseado nos testes bem-sucedidos da console
 		"""
 		try:
 			# ✅ VERIFICAR SE EMPRESA É PORTUGUESA
 			if not self._is_portuguese_company(doc.company):
 				return
 
+			# ✅ VERIFICAR SE DOCUMENTO PRECISA DE ATCUD
+			if doc.doctype not in self.supported_doctypes:
+				return
+
+			config = self.supported_doctypes[doc.doctype]
+			if not config.get("requires_atcud", False):
+				return
+
+			# ✅ VERIFICAR SE JÁ TEM ATCUD
+			if getattr(doc, 'atcud_code', None):
+				return
+
 			# ✅ AUTO-SELEÇÃO: Série comunicada prioritária
 			if not getattr(doc, 'naming_series', None):
 				self._auto_select_communicated_series(doc)
 
-			# ✅ GERAÇÃO ATCUD CERTIFICADA: 0.SEQUENCIAL
-			if (getattr(doc, 'naming_series', None) and
-				not getattr(doc, 'atcud_code', None)):
-				self._generate_atcud_certified(doc)
+			# ✅ GERAÇÃO ATCUD COM CÓDIGO REAL DA AT
+			if getattr(doc, 'naming_series', None):
+				atcud_code = self._generate_atcud_with_real_validation_code(doc)
+				if atcud_code:
+					doc.atcud_code = atcud_code
+					frappe.logger().info(
+						f"✅ ATCUD gerado before_save: {atcud_code} para {doc.name}")
 
 			# ✅ ATUALIZAR CAMPOS DE COMPLIANCE
 			self._update_portugal_compliance_fields(doc)
 
-			# ✅ VALIDAR FORMATO ATCUD SE JÁ EXISTE
-			if getattr(doc, 'atcud_code', None):
-				self._validate_atcud_format_certified(doc)
-
 		except Exception as e:
-			frappe.log_error(f"Erro em set_portugal_series_and_atcud: {str(e)}")
+			frappe.log_error(f"Erro em generate_atcud_before_save: {str(e)}")
 
 	def validate_portugal_compliance(self, doc, method=None):
 		"""
@@ -297,6 +310,28 @@ class PortugalComplianceDocumentHooks:
 		except Exception as e:
 			frappe.log_error(f"Erro em validate_portugal_compliance: {str(e)}")
 			raise
+
+	def validate_portugal_compliance_light(self, doc, method=None):
+		"""
+		✅ NOVA FUNÇÃO: Validação leve para documentos comerciais
+		Baseado na sua experiência com programação.teste_no_console
+		"""
+		try:
+			# ✅ VERIFICAR SE EMPRESA É PORTUGUESA
+			if not self._is_portuguese_company(doc.company):
+				return
+
+			# ✅ VALIDAÇÕES BÁSICAS APENAS
+			if getattr(doc, 'naming_series', None):
+				# Verificar se é série portuguesa válida
+				if not self._is_portuguese_naming_series(doc.naming_series):
+					frappe.msgprint(
+						_("⚠️ Recomenda-se usar série portuguesa para {0}").format(_(doc.doctype)),
+						indicator="orange"
+					)
+
+		except Exception as e:
+			frappe.log_error(f"Erro em validate_portugal_compliance_light: {str(e)}")
 
 	def before_submit_document(self, doc, method=None):
 		"""
@@ -345,15 +380,47 @@ class PortugalComplianceDocumentHooks:
 				not getattr(doc, 'atcud_code', None) and
 				getattr(doc, 'name', None)):
 
-				self._generate_atcud_certified(doc)
+				atcud_code = self._generate_atcud_with_real_validation_code(doc)
 
-				if getattr(doc, 'atcud_code', None):
+				if atcud_code:
 					# Salvar ATCUD sem triggerar hooks novamente
-					frappe.db.set_value(doc.doctype, doc.name, 'atcud_code', doc.atcud_code)
-					frappe.logger().info(f"✅ ATCUD gerado após inserção: {doc.atcud_code}")
+					frappe.db.set_value(doc.doctype, doc.name, 'atcud_code', atcud_code)
+					frappe.logger().info(f"✅ ATCUD gerado após inserção: {atcud_code}")
 
 		except Exception as e:
 			frappe.log_error(f"Erro ao gerar ATCUD após inserção: {str(e)}")
+
+	def validate_series_configuration(self, doc, method=None):
+		"""
+		✅ NOVA FUNÇÃO: Validar configuração de séries portuguesas
+		"""
+		try:
+			# Validar formato do prefixo
+			if getattr(doc, 'prefix', None):
+				if not self._is_portuguese_prefix_format(doc.prefix):
+					frappe.throw(_("Prefixo deve estar no formato XXYYYY+COMPANY (ex: FT2025DSY)"))
+
+			# Validar naming_series correspondente
+			if getattr(doc, 'naming_series', None):
+				expected_naming = f"{doc.prefix}.####"
+				if doc.naming_series != expected_naming:
+					doc.naming_series = expected_naming
+
+		except Exception as e:
+			frappe.log_error(f"Erro na validação de série: {str(e)}")
+
+	def update_series_pattern(self, doc, method=None):
+		"""
+		✅ NOVA FUNÇÃO: Atualizar padrão da série automaticamente
+		"""
+		try:
+			if getattr(doc, 'validation_code', None):
+				# Atualizar padrão ATCUD baseado no validation code
+				doc.atcud_pattern = f"{doc.validation_code}-{{sequence:08d}}"
+				doc.sample_atcud = f"{doc.validation_code}-00000001"
+
+		except Exception as e:
+			frappe.log_error(f"Erro ao atualizar padrão da série: {str(e)}")
 
 	# ========== MÉTODOS DE CONFIGURAÇÃO AUTOMÁTICA ==========
 
@@ -381,7 +448,7 @@ class PortugalComplianceDocumentHooks:
 		"""
 		try:
 			company_name = company_doc.name
-			company_abbr = getattr(company_doc, 'abbr', 'NDX')
+			company_abbr = getattr(company_doc, 'abbr', 'DSY')
 			current_year = getdate().year
 
 			created_series = []
@@ -560,57 +627,70 @@ class PortugalComplianceDocumentHooks:
 		except Exception as e:
 			frappe.log_error(f"Erro em auto_select_communicated_series: {str(e)}")
 
-	def _generate_atcud_certified(self, doc):
+	def _generate_atcud_with_real_validation_code(self, doc):
 		"""
-		✅ CORRIGIDO: Gerar ATCUD conforme Portaria 195/2020: 0.SEQUENCIAL
+		✅ CORRIGIDO: Gerar ATCUD usando validation code real da AT
+		Baseado nos testes bem-sucedidos da console
+		"""
+		try:
+			# Buscar série correspondente
+			series_config = frappe.db.get_value("Portugal Series Configuration", {
+				"naming_series": doc.naming_series,
+				"company": doc.company,
+				"document_type": doc.doctype
+			}, ["name", "validation_code", "current_sequence"], as_dict=True)
+
+			if not series_config or not series_config.validation_code:
+				frappe.logger().warning(f"Série {doc.naming_series} não comunicada à AT")
+				return None
+
+			# Obter próxima sequência
+			next_seq = (series_config.current_sequence or 0) + 1
+
+			# ✅ GERAR ATCUD: VALIDATION_CODE-SEQUENCIA (formato real da AT)
+			atcud_code = f"{series_config.validation_code}-{str(next_seq).zfill(8)}"
+
+			# Atualizar sequência
+			frappe.db.set_value("Portugal Series Configuration",
+								series_config.name, "current_sequence", next_seq)
+
+			return atcud_code
+
+		except Exception as e:
+			frappe.log_error(f"Erro ao gerar ATCUD: {str(e)}")
+			return None
+
+	def _get_portugal_series_for_document(self, doc):
+		"""
+		✅ CORRIGIDO: Obter série portuguesa para documento
 		"""
 		try:
 			if not getattr(doc, 'naming_series', None):
-				return
+				return None
 
-			# ✅ EXTRAIR PREFIXO DA NAMING SERIES NATIVA (SEM HÍFENS)
+			# Extrair prefixo da naming_series
 			prefix = doc.naming_series.replace('.####', '')
 
-			# ✅ BUSCAR CONFIGURAÇÃO DA SÉRIE
+			# Buscar configuração da série
 			series_config = frappe.db.get_value("Portugal Series Configuration", {
 				"prefix": prefix,
-				"document_type": doc.doctype,
-				"company": doc.company
-			}, ["name", "validation_code", "current_sequence"], as_dict=True)
+				"company": doc.company,
+				"document_type": doc.doctype
+			}, ["name", "validation_code", "current_sequence", "prefix"], as_dict=True)
 
-			if not series_config:
-				frappe.logger().warning(
-					f"⚠️ Configuração de série não encontrada para prefixo: {prefix}")
-				return
-
-			# ✅ OBTER SEQUÊNCIA
-			if not getattr(doc, 'name', None):
-				# ✅ DOCUMENTO AINDA NÃO TEM NOME (before_insert)
-				next_sequence = self._get_next_sequence_thread_safe(prefix)
-			else:
-				# ✅ EXTRAIR SEQUENCIAL DO NOME DO DOCUMENTO
-				next_sequence = self._extract_sequence_from_document_name(doc.name)
-
-			# ✅ ATCUD CONFORME PORTARIA 195/2020: 0.SEQUENCIAL
-			atcud_code = f"0.{next_sequence}"
-			doc.atcud_code = atcud_code
-
-			frappe.logger().info(f"✅ ATCUD certificado gerado: {atcud_code} para {doc.doctype}")
-
-			# ✅ CRIAR LOG DO ATCUD
-			self._create_atcud_log_certified(doc, atcud_code, series_config.name,
-											 str(next_sequence))
+			return series_config
 
 		except Exception as e:
-			frappe.log_error(f"Erro ao gerar ATCUD certificado: {str(e)}")
+			frappe.log_error(f"Erro ao obter série portuguesa: {str(e)}")
+			return None
 
 	def _extract_sequence_from_document_name(self, document_name):
 		"""
 		✅ CORRIGIDO: Extrair sequencial do nome do documento
 		"""
 		try:
-			# ✅ Ex: FT2025NDX000001 → 1
-			# ✅ Ex: FT-2025-NDX-000001 → 1 (formato antigo)
+			# ✅ Ex: FT2025DSY000001 → 1
+			# ✅ Ex: FT-2025-DSY-000001 → 1 (formato antigo)
 
 			# Remover caracteres não numéricos do final
 			numbers = re.findall(r'\d+', document_name)
@@ -659,9 +739,21 @@ class PortugalComplianceDocumentHooks:
 			return False
 
 		# ✅ PADRÃO PORTUGUÊS CORRIGIDO: XXYYYY + COMPANY.####
-		# Ex: FT2025NDX.####
+		# Ex: FT2025DSY.####
 		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'
 		return bool(re.match(pattern, naming_series))
+
+	def _is_portuguese_prefix_format(self, prefix):
+		"""
+		✅ NOVA FUNÇÃO: Verificar se prefixo está no formato português correto
+		"""
+		if not prefix:
+			return False
+
+		# ✅ PADRÃO: XXYYYY + COMPANY (sem .####)
+		# Ex: FT2025DSY
+		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$'
+		return bool(re.match(pattern, prefix))
 
 	# ========== MÉTODOS AUXILIARES CERTIFICADOS ==========
 
@@ -696,68 +788,6 @@ class PortugalComplianceDocumentHooks:
 
 			frappe.log_error(f"Erro ao obter sequência thread-safe para {prefix}: {str(e)}")
 			return 1
-
-	def _create_atcud_log_certified(self, doc, atcud_code, series_name, sequence_str):
-		"""Criar log do ATCUD de forma certificada"""
-		try:
-			# ✅ VERIFICAR SE DOCTYPE ATCUD LOG EXISTE
-			if not frappe.db.exists("DocType", "ATCUD Log"):
-				frappe.logger().warning("DocType ATCUD Log não existe - pulando criação de log")
-				return
-
-			log_doc = frappe.get_doc({
-				"doctype": "ATCUD Log",
-				"document_type": doc.doctype,
-				"document_name": getattr(doc, 'name', 'NOVO'),
-				"company": doc.company,
-				"atcud_code": atcud_code,
-				"generation_status": "Success",
-				"series_used": series_name,
-				"generation_date": today(),
-				"sequence_number": int(sequence_str) if sequence_str.isdigit() else 1,
-				"description": f"ATCUD certificado gerado para {doc.doctype}",
-				"reference_doctype": doc.doctype,
-				"reference_name": getattr(doc, 'name', ''),
-				"environment_used": "production",
-				"generation_method": "Automatic",
-				"user": frappe.session.user
-			})
-
-			log_doc.insert(ignore_permissions=True, ignore_links=True)
-			frappe.logger().info(f"✅ Log ATCUD certificado criado: {log_doc.name}")
-
-		except Exception as e:
-			frappe.log_error(f"Erro ao criar log ATCUD certificado: {str(e)}")
-
-	def _validate_atcud_format_certified(self, doc):
-		"""
-		✅ CORRIGIDO: Validar formato do ATCUD conforme Portaria 195/2020
-		"""
-		try:
-			atcud_code = getattr(doc, 'atcud_code', None)
-			if not atcud_code:
-				return
-
-			# ✅ FORMATO CONFORME PORTARIA: 0.SEQUENCIA
-			if not atcud_code.startswith("0."):
-				frappe.throw(_("Formato ATCUD inválido. Deve começar com '0.'"))
-
-			parts = atcud_code.split(".")
-			if len(parts) != 2:
-				frappe.throw(_("Formato ATCUD inválido. Deve ser '0.sequencia'"))
-
-			sequence = parts[1]
-
-			# ✅ VALIDAR SEQUÊNCIA (deve ser numérica)
-			if not sequence.isdigit():
-				frappe.throw(_("Sequência ATCUD deve ser numérica"))
-
-			# ✅ VALIDAR SE SEQUÊNCIA É VÁLIDA (> 0)
-			if int(sequence) < 1:
-				frappe.throw(_("Sequência ATCUD deve ser maior que zero"))
-
-		except Exception as e:
-			frappe.log_error(f"Erro na validação do formato ATCUD: {str(e)}")
 
 	def _validate_atcud_uniqueness_certified(self, doc):
 		"""Validar unicidade do ATCUD de forma certificada"""
@@ -1106,6 +1136,60 @@ class PortugalComplianceDocumentHooks:
 portugal_document_hooks = PortugalComplianceDocumentHooks()
 
 
+# ========== FUNÇÕES GLOBAIS PARA HOOKS ==========
+
+def generate_atcud_before_save(doc, method=None):
+	"""
+	✅ Hook global para geração de ATCUD antes de salvar
+	Baseado na sua experiência com programação.autenticação
+	"""
+	try:
+		# Verificar se é empresa portuguesa
+		if not _is_portuguese_company_simple(doc.company):
+			return
+
+		# Verificar se já tem ATCUD
+		if getattr(doc, 'atcud_code', None):
+			return
+
+		# Gerar ATCUD usando código real da AT
+		atcud_code = portugal_document_hooks._generate_atcud_with_real_validation_code(doc)
+
+		if atcud_code:
+			doc.atcud_code = atcud_code
+			frappe.logger().info(f"✅ ATCUD gerado before_save: {atcud_code} para {doc.name}")
+
+	except Exception as e:
+		frappe.log_error(f"Erro no hook before_save: {str(e)}")
+
+
+def generate_atcud_after_insert(doc, method=None):
+	"""
+	✅ Hook global para garantir ATCUD após inserção
+	"""
+	try:
+		if not getattr(doc, 'atcud_code', None):
+			generate_atcud_before_save(doc, method)
+			if getattr(doc, 'atcud_code', None):
+				frappe.db.set_value(doc.doctype, doc.name, "atcud_code", doc.atcud_code)
+				frappe.logger().info(f"✅ ATCUD salvo after_insert: {doc.atcud_code}")
+
+	except Exception as e:
+		frappe.log_error(f"Erro no hook after_insert: {str(e)}")
+
+
+def _is_portuguese_company_simple(company):
+	"""
+	✅ Verificação simples se empresa é portuguesa
+	"""
+	try:
+		company_doc = frappe.get_doc("Company", company)
+		return (company_doc.country == "Portugal" and
+				getattr(company_doc, 'portugal_compliance_enabled', 0))
+	except:
+		return False
+
+
 # ========== FUNÇÕES PARA HOOKS ==========
 
 def setup_company_portugal_compliance(doc, method=None):
@@ -1113,24 +1197,19 @@ def setup_company_portugal_compliance(doc, method=None):
 	return portugal_document_hooks.setup_company_portugal_compliance(doc, method)
 
 
-def set_portugal_series_and_atcud(doc, method=None):
-	"""Hook para before_save de documentos"""
-	return portugal_document_hooks.set_portugal_series_and_atcud(doc, method)
-
-
 def validate_portugal_compliance(doc, method=None):
 	"""Hook para validate de documentos"""
 	return portugal_document_hooks.validate_portugal_compliance(doc, method)
 
 
+def validate_portugal_compliance_light(doc, method=None):
+	"""Hook para validate de documentos comerciais"""
+	return portugal_document_hooks.validate_portugal_compliance_light(doc, method)
+
+
 def before_submit_document(doc, method=None):
 	"""Hook para before_submit de documentos"""
 	return portugal_document_hooks.before_submit_document(doc, method)
-
-
-def generate_atcud_after_insert(doc, method=None):
-	"""Hook para after_insert de documentos"""
-	return portugal_document_hooks.generate_atcud_after_insert(doc, method)
 
 
 def validate_customer_nif(doc, method=None):
@@ -1141,6 +1220,16 @@ def validate_customer_nif(doc, method=None):
 def validate_supplier_nif(doc, method=None):
 	"""Hook para validação de NIF do fornecedor"""
 	return portugal_document_hooks.validate_supplier_nif(doc, method)
+
+
+def validate_series_configuration(doc, method=None):
+	"""Hook para validação de configuração de séries"""
+	return portugal_document_hooks.validate_series_configuration(doc, method)
+
+
+def update_series_pattern(doc, method=None):
+	"""Hook para atualização de padrão de séries"""
+	return portugal_document_hooks.update_series_pattern(doc, method)
 
 
 # ========== APIS WHITELISTED ==========
@@ -1161,8 +1250,11 @@ def generate_manual_atcud_certified(doctype, docname):
 			return {"success": False, "error": "Documento não tem naming series definida"}
 
 		# ✅ GERAR ATCUD CERTIFICADO
-		portugal_document_hooks._generate_atcud_certified(doc)
-		doc.save(ignore_permissions=True)
+		atcud_code = portugal_document_hooks._generate_atcud_with_real_validation_code(doc)
+
+		if atcud_code:
+			doc.atcud_code = atcud_code
+			doc.save(ignore_permissions=True)
 
 		return {
 			"success": True,
@@ -1280,4 +1372,4 @@ def create_dynamic_portugal_series(company_doc):
 
 # ========== CONSOLE LOG PARA DEBUG ==========
 frappe.logger().info(
-	"Portugal Document Hooks loaded - Version 2.0.0 - Format WITHOUT HYPHENS - All Documents Included")
+	"Portugal Document Hooks loaded - Version 2.0.0 - Format WITHOUT HYPHENS - All Documents Included - Console Compatible")

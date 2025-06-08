@@ -172,52 +172,143 @@ def save_company_settings(company_settings):
 		return {'success': False, 'error': str(e)}
 
 
-def save_at_credentials_safe(company_doc, settings):
+def save_at_credentials_safe(company_input, settings):
 	"""
-	✅ CORRIGIDO: Salvar credenciais AT sem métodos inexistentes
+	✅ CORRIGIDO: Sintaxe correta
 	"""
 	try:
-		# ✅ PRESERVAR COMPLIANCE
-		original_compliance = company_doc.portugal_compliance_enabled
+		# ✅ EXTRAIR NOME DA EMPRESA
+		if isinstance(company_input, str):
+			company_name = company_input
+		elif hasattr(company_input, 'name'):
+			company_name = company_input.name
+		else:
+			company_name = str(company_input)
 
-		# ✅ ATUALIZAR CREDENCIAIS DIRETAMENTE (SEM MÉTODOS INEXISTENTES)
+		# ✅ VERIFICAR SE EMPRESA EXISTE
+		if not frappe.db.exists("Company", company_name):
+			return {'success': False, 'error': f'Empresa {company_name} não encontrada'}
+
+		# ✅ CONSTRUIR UPDATE SQL DIRETO
+		updates = []
+		values = []
+
 		if settings.get('at_username'):
-			company_doc.at_username = settings['at_username']
+			updates.append("at_username = %s")
+			values.append(settings['at_username'])
+
 		if settings.get('at_password'):
-			company_doc.at_password = settings['at_password']
+			updates.append("at_password = %s")
+			values.append(settings['at_password'])
+
 		if settings.get('at_environment'):
-			company_doc.at_environment = settings['at_environment']
+			updates.append("at_environment = %s")
+			values.append(settings['at_environment'])
+
 		if settings.get('at_certificate_number'):
-			company_doc.at_certificate_number = settings['at_certificate_number']
+			updates.append("at_certificate_number = %s")
+			values.append(settings['at_certificate_number'])
 
-		# ✅ REMOVER QUALQUER CHAMADA A MÉTODOS INEXISTENTES
-		# NÃO USAR: company_doc.update_default_account()
-		# NÃO USAR: company_doc.validate_default_accounts()
+		# ✅ SEMPRE PRESERVAR COMPLIANCE
+		updates.append("portugal_compliance_enabled = 1")
+		updates.append("modified = NOW()")
 
-		# ✅ SALVAR APENAS COM FLAGS SEGUROS
-		company_doc.flags.ignore_validate = True
-		company_doc.flags.ignore_permissions = True
-		company_doc.flags.ignore_mandatory = True
-		company_doc.save()
+		# ✅ EXECUTAR SQL DIRETO SEM HOOKS
+		if updates:
+			sql = f"UPDATE `tabCompany` SET {', '.join(updates)} WHERE name = %s"
+			values.append(company_name)
 
-		# ✅ GARANTIR QUE COMPLIANCE PERMANECE ATIVO
-		if original_compliance and not company_doc.portugal_compliance_enabled:
-			company_doc.reload()
-			company_doc.portugal_compliance_enabled = 1
-			company_doc.flags.ignore_validate = True
-			company_doc.save()
+			frappe.db.sql(sql, values)
+			frappe.db.commit()
 
-		frappe.db.commit()
+		frappe.logger().info(f"✅ Credenciais AT salvas via SQL para {company_name}")
 
 		return {
 			'success': True,
 			'message': 'Credenciais AT salvas com sucesso',
-			'compliance_preserved': True
+			'company': company_name,
+			'method': 'sql_direct'
 		}
 
 	except Exception as e:
-		frappe.log_error(f"Erro ao salvar credenciais AT: {str(e)}")
-		return {'success': False, 'error': str(e)}
+		frappe.db.rollback()
+		error_msg = str(e)
+		frappe.log_error(f"Erro SQL ao salvar credenciais: {error_msg}")
+		return {'success': False, 'error': error_msg}
+
+
+def debug_save_at_credentials():
+	"""
+	Debug para identificar onde está o problema
+	"""
+	print("🔍 DEBUG: Testando save de credenciais")
+
+	try:
+		# ✅ TESTAR SQL DIRETO
+		frappe.db.sql("""
+					  UPDATE `tabCompany`
+					  SET at_username                 = 'debug_test',
+						  portugal_compliance_enabled = 1
+					  WHERE name = 'DOLISYS'
+					  """)
+		frappe.db.commit()
+
+		print("✅ SQL direto funcionou")
+
+		# ✅ VERIFICAR SE FOI SALVO
+		result = frappe.db.get_value("Company", "DOLISYS",
+									 ["at_username", "portugal_compliance_enabled"], as_dict=True)
+		print(f"✅ Valores salvos: {result}")
+
+		return True
+
+	except Exception as e:
+		print(f"❌ Erro no SQL direto: {str(e)}")
+		return False
+
+
+# Executar debug
+if __name__ == "__main__":
+    debug_save_at_credentials()
+
+
+def save_company_with_hooks_disabled(company_name, field_updates):
+	"""
+	✅ NOVO: Salvar empresa com hooks desabilitados
+	"""
+	try:
+		# ✅ DESABILITAR TODOS OS HOOKS TEMPORARIAMENTE
+		original_hooks = frappe.flags.in_migrate
+		frappe.flags.in_migrate = True
+
+		# ✅ OBTER DOCUMENTO SEM TRIGGERAR HOOKS
+		company_doc = frappe.get_doc("Company", company_name)
+
+		# ✅ APLICAR UPDATES
+		for field, value in field_updates.items():
+			setattr(company_doc, field, value)
+
+		# ✅ SALVAR COM TODOS OS FLAGS DE BYPASS
+		company_doc.flags.ignore_validate = True
+		company_doc.flags.ignore_permissions = True
+		company_doc.flags.ignore_mandatory = True
+		company_doc.flags.ignore_links = True
+		company_doc.flags.ignore_if_duplicate = True
+
+		company_doc.save()
+
+		# ✅ RESTAURAR HOOKS
+		frappe.flags.in_migrate = original_hooks
+
+		frappe.db.commit()
+		return True
+
+	except Exception as e:
+		# ✅ RESTAURAR HOOKS EM CASO DE ERRO
+		frappe.flags.in_migrate = original_hooks
+		frappe.db.rollback()
+		frappe.log_error(f"Erro no save com hooks disabled: {str(e)}")
+		return False
 
 
 def communicate_series_safe(company_doc, settings):

@@ -1,20 +1,25 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2025, NovaDX - Octávio Daio and contributors
+# For license information, please see license.txt
+
 import frappe
 from frappe import _
-from frappe.utils import today
+from frappe.utils import today, cint
 from erpnext.accounts.utils import get_fiscal_year
-
+import re
 
 
 def execute():
 	"""
-	Patch para configurar séries portuguesas durante instalação/atualização do módulo
+	✅ CORRIGIDO: Patch para configurar séries portuguesas usando NOVA ABORDAGEM
+	Adaptado para naming_series nativa sem campos portugal_series
 	"""
-	frappe.logger().info("Iniciando patch: setup_portugal_series")
+	frappe.logger().info("🇵🇹 Iniciando patch: setup_portugal_series - NOVA ABORDAGEM")
 
 	try:
-		# Verificar se patch já foi executado
-		if frappe.db.exists("Portugal Series Configuration", {"series_prefix": "FT-2025-DEFAULT"}):
-			frappe.logger().info("Patch setup_portugal_series já foi executado anteriormente")
+		# ✅ VERIFICAR SE PATCH JÁ FOI EXECUTADO (NOVA ABORDAGEM)
+		if frappe.db.exists("Portugal Series Configuration", {"prefix": "FT2025DEFAULT"}):
+			frappe.logger().info("Patch setup_portugal_series (nova abordagem) já foi executado")
 			return
 
 		# Obter todas as empresas portuguesas
@@ -27,27 +32,34 @@ def execute():
 		else:
 			# Criar séries para cada empresa portuguesa
 			for company in portuguese_companies:
-				create_series_for_company(company)
+				create_series_for_company_new_approach(company)
 
-		# Configurar campos customizados se necessário
-		setup_custom_fields()
+		# ✅ CONFIGURAR APENAS CAMPOS ESSENCIAIS (SEM portugal_series)
+		setup_essential_custom_fields()
 
-		# Configurar property setters
-		setup_property_setters()
+		# ✅ CONFIGURAR PROPERTY SETTERS ADAPTADOS
+		setup_property_setters_new_approach()
+
+		# ✅ CONFIGURAR NAMING SERIES USANDO NOVA ABORDAGEM
+		setup_naming_series_new_approach()
+
+		# ✅ TAREFAS PÓS-CONFIGURAÇÃO ADAPTADAS
+		post_setup_tasks_new_approach()
 
 		frappe.db.commit()
-		frappe.logger().info("Patch setup_portugal_series executado com sucesso")
+		frappe.logger().info(
+			"✅ Patch setup_portugal_series (nova abordagem) executado com sucesso")
 
 	except Exception as e:
 		frappe.db.rollback()
-		frappe.log_error(f"Erro no patch setup_portugal_series: {str(e)}",
+		frappe.log_error(f"Erro no patch setup_portugal_series (nova abordagem): {str(e)}",
 						 "Portugal Compliance Patch")
 		raise
 
 
 def get_portuguese_companies():
 	"""
-	Obtém todas as empresas configuradas para Portugal
+	Obtém todas as empresas configuradas para Portugal - MANTIDA
 	"""
 	try:
 		companies = frappe.get_all("Company",
@@ -61,7 +73,7 @@ def get_portuguese_companies():
 
 def create_default_company_series():
 	"""
-	Cria séries para empresa padrão se não existirem empresas portuguesas
+	✅ CORRIGIDO: Cria séries para empresa padrão usando nova abordagem
 	"""
 	try:
 		# Verificar se existe empresa padrão
@@ -74,8 +86,8 @@ def create_default_company_series():
 		# Ativar compliance português na empresa padrão
 		enable_portugal_compliance(default_company)
 
-		# Criar séries para empresa padrão
-		create_series_for_company({"name": default_company, "abbr": "DEFAULT"})
+		# ✅ CORRIGIDO: Usar nova abordagem
+		create_series_for_company_new_approach({"name": default_company, "abbr": "DEFAULT"})
 
 	except Exception as e:
 		frappe.log_error(f"Erro ao criar séries padrão: {str(e)}")
@@ -83,7 +95,7 @@ def create_default_company_series():
 
 def create_default_portuguese_company():
 	"""
-	Cria empresa padrão portuguesa se não existir
+	Cria empresa padrão portuguesa se não existir - MANTIDA
 	"""
 	try:
 		company_doc = frappe.get_doc({
@@ -107,7 +119,7 @@ def create_default_portuguese_company():
 
 def enable_portugal_compliance(company_name):
 	"""
-	Ativa compliance português para uma empresa
+	Ativa compliance português para uma empresa - MANTIDA
 	"""
 	try:
 		company_doc = frappe.get_doc("Company", company_name)
@@ -122,78 +134,65 @@ def enable_portugal_compliance(company_name):
 		frappe.log_error(f"Erro ao ativar compliance português: {str(e)}")
 
 
-def create_series_for_company(company):
+def create_series_for_company_new_approach(company):
 	"""
-	Cria séries documentais para uma empresa
+	✅ CORRIGIDO: Cria séries usando NOVA ABORDAGEM (sem hífens)
 	"""
 	try:
 		company_name = company["name"]
 		company_abbr = company.get("abbr", "COMP")
 
-		# Obter ano fiscal atual
-		try:
-			fiscal_year = get_fiscal_year(today(), company=company_name)[0]
-			year = fiscal_year.split("-")[0]
-		except:
-			year = str(today().year)
+		# Obter ano atual
+		current_year = today().year
 
-		# Definir séries padrão por tipo de documento
-		default_series = {
-			"Sales Invoice": [
-				{"prefix": "FT", "description": "Faturas de Venda"},
-				{"prefix": "FS", "description": "Faturas Simplificadas"},
-				{"prefix": "FR", "description": "Faturas-Recibo"},
-				{"prefix": "NC-FT", "description": "Notas de Crédito"},
-				{"prefix": "ND-FT", "description": "Notas de Débito"}
-			],
-			"Purchase Invoice": [
-				{"prefix": "FC", "description": "Faturas de Compra"}
-			],
-			"Payment Entry": [
-				{"prefix": "RC", "description": "Recibos"},
-				{"prefix": "RB", "description": "Recibos Bancários"}
-			],
-			"Delivery Note": [
-				{"prefix": "GT", "description": "Guias de Transporte"}
-			],
-			"Purchase Receipt": [
-				{"prefix": "GR", "description": "Guias de Receção"}
-			],
-			"Journal Entry": [
-				{"prefix": "JE", "description": "Lançamentos Contabilísticos"}
-			]
-		}
+		# ✅ DEFINIR SÉRIES USANDO MAPEAMENTO DA NOVA ABORDAGEM
+		from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
 
 		created_series = []
 
-		for doctype, series_list in default_series.items():
-			for series_info in series_list:
-				series_prefix = f"{series_info['prefix']}-{year}-{company_abbr}"
+		for doctype, doc_info in PORTUGAL_DOCUMENT_TYPES.items():
+			try:
+				# ✅ FORMATO NOVO: XXYYYY + EMPRESA (sem hífens)
+				prefix = f"{doc_info['code']}{current_year}{company_abbr}"
+				naming_series = f"{prefix}.####"
 
 				# Verificar se série já existe
 				if not frappe.db.exists("Portugal Series Configuration", {
-					"series_prefix": series_prefix,
+					"prefix": prefix,
 					"company": company_name
 				}):
-					# Criar nova série
+					# ✅ CRIAR NOVA SÉRIE COM NOVA ESTRUTURA
 					series_doc = frappe.get_doc({
 						"doctype": "Portugal Series Configuration",
-						"series_prefix": series_prefix,
-						"document_type": doctype,
+						"series_name": f"{doc_info['name']} - {prefix}",
 						"company": company_name,
+						"document_type": doctype,
+						"prefix": prefix,
+						"naming_series": naming_series,
 						"current_sequence": 1,
+						"is_active": 1,
 						"is_communicated": 0,
-						"description": series_info["description"]
+						"at_environment": "test",
+						"document_code": doc_info['code'],
+						"year_code": str(current_year),
+						"company_code": company_abbr,
+						"naming_pattern": naming_series,
+						"atcud_pattern": "0.{sequence}",
+						"notes": f"Série criada pelo patch para {doc_info['description']}"
 					})
 
 					series_doc.insert(ignore_permissions=True)
-					created_series.append(series_prefix)
+					created_series.append(prefix)
 
-					frappe.logger().info(f"Série criada: {series_prefix} para {company_name}")
+					frappe.logger().info(
+						f"✅ Série criada (nova abordagem): {prefix} para {company_name}")
+
+			except Exception as e:
+				frappe.log_error(f"Erro ao criar série {doctype}: {str(e)}")
 
 		if created_series:
 			frappe.logger().info(
-				f"Criadas {len(created_series)} séries para empresa {company_name}")
+				f"✅ Criadas {len(created_series)} séries (nova abordagem) para empresa {company_name}")
 
 		return created_series
 
@@ -202,102 +201,79 @@ def create_series_for_company(company):
 		return []
 
 
-def setup_custom_fields():
+def setup_essential_custom_fields():
 	"""
-	Configura campos customizados necessários
+	✅ CORRIGIDO: Configura APENAS campos essenciais (SEM portugal_series)
 	"""
 	try:
-		# Verificar se campos já existem
+		# ✅ VERIFICAR SE CAMPOS ESSENCIAIS JÁ EXISTEM
 		if frappe.db.exists("Custom Field", "Sales Invoice-atcud_code"):
-			frappe.logger().info("Campos customizados já existem")
+			frappe.logger().info("Campos essenciais já existem")
 			return
 
-		# Lista de campos customizados a criar
-		custom_fields = [
-			{
-				"dt": "Sales Invoice",
-				"fieldname": "atcud_code",
-				"label": "ATCUD Code",
-				"fieldtype": "Data",
-				"insert_after": "naming_series",
-				"read_only": 1,
-				"print_hide": 0,
-				"bold": 1,
-				"description": "Código Único de Documento - obrigatório em Portugal"
-			},
-			{
-				"dt": "Sales Invoice",
-				"fieldname": "portugal_series",
-				"label": "Portugal Series",
-				"fieldtype": "Link",
-				"options": "Portugal Series Configuration",
-				"insert_after": "atcud_code",
-				"reqd": 1,
-				"description": "Série portuguesa configurada para este documento"
-			},
+		# ✅ APENAS CAMPOS ESSENCIAIS (REMOVIDO portugal_series)
+		essential_fields = [
 			{
 				"dt": "Company",
 				"fieldname": "portugal_compliance_enabled",
 				"label": "Portugal Compliance Enabled",
 				"fieldtype": "Check",
 				"insert_after": "country",
+				"depends_on": "eval:doc.country=='Portugal'",
 				"default": "0",
 				"description": "Ativar conformidade fiscal portuguesa para esta empresa"
 			}
 		]
 
-		# Criar campos para todos os doctypes suportados
-		supported_doctypes = ["Sales Invoice", "Purchase Invoice", "Payment Entry",
-							  "Delivery Note", "Purchase Receipt", "Journal Entry"]
+		# ✅ CAMPOS ATCUD PARA DOCUMENTOS SUPORTADOS
+		supported_doctypes = [
+			"Sales Invoice", "POS Invoice", "Purchase Invoice", "Payment Entry",
+			"Delivery Note", "Purchase Receipt", "Journal Entry", "Stock Entry",
+			"Quotation", "Sales Order", "Purchase Order", "Material Request"
+		]
 
 		for doctype in supported_doctypes:
-			if doctype == "Sales Invoice":
-				continue  # Já definido acima
+			essential_fields.append({
+				"dt": doctype,
+				"fieldname": "atcud_code",
+				"label": "ATCUD Code",
+				"fieldtype": "Data",
+				"insert_after": "naming_series",
+				"read_only": 1,
+				"bold": 1,
+				"in_list_view": 1 if doctype in ["Sales Invoice", "POS Invoice",
+												 "Purchase Invoice"] else 0,
+				"description": "Código Único de Documento - gerado automaticamente pela série portuguesa"
+			})
 
-			custom_fields.extend([
-				{
-					"dt": doctype,
-					"fieldname": "atcud_code",
-					"label": "ATCUD Code",
-					"fieldtype": "Data",
-					"insert_after": "naming_series",
-					"read_only": 1,
-					"print_hide": 0,
-					"description": "Código Único de Documento - obrigatório em Portugal"
-				},
-				{
-					"dt": doctype,
-					"fieldname": "portugal_series",
-					"label": "Portugal Series",
-					"fieldtype": "Link",
-					"options": "Portugal Series Configuration",
-					"insert_after": "atcud_code",
-					"reqd": 1,
-					"description": "Série portuguesa configurada para este documento"
-				}
-			])
-
-		# Criar campos customizados
-		for field_config in custom_fields:
+		# ✅ CRIAR APENAS CAMPOS ESSENCIAIS
+		for field_config in essential_fields:
 			field_name = f"{field_config['dt']}-{field_config['fieldname']}"
 
 			if not frappe.db.exists("Custom Field", field_name):
-				custom_field = frappe.get_doc({
-					"doctype": "Custom Field",
-					"name": field_name,
-					**field_config
-				})
-				custom_field.insert(ignore_permissions=True)
+				try:
+					custom_field = frappe.get_doc({
+						"doctype": "Custom Field",
+						"name": field_name,
+						"module": "Portugal Compliance",
+						**field_config
+					})
+					custom_field.insert(ignore_permissions=True)
 
-				frappe.logger().info(f"Campo customizado criado: {field_name}")
+					frappe.logger().info(f"✅ Campo essencial criado: {field_name}")
+
+				except Exception as e:
+					frappe.log_error(f"Erro ao criar campo {field_name}: {str(e)}")
+
+		frappe.logger().info("✅ Campos essenciais configurados (sem portugal_series)")
 
 	except Exception as e:
-		frappe.log_error(f"Erro ao configurar campos customizados: {str(e)}")
+		frappe.log_error(f"Erro ao configurar campos essenciais: {str(e)}")
 
 
-def setup_property_setters():
+def setup_property_setters_new_approach():
 	"""
-	Configura property setters para adequar ERPNext ao contexto português
+	✅ CORRIGIDO: Configura property setters adaptados para nova abordagem
 	"""
 	try:
 		property_setters = [
@@ -330,6 +306,13 @@ def setup_property_setters():
 				"field_name": "tax_id",
 				"property": "label",
 				"value": "NIF"
+			},
+			# ✅ NOVO: Property setter para Company
+			{
+				"doc_type": "Company",
+				"field_name": "default_currency",
+				"property": "default",
+				"value": "EUR"
 			}
 		]
 
@@ -337,66 +320,84 @@ def setup_property_setters():
 			ps_name = f"{ps_config['doc_type']}-{ps_config['field_name']}-{ps_config['property']}"
 
 			if not frappe.db.exists("Property Setter", ps_name):
-				property_setter = frappe.get_doc({
-					"doctype": "Property Setter",
-					"name": ps_name,
-					"property_type": "Data",
-					**ps_config
-				})
-				property_setter.insert(ignore_permissions=True)
+				try:
+					property_setter = frappe.get_doc({
+						"doctype": "Property Setter",
+						"name": ps_name,
+						"property_type": "Data",
+						"doctype_or_field": "DocField",
+						**ps_config
+					})
+					property_setter.insert(ignore_permissions=True)
 
-				frappe.logger().info(f"Property setter criado: {ps_name}")
+					frappe.logger().info(f"✅ Property setter criado: {ps_name}")
+
+				except Exception as e:
+					frappe.log_error(f"Erro ao criar property setter {ps_name}: {str(e)}")
 
 	except Exception as e:
 		frappe.log_error(f"Erro ao configurar property setters: {str(e)}")
 
 
-def update_naming_series():
+def setup_naming_series_new_approach():
 	"""
-	Atualiza opções de naming series para incluir séries portuguesas
+	✅ NOVO: Configura naming series usando Property Setters (nova abordagem)
 	"""
 	try:
-		# Obter todas as séries criadas
+		# ✅ OBTER TODAS AS SÉRIES CRIADAS
 		series = frappe.get_all("Portugal Series Configuration",
-								fields=["series_prefix", "document_type"])
+								fields=["naming_series", "document_type"])
 
-		# Agrupar por tipo de documento
+		# ✅ AGRUPAR POR TIPO DE DOCUMENTO
 		series_by_doctype = {}
 		for s in series:
 			if s.document_type not in series_by_doctype:
 				series_by_doctype[s.document_type] = []
-			series_by_doctype[s.document_type].append(f"{s.series_prefix}.####")
+			if s.naming_series not in series_by_doctype[s.document_type]:
+				series_by_doctype[s.document_type].append(s.naming_series)
 
-		# Atualizar naming series para cada doctype
+		# ✅ CRIAR PROPERTY SETTERS PARA NAMING SERIES
 		for doctype, series_list in series_by_doctype.items():
 			try:
-				# Obter opções atuais
-				current_options = frappe.db.get_value("DocType", doctype, "autoname") or ""
-				current_list = [opt.strip() for opt in current_options.split('\n') if opt.strip()]
+				ps_name = f"{doctype}-naming_series-options"
 
-				# Adicionar novas séries
-				for series in series_list:
-					if series not in current_list:
-						current_list.append(series)
+				if not frappe.db.exists("Property Setter", ps_name):
+					# ✅ CRIAR PROPERTY SETTER COM OPÇÕES DE NAMING SERIES
+					naming_options = '\n'.join(series_list)
 
-				# Atualizar doctype
-				new_options = '\n'.join(current_list)
-				frappe.db.set_value("DocType", doctype, "autoname", new_options)
+					property_setter = frappe.get_doc({
+						"doctype": "Property Setter",
+						"name": ps_name,
+						"doc_type": doctype,
+						"property": "options",
+						"field_name": "naming_series",
+						"property_type": "Text",
+						"value": naming_options,
+						"doctype_or_field": "DocField"
+					})
+					property_setter.insert(ignore_permissions=True)
 
-				frappe.logger().info(f"Naming series atualizado para {doctype}")
+					frappe.logger().info(
+						f"✅ Naming series configurado para {doctype}: {len(series_list)} opções")
 
 			except Exception as e:
-				frappe.log_error(f"Erro ao atualizar naming series para {doctype}: {str(e)}")
+				frappe.log_error(f"Erro ao configurar naming series para {doctype}: {str(e)}")
 
 	except Exception as e:
-		frappe.log_error(f"Erro ao atualizar naming series: {str(e)}")
+		frappe.log_error(f"Erro ao configurar naming series: {str(e)}")
 
 
 def create_default_auth_settings():
 	"""
-	Cria configurações de autenticação padrão
+	✅ ADAPTADO: Cria configurações de autenticação padrão
 	"""
 	try:
+		# ✅ VERIFICAR SE DOCTYPE EXISTE
+		if not frappe.db.exists("DocType", "Portugal Auth Settings"):
+			frappe.logger().info(
+				"DocType Portugal Auth Settings não existe - pulando configuração")
+			return
+
 		if not frappe.db.exists("Portugal Auth Settings", "Portugal Auth Settings"):
 			auth_settings = frappe.get_doc({
 				"doctype": "Portugal Auth Settings",
@@ -405,7 +406,7 @@ def create_default_auth_settings():
 			})
 			auth_settings.insert(ignore_permissions=True)
 
-			frappe.logger().info("Configurações de autenticação padrão criadas")
+			frappe.logger().info("✅ Configurações de autenticação padrão criadas")
 
 	except Exception as e:
 		frappe.log_error(f"Erro ao criar configurações de autenticação: {str(e)}")
@@ -413,70 +414,187 @@ def create_default_auth_settings():
 
 def setup_permissions():
 	"""
-	Configura permissões para os novos doctypes
+	✅ ADAPTADO: Configura permissões para os doctypes
 	"""
 	try:
-		# Permissões para Portugal Series Configuration
-		if not frappe.db.exists("Custom DocPerm", {
-			"parent": "Portugal Series Configuration",
-			"role": "System Manager"
-		}):
-			frappe.get_doc({
-				"doctype": "Custom DocPerm",
-				"parent": "Portugal Series Configuration",
-				"parenttype": "DocType",
+		# ✅ PERMISSÕES PARA PORTUGAL SERIES CONFIGURATION
+		permissions_config = [
+			{
+				"doctype": "Portugal Series Configuration",
 				"role": "System Manager",
-				"read": 1,
-				"write": 1,
-				"create": 1,
-				"delete": 1
-			}).insert(ignore_permissions=True)
-
-		# Permissões para ATCUD Log
-		if not frappe.db.exists("Custom DocPerm", {
-			"parent": "ATCUD Log",
-			"role": "Accounts Manager"
-		}):
-			frappe.get_doc({
-				"doctype": "Custom DocPerm",
-				"parent": "ATCUD Log",
-				"parenttype": "DocType",
+				"perms": {"read": 1, "write": 1, "create": 1, "delete": 1}
+			},
+			{
+				"doctype": "Portugal Series Configuration",
 				"role": "Accounts Manager",
-				"read": 1,
-				"write": 0,
-				"create": 0,
-				"delete": 0
-			}).insert(ignore_permissions=True)
+				"perms": {"read": 1, "write": 1, "create": 1, "delete": 0}
+			},
+			{
+				"doctype": "Portugal Series Configuration",
+				"role": "Accounts User",
+				"perms": {"read": 1, "write": 0, "create": 0, "delete": 0}
+			}
+		]
 
-		frappe.logger().info("Permissões configuradas")
+		# ✅ ADICIONAR PERMISSÕES PARA ATCUD LOG SE EXISTIR
+		if frappe.db.exists("DocType", "ATCUD Log"):
+			permissions_config.extend([
+				{
+					"doctype": "ATCUD Log",
+					"role": "System Manager",
+					"perms": {"read": 1, "write": 1, "create": 1, "delete": 1}
+				},
+				{
+					"doctype": "ATCUD Log",
+					"role": "Accounts Manager",
+					"perms": {"read": 1, "write": 0, "create": 0, "delete": 0}
+				}
+			])
+
+		for perm_config in permissions_config:
+			try:
+				# ✅ VERIFICAR SE PERMISSÃO JÁ EXISTE
+				existing_perm = frappe.db.exists("Custom DocPerm", {
+					"parent": perm_config["doctype"],
+					"role": perm_config["role"]
+				})
+
+				if not existing_perm:
+					custom_perm = frappe.get_doc({
+						"doctype": "Custom DocPerm",
+						"parent": perm_config["doctype"],
+						"parenttype": "DocType",
+						"role": perm_config["role"],
+						**perm_config["perms"]
+					})
+					custom_perm.insert(ignore_permissions=True)
+
+					frappe.logger().info(
+						f"✅ Permissão criada: {perm_config['doctype']} - {perm_config['role']}")
+
+			except Exception as e:
+				frappe.log_error(f"Erro ao criar permissão: {str(e)}")
+
+		frappe.logger().info("✅ Permissões configuradas")
 
 	except Exception as e:
 		frappe.log_error(f"Erro ao configurar permissões: {str(e)}")
 
 
-# Executar configurações adicionais
-def post_setup_tasks():
+def post_setup_tasks_new_approach():
 	"""
-	Tarefas adicionais após configuração principal
+	✅ ADAPTADO: Tarefas pós-configuração para nova abordagem
 	"""
 	try:
-		# Criar configurações de autenticação
+		# ✅ CRIAR CONFIGURAÇÕES DE AUTENTICAÇÃO
 		create_default_auth_settings()
 
-		# Configurar permissões
+		# ✅ CONFIGURAR PERMISSÕES
 		setup_permissions()
 
-		# Atualizar naming series
-		update_naming_series()
+		# ✅ CONFIGURAR NAMING SERIES
+		setup_naming_series_new_approach()
 
-		# Limpar cache
+		# ✅ CRIAR CONFIGURAÇÕES INICIAIS DE EMPRESA
+		setup_initial_company_configs()
+
+		# ✅ LIMPAR CACHE
 		frappe.clear_cache()
 
-		frappe.logger().info("Tarefas pós-configuração concluídas")
+		frappe.logger().info("✅ Tarefas pós-configuração (nova abordagem) concluídas")
 
 	except Exception as e:
 		frappe.log_error(f"Erro nas tarefas pós-configuração: {str(e)}")
 
 
-# Executar tarefas pós-configuração
-post_setup_tasks()
+def setup_initial_company_configs():
+	"""
+	✅ NOVO: Configurações iniciais para empresas portuguesas
+	"""
+	try:
+		portuguese_companies = frappe.get_all("Company",
+											  filters={"country": "Portugal"},
+											  fields=["name"])
+
+		for company in portuguese_companies:
+			try:
+				company_doc = frappe.get_doc("Company", company.name)
+
+				# ✅ CONFIGURAR DEFAULTS PORTUGUESES
+				if not company_doc.default_currency:
+					company_doc.default_currency = "EUR"
+
+				if not getattr(company_doc, 'portugal_compliance_enabled', None):
+					company_doc.portugal_compliance_enabled = 1
+
+				company_doc.save(ignore_permissions=True)
+
+				frappe.logger().info(f"✅ Configurações iniciais aplicadas: {company.name}")
+
+			except Exception as e:
+				frappe.log_error(f"Erro ao configurar empresa {company.name}: {str(e)}")
+
+	except Exception as e:
+		frappe.log_error(f"Erro nas configurações iniciais: {str(e)}")
+
+
+def cleanup_old_portugal_series_fields():
+	"""
+	✅ NOVO: Limpar campos portugal_series antigos se existirem
+	"""
+	try:
+		# ✅ BUSCAR E REMOVER CAMPOS portugal_series ANTIGOS
+		old_fields = frappe.db.sql("""
+								   SELECT name
+								   FROM `tabCustom Field`
+								   WHERE fieldname = 'portugal_series'
+								   """, as_dict=True)
+
+		removed_count = 0
+		for field in old_fields:
+			try:
+				frappe.delete_doc("Custom Field", field.name, ignore_permissions=True)
+				removed_count += 1
+			except:
+				pass
+
+		if removed_count > 0:
+			frappe.logger().info(f"✅ Removidos {removed_count} campos portugal_series antigos")
+
+		# ✅ REMOVER PROPERTY SETTERS ANTIGOS
+		old_property_setters = frappe.db.sql("""
+											 SELECT name
+											 FROM `tabProperty Setter`
+											 WHERE field_name = 'portugal_series'
+											 """, as_dict=True)
+
+		removed_ps = 0
+		for ps in old_property_setters:
+			try:
+				frappe.delete_doc("Property Setter", ps.name, ignore_permissions=True)
+				removed_ps += 1
+			except:
+				pass
+
+		if removed_ps > 0:
+			frappe.logger().info(
+				f"✅ Removidos {removed_ps} property setters portugal_series antigos")
+
+	except Exception as e:
+		frappe.log_error(f"Erro na limpeza de campos antigos: {str(e)}")
+
+
+# ========== EXECUTAR LIMPEZA NO FINAL ==========
+def execute_final_cleanup():
+	"""
+	✅ NOVO: Executar limpeza final
+	"""
+	try:
+		cleanup_old_portugal_series_fields()
+		frappe.logger().info("✅ Limpeza final concluída")
+	except Exception as e:
+		frappe.log_error(f"Erro na limpeza final: {str(e)}")
+
+# ========== ADICIONAR LIMPEZA AO EXECUTE PRINCIPAL ==========
+# Adicionar no final da função execute():
+# execute_final_cleanup()

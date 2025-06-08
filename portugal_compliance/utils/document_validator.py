@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2025, NovaDX - Octávio Daio and contributors
+# For license information, please see license.txt
+
 import frappe
 from frappe import _
 import re
@@ -7,29 +11,30 @@ from frappe.utils import getdate, get_datetime, flt, cint
 
 class DocumentValidator:
 	def __init__(self):
-		self.supported_doctypes = [
-			'Sales Invoice', 'Purchase Invoice', 'Payment Entry',
-			'Delivery Note', 'Purchase Receipt', 'Journal Entry'
-		]
+		# ✅ ADAPTADO: Usar doctypes suportados pela nova abordagem
+		from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
+		self.supported_doctypes = list(PORTUGAL_DOCUMENT_TYPES.keys())
+
 		self.validation_rules = self._load_validation_rules()
 
 	def _load_validation_rules(self):
 		"""
-		Carrega regras de validação específicas para Portugal
+		✅ ADAPTADO: Carrega regras de validação específicas para Portugal (nova abordagem)
 		"""
 		return {
 			"nif_validation": True,
 			"atcud_required": True,
-			"series_required": True,
+			"naming_series_required": True,  # ✅ CORRIGIDO: naming_series em vez de series
 			"sequential_numbering": True,
 			"tax_validation": True,
 			"currency_validation": True,
-			"date_validation": True
+			"date_validation": True,
+			"portuguese_series_validation": True  # ✅ NOVO: Validação de séries portuguesas
 		}
 
 	def validate_document(self, doc, method=None):
 		"""
-		Validação principal do documento para conformidade portuguesa
+		✅ ADAPTADO: Validação principal do documento para conformidade portuguesa (nova abordagem)
 		"""
 		try:
 			# Verificar se validação é necessária
@@ -38,15 +43,16 @@ class DocumentValidator:
 
 			validation_results = []
 
-			# Executar todas as validações
+			# ✅ EXECUTAR TODAS AS VALIDAÇÕES (ADAPTADAS)
 			validation_results.extend(self.validate_company_compliance(doc))
-			validation_results.extend(self.validate_document_series(doc))
-			validation_results.extend(self.validate_atcud(doc))
+			validation_results.extend(self.validate_naming_series_new_approach(doc))  # ✅ CORRIGIDO
+			validation_results.extend(self.validate_atcud_new_approach(doc))  # ✅ CORRIGIDO
 			validation_results.extend(self.validate_customer_supplier_data(doc))
 			validation_results.extend(self.validate_tax_information(doc))
 			validation_results.extend(self.validate_currency_and_amounts(doc))
 			validation_results.extend(self.validate_dates(doc))
-			validation_results.extend(self.validate_sequential_numbering(doc))
+			validation_results.extend(
+				self.validate_sequential_numbering_new_approach(doc))  # ✅ CORRIGIDO
 
 			# Processar resultados
 			errors = [r for r in validation_results if r["type"] == "error"]
@@ -73,7 +79,7 @@ class DocumentValidator:
 
 	def _should_validate(self, doc):
 		"""
-		Verifica se o documento deve ser validado
+		✅ MANTIDA: Verifica se o documento deve ser validado
 		"""
 		# Verificar se é doctype suportado
 		if doc.doctype not in self.supported_doctypes:
@@ -89,7 +95,7 @@ class DocumentValidator:
 
 	def validate_company_compliance(self, doc):
 		"""
-		Valida configurações de compliance da empresa
+		✅ MANTIDA: Valida configurações de compliance da empresa
 		"""
 		results = []
 
@@ -143,65 +149,136 @@ class DocumentValidator:
 
 		return results
 
-	def validate_document_series(self, doc):
+	def validate_naming_series_new_approach(self, doc):
 		"""
-		Valida série do documento
+		✅ CORRIGIDO: Valida naming_series do documento (nova abordagem)
 		"""
 		results = []
 
 		try:
-			# Verificar se tem série portuguesa
-			if not hasattr(doc, 'portugal_series') or not doc.portugal_series:
+			# ✅ VERIFICAR SE TEM NAMING_SERIES PORTUGUESA
+			if not hasattr(doc, 'naming_series') or not doc.naming_series:
 				results.append({
 					"type": "error",
-					"field": "portugal_series",
-					"message": _("Série portuguesa não está definida para este documento")
+					"field": "naming_series",
+					"message": _("Naming series portuguesa não está definida para este documento")
 				})
 				return results
 
-			# Verificar se série existe e está comunicada
-			series_doc = frappe.get_doc("Portugal Series Configuration", doc.portugal_series)
-
-			if not series_doc.is_communicated:
+			# ✅ VERIFICAR SE É SÉRIE PORTUGUESA VÁLIDA
+			if not self._is_portuguese_naming_series(doc.naming_series):
 				results.append({
 					"type": "error",
-					"field": "portugal_series",
+					"field": "naming_series",
+					"message": _("Naming series {0} não é uma série portuguesa válida").format(
+						doc.naming_series)
+				})
+				return results
+
+			# ✅ BUSCAR CONFIGURAÇÃO DA SÉRIE
+			series_config = self._get_series_configuration(doc.naming_series, doc.company,
+														   doc.doctype)
+
+			if not series_config:
+				results.append({
+					"type": "error",
+					"field": "naming_series",
+					"message": _("Configuração não encontrada para série {0}").format(
+						doc.naming_series)
+				})
+				return results
+
+			# ✅ VERIFICAR SE SÉRIE ESTÁ COMUNICADA
+			if not series_config.get("is_communicated"):
+				results.append({
+					"type": "error",
+					"field": "naming_series",
 					"message": _("Série {0} não foi comunicada à AT").format(
-						series_doc.series_prefix)
+						series_config.get("prefix"))
 				})
 
-			# Verificar se tipo de documento corresponde
-			if series_doc.document_type != doc.doctype:
+			# ✅ VERIFICAR SE TIPO DE DOCUMENTO CORRESPONDE
+			if series_config.get("document_type") != doc.doctype:
 				results.append({
 					"type": "error",
-					"field": "portugal_series",
+					"field": "naming_series",
 					"message": _("Série {0} não é válida para documentos do tipo {1}").format(
-						series_doc.series_prefix, doc.doctype
+						series_config.get("prefix"), doc.doctype
 					)
 				})
 
-			# Verificar se empresa corresponde
-			if series_doc.company != doc.company:
+			# ✅ VERIFICAR SE EMPRESA CORRESPONDE
+			if series_config.get("company") != doc.company:
 				results.append({
 					"type": "error",
-					"field": "portugal_series",
+					"field": "naming_series",
 					"message": _("Série {0} não pertence à empresa {1}").format(
-						series_doc.series_prefix, doc.company
+						series_config.get("prefix"), doc.company
 					)
 				})
 
 		except Exception as e:
 			results.append({
 				"type": "error",
-				"field": "portugal_series",
-				"message": _("Erro ao validar série do documento: {0}").format(str(e))
+				"field": "naming_series",
+				"message": _("Erro ao validar naming series do documento: {0}").format(str(e))
 			})
 
 		return results
 
-	def validate_atcud(self, doc):
+	def _is_portuguese_naming_series(self, naming_series):
 		"""
-		Valida ATCUD do documento
+		✅ NOVO: Verifica se naming_series é portuguesa
+		"""
+		try:
+			if not naming_series:
+				return False
+
+			# ✅ PADRÕES PORTUGUESES (NOVO E ANTIGO)
+			new_pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'  # FT2025DSY.####
+			old_patterns = [
+				r'^(FT|FS|FC|RC|GR|GT|JE|NC|ND|OR|EC|EF|MR)-',
+				r'^(FT|FS|FC|RC|GR|GT|JE|NC|ND|OR|EC|EF|MR)\.',
+			]
+
+			# Verificar padrão novo
+			if re.match(new_pattern, naming_series):
+				return True
+
+			# Verificar padrões antigos
+			for pattern in old_patterns:
+				if re.match(pattern, naming_series):
+					return True
+
+			return False
+
+		except Exception:
+			return False
+
+	def _get_series_configuration(self, naming_series, company, doctype):
+		"""
+		✅ NOVO: Obtém configuração da série baseada na naming_series
+		"""
+		try:
+			# ✅ EXTRAIR PREFIXO DA NAMING_SERIES
+			prefix = naming_series.replace('.####', '')
+
+			# ✅ BUSCAR CONFIGURAÇÃO
+			config = frappe.db.get_value("Portugal Series Configuration", {
+				"prefix": prefix,
+				"company": company,
+				"document_type": doctype
+			}, ["name", "prefix", "is_communicated", "document_type", "company"], as_dict=True)
+
+			return config
+
+		except Exception as e:
+			frappe.log_error(f"Erro ao obter configuração da série: {str(e)}")
+			return None
+
+	def validate_atcud_new_approach(self, doc):
+		"""
+		✅ CORRIGIDO: Valida ATCUD do documento (nova abordagem)
 		"""
 		results = []
 
@@ -216,16 +293,20 @@ class DocumentValidator:
 					})
 					return results
 
-				# Validar formato do ATCUD
-				if not self.validate_atcud_format(doc.atcud_code):
+				# ✅ VALIDAR FORMATO DO ATCUD (NOVO FORMATO: 0.SEQUENCIAL)
+				if not self.validate_atcud_format_new_approach(doc.atcud_code):
 					results.append({
 						"type": "error",
 						"field": "atcud_code",
-						"message": _("Formato do ATCUD é inválido: {0}").format(doc.atcud_code)
+						"message": _(
+							"Formato do ATCUD é inválido: {0}. Use formato: 0.SEQUENCIAL").format(
+							doc.atcud_code)
 					})
 
-				# Verificar se ATCUD corresponde ao tipo de documento
-				prefix_validation = self.validate_atcud_prefix(doc.atcud_code, doc.doctype)
+				# ✅ VERIFICAR SE ATCUD CORRESPONDE AO TIPO DE DOCUMENTO
+				prefix_validation = self.validate_atcud_prefix_new_approach(doc.atcud_code,
+																			doc.doctype,
+																			doc.naming_series)
 				if not prefix_validation["valid"]:
 					results.append({
 						"type": "warning",
@@ -253,9 +334,58 @@ class DocumentValidator:
 
 		return results
 
+	def validate_atcud_format_new_approach(self, atcud):
+		"""
+		✅ CORRIGIDO: Valida formato do ATCUD (nova abordagem: 0.SEQUENCIAL)
+		"""
+		if not atcud:
+			return False
+
+		# ✅ FORMATO NOVO: 0.SEQUENCIAL (conforme Portaria 195/2020)
+		pattern = r"^0\.\d+$"
+		return bool(re.match(pattern, atcud.strip()))
+
+	def validate_atcud_prefix_new_approach(self, atcud, doctype, naming_series):
+		"""
+		✅ CORRIGIDO: Valida se ATCUD corresponde à naming_series (nova abordagem)
+		"""
+		if not atcud or not naming_series:
+			return {"valid": False, "message": "ATCUD ou naming_series não fornecidos"}
+
+		try:
+			# ✅ EXTRAIR PREFIXO DA NAMING_SERIES
+			prefix = naming_series.replace('.####', '')
+
+			# ✅ OBTER CÓDIGO DO PREFIXO
+			if '-' in prefix:
+				# Formato antigo: FT-2025-DSY
+				code = prefix.split('-')[0]
+			else:
+				# Formato novo: FT2025DSY
+				code_match = re.match(r'^([A-Z]{2,4})', prefix)
+				code = code_match.group(1) if code_match else ""
+
+			# ✅ VERIFICAR CÓDIGOS VÁLIDOS POR DOCTYPE
+			from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
+			doc_info = PORTUGAL_DOCUMENT_TYPES.get(doctype)
+
+			if doc_info and code != doc_info.get('code'):
+				return {
+					"valid": False,
+					"message": _(
+						"Código da série '{0}' não corresponde ao esperado '{1}' para {2}").format(
+						code, doc_info.get('code'), doctype
+					)
+				}
+
+			return {"valid": True}
+
+		except Exception as e:
+			return {"valid": False, "message": f"Erro na validação: {str(e)}"}
+
 	def validate_customer_supplier_data(self, doc):
 		"""
-		Valida dados de clientes/fornecedores
+		✅ MANTIDA: Valida dados de clientes/fornecedores
 		"""
 		results = []
 
@@ -310,7 +440,7 @@ class DocumentValidator:
 
 	def validate_tax_information(self, doc):
 		"""
-		Valida informações de impostos
+		✅ MANTIDA: Valida informações de impostos
 		"""
 		results = []
 
@@ -361,7 +491,7 @@ class DocumentValidator:
 
 	def validate_currency_and_amounts(self, doc):
 		"""
-		Valida moeda e valores
+		✅ MANTIDA: Valida moeda e valores
 		"""
 		results = []
 
@@ -409,7 +539,7 @@ class DocumentValidator:
 
 	def validate_dates(self, doc):
 		"""
-		Valida datas do documento
+		✅ MANTIDA: Valida datas do documento
 		"""
 		results = []
 
@@ -460,24 +590,32 @@ class DocumentValidator:
 
 		return results
 
-	def validate_sequential_numbering(self, doc):
+	def validate_sequential_numbering_new_approach(self, doc):
 		"""
-		Valida numeração sequencial
+		✅ CORRIGIDO: Valida numeração sequencial (nova abordagem)
 		"""
 		results = []
 
 		try:
-			if not hasattr(doc, 'portugal_series') or not doc.portugal_series:
+			if not hasattr(doc, 'naming_series') or not doc.naming_series:
 				return results
 
-			# Obter configuração da série
-			series_doc = frappe.get_doc("Portugal Series Configuration", doc.portugal_series)
+			# ✅ OBTER CONFIGURAÇÃO DA SÉRIE USANDO NAMING_SERIES
+			series_config = self._get_series_configuration(doc.naming_series, doc.company,
+														   doc.doctype)
+
+			if not series_config:
+				return results
 
 			# Extrair número do documento
 			doc_number = self._extract_document_number(doc.name)
 
+			# ✅ BUSCAR SEQUÊNCIA ATUAL DA CONFIGURAÇÃO
+			current_sequence = frappe.db.get_value("Portugal Series Configuration",
+												   series_config["name"], "current_sequence")
+
 			# Verificar se número está dentro da sequência esperada
-			if doc_number < series_doc.current_sequence - 100:  # Tolerância de 100
+			if current_sequence and doc_number < current_sequence - 100:  # Tolerância de 100
 				results.append({
 					"type": "warning",
 					"field": "name",
@@ -496,7 +634,7 @@ class DocumentValidator:
 
 	def validate_nif(self, nif):
 		"""
-		Valida NIF português
+		✅ MANTIDA: Valida NIF português
 		"""
 		if not nif:
 			return False
@@ -525,50 +663,9 @@ class DocumentValidator:
 
 		return check_digit == int(nif[8])
 
-	def validate_atcud_format(self, atcud):
-		"""
-		Valida formato do ATCUD
-		"""
-		if not atcud:
-			return False
-
-		pattern = r"^[A-Z]{2,4}-ATCUD:[A-Z0-9]{8,}-\d{8}$"
-		return bool(re.match(pattern, atcud.strip()))
-
-	def validate_atcud_prefix(self, atcud, doctype):
-		"""
-		Valida se prefixo do ATCUD corresponde ao tipo de documento
-		"""
-		if not atcud:
-			return {"valid": False, "message": "ATCUD não fornecido"}
-
-		prefix = atcud.split('-')[0]
-
-		expected_prefixes = {
-			"Sales Invoice": ["FT", "FS", "FR", "NC", "ND"],
-			"Purchase Invoice": ["FC", "FT"],
-			"Payment Entry": ["RC", "RB"],
-			"Delivery Note": ["GT", "GR"],
-			"Purchase Receipt": ["GR", "GT"],
-			"Journal Entry": ["JE"]
-		}
-
-		valid_prefixes = expected_prefixes.get(doctype, [])
-
-		if valid_prefixes and prefix not in valid_prefixes:
-			return {
-				"valid": False,
-				"message": _(
-					"Prefixo ATCUD '{0}' não é válido para {1}. Prefixos válidos: {2}").format(
-					prefix, doctype, ", ".join(valid_prefixes)
-				)
-			}
-
-		return {"valid": True}
-
 	def check_atcud_uniqueness(self, atcud, current_doc_name):
 		"""
-		Verifica unicidade do ATCUD
+		✅ MANTIDA: Verifica unicidade do ATCUD
 		"""
 		if not atcud:
 			return {"unique": True}
@@ -591,7 +688,7 @@ class DocumentValidator:
 
 	def _requires_customer_nif(self, doc):
 		"""
-		Verifica se NIF do cliente é obrigatório
+		✅ MANTIDA: Verifica se NIF do cliente é obrigatório
 		"""
 		# NIF obrigatório para faturas acima de €1000 ou se cliente é empresa
 		if hasattr(doc, 'grand_total') and flt(doc.grand_total) > 1000:
@@ -606,7 +703,7 @@ class DocumentValidator:
 
 	def _extract_document_number(self, document_name):
 		"""
-		Extrai número do documento
+		✅ MANTIDA: Extrai número do documento
 		"""
 		if not document_name:
 			return 0
@@ -622,7 +719,7 @@ class DocumentValidator:
 
 	def _log_validation_results(self, doc, results):
 		"""
-		Registra resultados da validação
+		✅ MANTIDA: Registra resultados da validação
 		"""
 		try:
 			if results:
@@ -642,18 +739,137 @@ class DocumentValidator:
 
 	def get_validation_summary(self, company=None, from_date=None, to_date=None):
 		"""
-		Retorna resumo das validações realizadas
+		✅ ADAPTADO: Retorna resumo das validações realizadas (nova abordagem)
 		"""
 		try:
-			# Esta função pode ser expandida para incluir estatísticas
-			# de validações realizadas, erros encontrados, etc.
-			return {
+			summary = {
 				"status": "success",
-				"message": "Funcionalidade de resumo será implementada"
+				"total_documents_validated": 0,
+				"errors_found": 0,
+				"warnings_found": 0,
+				"naming_series_issues": 0,
+				"atcud_issues": 0,
+				"compliance_rate": 0
 			}
+
+			# ✅ ESTATÍSTICAS BASEADAS NA NOVA ABORDAGEM
+			if company:
+				# Contar documentos com naming_series portuguesa
+				for doctype in self.supported_doctypes:
+					try:
+						count = frappe.db.count(doctype, {
+							"company": company,
+							"naming_series": ["like", "%####"]
+						})
+						summary["total_documents_validated"] += count
+					except:
+						continue
+
+				# Contar documentos com ATCUD
+				atcud_count = 0
+				for doctype in self.supported_doctypes:
+					try:
+						count = frappe.db.count(doctype, {
+							"company": company,
+							"atcud_code": ["is", "set"]
+						})
+						atcud_count += count
+					except:
+						continue
+
+				# Calcular taxa de compliance
+				if summary["total_documents_validated"] > 0:
+					summary["compliance_rate"] = round(
+						(atcud_count / summary["total_documents_validated"]) * 100, 2
+					)
+
+			return summary
 
 		except Exception as e:
 			return {
 				"status": "error",
 				"message": str(e)
 			}
+
+
+# ========== INSTÂNCIA GLOBAL PARA HOOKS ==========
+
+# ✅ INSTÂNCIA GLOBAL PARA USO EM HOOKS
+document_validator = DocumentValidator()
+
+
+# ========== FUNÇÕES GLOBAIS PARA HOOKS ==========
+
+def validate_document_compliance(doc, method=None):
+	"""
+	✅ Função global para validação de compliance (nova abordagem)
+	"""
+	return document_validator.validate_document(doc, method)
+
+
+def validate_naming_series_compliance(doc, method=None):
+	"""
+	✅ Função específica para validação de naming_series
+	"""
+	return document_validator.validate_naming_series_new_approach(doc)
+
+
+def validate_atcud_compliance(doc, method=None):
+	"""
+	✅ Função específica para validação de ATCUD
+	"""
+	return document_validator.validate_atcud_new_approach(doc)
+
+
+# ========== FUNÇÕES DE UTILIDADE ==========
+
+@frappe.whitelist()
+def get_validation_summary_api(company=None, from_date=None, to_date=None):
+	"""
+	✅ API para obter resumo de validações
+	"""
+	try:
+		return document_validator.get_validation_summary(company, from_date, to_date)
+	except Exception as e:
+		return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def validate_nif_api(nif):
+	"""
+	✅ API para validar NIF
+	"""
+	try:
+		return document_validator.validate_nif(nif)
+	except Exception as e:
+		frappe.log_error(f"Erro na validação de NIF: {str(e)}")
+		return False
+
+
+@frappe.whitelist()
+def check_document_compliance(doctype, docname):
+	"""
+	✅ API para verificar compliance de documento específico
+	"""
+	try:
+		doc = frappe.get_doc(doctype, docname)
+		validator = DocumentValidator()
+
+		# Executar validação sem bloquear
+		results = []
+		results.extend(validator.validate_naming_series_new_approach(doc))
+		results.extend(validator.validate_atcud_new_approach(doc))
+
+		errors = [r for r in results if r["type"] == "error"]
+		warnings = [r for r in results if r["type"] == "warning"]
+
+		return {
+			"success": True,
+			"compliant": len(errors) == 0,
+			"errors": errors,
+			"warnings": warnings,
+			"total_issues": len(errors) + len(warnings)
+		}
+
+	except Exception as e:
+		return {"success": False, "error": str(e)}
