@@ -99,6 +99,7 @@ __all__ = [
 	'has_permission_for_series',
 	'has_permission_for_atcud',
 	'get_filtered_series_list',
-	'get_filtered_atcud_list'
+	'get_filtered_atcud_list',
+	'customer'
 ]
 

@@ -3,17 +3,18 @@
 // For license information, please see license.txt
 
 /**
- * Purchase Invoice JS - Portugal Compliance VERSÃO NATIVA CORRIGIDA
+ * Sales Invoice JS - Portugal Compliance VERSÃO NATIVA CORRIGIDA
  * Integração completa com naming_series nativas e ATCUD automático
- * ✅ CORRIGIDO: Formato SEM HÍFENS (FC2025NDX em vez de FC-2025-NDX)
- * ✅ INTEGRAÇÃO: Alinhado com document_hooks.py e series_adapter.py
- * ✅ Auto-seleção de séries portuguesas comunicadas (FC)
- * ✅ Geração automática de ATCUD para faturas de compra
- * ✅ Validação de compliance português para compras
- * ✅ Interface otimizada para faturas de compra portuguesas
+ * ✅ CORRIGIDO: Formato SEM HÍFENS (FT2025DSY em vez de FT-2025-DSY)
+ * ✅ INTEGRAÇÃO: Alinhado com document_hooks.py e at_webservice.py
+ * ✅ CORREÇÃO: Campo Customer obrigatório e query funcionando
+ * ✅ Auto-seleção de séries portuguesas comunicadas (FT)
+ * ✅ Geração automática de ATCUD para faturas de venda
+ * ✅ Validação de compliance português para vendas
+ * ✅ Interface otimizada para faturas de venda portuguesas
  */
 
-frappe.ui.form.on('Purchase Invoice', {
+frappe.ui.form.on('Sales Invoice', {
     // ========== SETUP INICIAL DO FORMULÁRIO ==========
     setup: function(frm) {
         // ✅ CONFIGURAR FILTROS PORTUGUESES
@@ -67,6 +68,11 @@ frappe.ui.form.on('Purchase Invoice', {
 
             // ✅ CARREGAR CONFIGURAÇÕES DA EMPRESA
             load_company_settings(frm);
+
+            // ✅ RECONFIGURAR CUSTOMER COMO OBRIGATÓRIO
+            if (is_portuguese_company(frm)) {
+                frm.toggle_reqd('customer', true);
+            }
         }
     },
 
@@ -84,17 +90,20 @@ frappe.ui.form.on('Purchase Invoice', {
         }
     },
 
-    // ========== EVENTOS DE SUPPLIER ==========
-    supplier: function(frm) {
-        if (frm.doc.supplier) {
-            // ✅ VALIDAR NIF DO FORNECEDOR
-            validate_supplier_nif(frm);
+    // ========== EVENTOS DE CUSTOMER ==========
+    customer: function(frm) {
+        if (frm.doc.customer) {
+            // ✅ VALIDAR NIF DO CLIENTE
+            validate_customer_nif(frm);
 
             // ✅ CARREGAR DADOS FISCAIS
-            load_supplier_tax_info(frm);
+            load_customer_tax_info(frm);
 
             // ✅ CONFIGURAR IMPOSTOS AUTOMÁTICOS
             setup_automatic_taxes(frm);
+
+            // ✅ VALIDAR SELEÇÃO DO CUSTOMER
+            validate_customer_selection(frm);
         }
     },
 
@@ -102,7 +111,7 @@ frappe.ui.form.on('Purchase Invoice', {
     validate: function(frm) {
         // ✅ VALIDAÇÕES ESPECÍFICAS PORTUGUESAS
         if (is_portuguese_company(frm)) {
-            validate_portuguese_purchase_invoice(frm);
+            validate_portuguese_sales_invoice(frm);
         }
     },
 
@@ -144,7 +153,8 @@ frappe.ui.form.on('Purchase Invoice', {
 
 function setup_portugal_filters(frm) {
     /**
-     * Configurar filtros específicos para Portugal
+     * ✅ CORRIGIDO: Configurar filtros específicos para Portugal
+     * Baseado na sua experiência com programação.teste_no_console[3]
      */
 
     // ✅ FILTRO PARA EMPRESAS PORTUGUESAS
@@ -157,11 +167,13 @@ function setup_portugal_filters(frm) {
         };
     });
 
-    // ✅ FILTRO PARA FORNECEDORES ATIVOS
-    frm.set_query("supplier", function() {
+    // ✅ FILTRO PARA CLIENTES ATIVOS COM QUERY CORRETA
+    frm.set_query("customer", function() {
         return {
+            query: "portugal_compliance.queries.customer.customer_query",
             filters: {
-                "disabled": 0
+                disabled: 0,
+                company: frm.doc.company
             }
         };
     });
@@ -179,7 +191,8 @@ function setup_portugal_filters(frm) {
     frm.set_query("item_code", "items", function() {
         return {
             filters: {
-                "disabled": 0
+                "disabled": 0,
+                "is_sales_item": 1
             }
         };
     });
@@ -194,21 +207,17 @@ function setup_custom_fields(frm) {
     if (frm.fields_dict.atcud_code) {
         frm.fields_dict.atcud_code.df.read_only = 1;
         frm.fields_dict.atcud_code.df.bold = 1;
-        frm.fields_dict.atcud_code.df.description = "Código Único de Documento - Gerado automaticamente para faturas de compra";
+        frm.fields_dict.atcud_code.df.description = "Código Único de Documento - Gerado automaticamente para faturas de venda";
     }
 
     // ✅ CONFIGURAR CAMPO NAMING SERIES (CORRIGIDO: SEM HÍFENS)
     if (frm.fields_dict.naming_series) {
-        frm.fields_dict.naming_series.df.description = "Série portuguesa para faturas de compra (FC2025EMPRESA.####)";
+        frm.fields_dict.naming_series.df.description = "Série portuguesa para faturas de venda (FT2025EMPRESA.####)";
     }
 
-    // ✅ CONFIGURAR CAMPOS DE COMPRA
-    if (frm.fields_dict.bill_no) {
-        frm.fields_dict.bill_no.df.description = "Número da fatura do fornecedor (obrigatório para compliance)";
-    }
-
-    if (frm.fields_dict.bill_date) {
-        frm.fields_dict.bill_date.df.description = "Data da fatura do fornecedor (obrigatório para compliance)";
+    // ✅ CONFIGURAR CAMPO CUSTOMER COMO OBRIGATÓRIO
+    if (frm.fields_dict.customer) {
+        frm.fields_dict.customer.df.description = "Cliente obrigatório para empresas portuguesas";
     }
 }
 
@@ -245,11 +254,70 @@ function setup_custom_events(frm) {
     });
 }
 
+function setup_customer_validations(frm) {
+    /**
+     * ✅ NOVA: Configurar validações específicas do customer
+     * Baseado na sua experiência com programação.js[5]
+     */
+
+    // ✅ VALIDAÇÃO QUANDO CUSTOMER MUDA
+    if (frm.fields_dict.customer) {
+        frm.fields_dict.customer.$input.on('change', function() {
+            setTimeout(() => {
+                if (frm.doc.customer) {
+                    validate_customer_selection(frm);
+                }
+            }, 100);
+        });
+    }
+}
+
+function validate_customer_selection(frm) {
+    /**
+     * ✅ NOVA: Validar seleção do customer
+     */
+
+    if (!frm.doc.customer) {
+        frappe.show_alert({
+            message: __('Cliente é obrigatório para empresas portuguesas'),
+            indicator: 'red'
+        });
+        return;
+    }
+
+    // ✅ VERIFICAR SE CUSTOMER EXISTE E ESTÁ ATIVO
+    frappe.call({
+        method: 'frappe.client.get_value',
+        args: {
+            doctype: 'Customer',
+            filters: {name: frm.doc.customer},
+            fieldname: ['disabled', 'customer_name', 'tax_id']
+        },
+        callback: function(r) {
+            if (r.message) {
+                if (r.message.disabled) {
+                    frappe.msgprint({
+                        title: __('Cliente Inativo'),
+                        message: __('Cliente {0} está inativo', [frm.doc.customer]),
+                        indicator: 'red'
+                    });
+                    frm.set_value('customer', '');
+                } else {
+                    frappe.show_alert({
+                        message: __('Cliente válido: {0}', [r.message.customer_name]),
+                        indicator: 'green'
+                    });
+                }
+            }
+        }
+    });
+}
+
 // ========== FUNÇÕES DE INTERFACE ==========
 
 function setup_portuguese_interface(frm) {
     /**
-     * Configurar interface específica para Portugal
+     * ✅ CORRIGIDO: Configurar interface específica para Portugal
      */
 
     // ✅ ADICIONAR INDICADOR DE COMPLIANCE
@@ -274,7 +342,7 @@ function setup_portuguese_interface(frm) {
 
 function setup_portuguese_layout(frm) {
     /**
-     * Configurar layout específico para faturas de compra portuguesas
+     * Configurar layout específico para faturas de venda portuguesas
      */
 
     // ✅ REORGANIZAR CAMPOS PARA COMPLIANCE
@@ -309,13 +377,13 @@ function add_compliance_section(frm) {
             margin: 10px 0;
         ">
             <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Informações de Compliance Português - Fatura de Compra
+                🇵🇹 Informações de Compliance Português - Fatura de Venda
             </h6>
             <div class="row">
                 <div class="col-md-6">
                     <strong>ATCUD:</strong> ${frm.doc.atcud_code || 'Não gerado'}<br>
                     <strong>Série:</strong> ${frm.doc.naming_series || 'Não definida'}<br>
-                    <strong>Fornecedor:</strong> ${frm.doc.supplier_name || ''}
+                    <strong>Cliente:</strong> ${frm.doc.customer_name || ''}
                 </div>
                 <div class="col-md-6">
                     <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span><br>
@@ -326,7 +394,7 @@ function add_compliance_section(frm) {
             <div class="row mt-2">
                 <div class="col-md-12">
                     <strong>Total c/ IVA:</strong> €${(frm.doc.grand_total || 0).toFixed(2)}
-                    <span class="ml-3"><strong>Fatura Fornecedor:</strong> ${frm.doc.bill_no || 'Não definida'}</span>
+                    <span class="ml-3"><strong>NIF Cliente:</strong> ${get_customer_nif(frm) || 'Não definido'}</span>
                 </div>
             </div>
         </div>
@@ -348,23 +416,23 @@ function add_fiscal_section(frm) {
 
     let fiscal_html = `
         <div class="fiscal-info" style="
-            background: #fff3e0;
-            border: 1px solid #ff9800;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
             border-radius: 4px;
             padding: 15px;
             margin: 10px 0;
         ">
-            <h6 style="margin-bottom: 10px; color: #e65100;">
-                💰 Informações Fiscais - Compra
+            <h6 style="margin-bottom: 10px; color: #2e7d32;">
+                💰 Informações Fiscais - Venda
             </h6>
             <div class="row">
                 <div class="col-md-6">
-                    <strong>Tipo Documento:</strong> Fatura de Compra<br>
+                    <strong>Tipo Documento:</strong> Fatura de Venda<br>
                     <strong>Data Fatura:</strong> ${frappe.datetime.str_to_user(frm.doc.posting_date)}<br>
                     <strong>Data Vencimento:</strong> ${frm.doc.due_date ? frappe.datetime.str_to_user(frm.doc.due_date) : 'Não definida'}
                 </div>
                 <div class="col-md-6">
-                    <strong>NIF Fornecedor:</strong> ${get_supplier_nif(frm) || 'Não definido'}<br>
+                    <strong>NIF Cliente:</strong> ${get_customer_nif(frm) || 'Não definido'}<br>
                     <strong>Moeda:</strong> ${frm.doc.currency || 'EUR'}<br>
                     <strong>Condições Pagamento:</strong> ${frm.doc.payment_terms_template || 'Não definidas'}
                 </div>
@@ -374,7 +442,7 @@ function add_fiscal_section(frm) {
 
     // ✅ ADICIONAR HTML AO FORMULÁRIO
     if (!frm.fiscal_section_added) {
-        $(frm.fields_dict.supplier.wrapper).after(fiscal_html);
+        $(frm.fields_dict.customer.wrapper).after(fiscal_html);
         frm.fiscal_section_added = true;
     }
 }
@@ -399,6 +467,14 @@ function get_compliance_status(frm) {
     /**
      * Obter status de compliance do documento
      */
+
+    if (!frm.doc.customer) {
+        return {
+            label: 'Cliente Obrigatório',
+            color: 'red',
+            description: 'Cliente é obrigatório para empresas portuguesas'
+        };
+    }
 
     if (!frm.doc.naming_series) {
         return {
@@ -433,19 +509,10 @@ function get_compliance_status(frm) {
         };
     }
 
-    // ✅ VERIFICAR DADOS OBRIGATÓRIOS DE COMPRA
-    if (!frm.doc.bill_no || !frm.doc.bill_date) {
-        return {
-            label: 'Dados Incompletos',
-            color: 'orange',
-            description: 'Defina número e data da fatura do fornecedor'
-        };
-    }
-
     return {
         label: 'Conforme',
         color: 'green',
-        description: 'Fatura de compra conforme legislação portuguesa'
+        description: 'Fatura de venda conforme legislação portuguesa'
     };
 }
 
@@ -482,28 +549,21 @@ function add_custom_buttons(frm) {
     // ✅ BOTÃO PARA IMPRIMIR FATURA PORTUGUESA
     if (frm.doc.docstatus === 1) {
         frm.add_custom_button(__('Imprimir Fatura PT'), function() {
-            print_portuguese_purchase_invoice(frm);
+            print_portuguese_sales_invoice(frm);
         }, __('Imprimir'));
     }
 
-    // ✅ BOTÃO PARA VALIDAR NIF FORNECEDOR
-    if (frm.doc.supplier) {
-        frm.add_custom_button(__('Validar NIF Fornecedor'), function() {
-            validate_supplier_nif_manual(frm);
+    // ✅ BOTÃO PARA VALIDAR NIF CLIENTE
+    if (frm.doc.customer) {
+        frm.add_custom_button(__('Validar NIF Cliente'), function() {
+            validate_customer_nif_manual(frm);
         }, __('Validações'));
     }
 
     // ✅ BOTÃO PARA ANALISAR FATURA
     if (frm.doc.docstatus === 1) {
         frm.add_custom_button(__('Analisar Fatura'), function() {
-            analyze_purchase_invoice(frm);
-        }, __('Análise'));
-    }
-
-    // ✅ BOTÃO PARA VERIFICAR DEDUTIBILIDADE IVA
-    if (frm.doc.docstatus === 1) {
-        frm.add_custom_button(__('Verificar Dedutibilidade'), function() {
-            check_vat_deductibility(frm);
+            analyze_sales_invoice(frm);
         }, __('Análise'));
     }
 }
@@ -517,33 +577,33 @@ function setup_automatic_naming_series(frm) {
 
     if (!frm.doc.company || frm.doc.naming_series) return;
 
-    // ✅ BUSCAR SÉRIES PORTUGUESAS DISPONÍVEIS PARA FATURAS DE COMPRA (SEM HÍFENS)
+    // ✅ BUSCAR SÉRIES PORTUGUESAS DISPONÍVEIS PARA FATURAS DE VENDA (SEM HÍFENS)
     frappe.call({
-        method: 'portugal_compliance.utils.atcud_generator.get_available_portugal_series_certified',
+        method: 'portugal_compliance.utils.document_hooks.get_available_portugal_series_certified',
         args: {
-            doctype: 'Purchase Invoice',
+            doctype: 'Sales Invoice',
             company: frm.doc.company
         },
         callback: function(r) {
             if (r.message && r.message.success && r.message.series.length > 0) {
-                // ✅ PRIORIZAR SÉRIES COMUNICADAS FC (formato SEM HÍFENS: FC2025NDX)
-                let fc_series = r.message.series.filter(s => s.prefix.startsWith('FC'));
-                let communicated_series = fc_series.filter(s => s.is_communicated);
-                let series_to_use = communicated_series.length > 0 ? communicated_series : fc_series;
+                // ✅ PRIORIZAR SÉRIES COMUNICADAS FT (formato SEM HÍFENS: FT2025DSY)
+                let ft_series = r.message.series.filter(s => s.prefix.startsWith('FT'));
+                let communicated_series = ft_series.filter(s => s.is_communicated);
+                let series_to_use = communicated_series.length > 0 ? communicated_series : ft_series;
 
                 if (series_to_use.length > 0) {
-                    // ✅ AUTO-SELECIONAR PRIMEIRA SÉRIE FC
+                    // ✅ AUTO-SELECIONAR PRIMEIRA SÉRIE FT
                     frm.set_value('naming_series', series_to_use[0].naming_series);
 
                     // ✅ MOSTRAR INFORMAÇÃO
                     if (communicated_series.length > 0) {
                         frappe.show_alert({
-                            message: __('Série FC comunicada selecionada automaticamente'),
+                            message: __('Série FT comunicada selecionada automaticamente'),
                             indicator: 'green'
                         });
                     } else {
                         frappe.show_alert({
-                            message: __('Série FC não comunicada selecionada. Comunique à AT antes de submeter.'),
+                            message: __('Série FT não comunicada selecionada. Comunique à AT antes de submeter.'),
                             indicator: 'orange'
                         });
                     }
@@ -563,21 +623,21 @@ function validate_portuguese_series(frm) {
     if (!is_portuguese_naming_series(frm.doc.naming_series)) {
         frappe.msgprint({
             title: __('Série Inválida'),
-            message: __('Para compliance português, use séries no formato FC2025EMPRESA.####'),
+            message: __('Para compliance português, use séries no formato FT2025EMPRESA.####'),
             indicator: 'red'
         });
         frm.set_value('naming_series', '');
         return;
     }
 
-    // ✅ VERIFICAR SE É SÉRIE DE FATURA DE COMPRA (formato SEM HÍFENS)
+    // ✅ VERIFICAR SE É SÉRIE DE FATURA DE VENDA (formato SEM HÍFENS)
     let prefix = frm.doc.naming_series.replace('.####', '');
-    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: FC
+    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: FT
 
-    if (doc_code !== 'FC') {
+    if (!['FT', 'FS', 'FR', 'NC', 'ND'].includes(doc_code)) {
         frappe.msgprint({
             title: __('Série Incorreta'),
-            message: __('Para Purchase Invoice, use séries FC (Fatura de Compra)'),
+            message: __('Para Sales Invoice, use séries FT (Fatura), FS (Fatura Simplificada), NC (Nota Crédito), ND (Nota Débito)'),
             indicator: 'orange'
         });
     }
@@ -619,10 +679,10 @@ function show_series_communication_info(frm, series_info) {
     let indicator = '';
 
     if (series_info.is_communicated) {
-        message = __('Série FC comunicada à AT em {0}', [frappe.datetime.str_to_user(series_info.communication_date)]);
+        message = __('Série FT comunicada à AT em {0}', [frappe.datetime.str_to_user(series_info.communication_date)]);
         indicator = 'green';
     } else {
-        message = __('Série FC não comunicada à AT. Comunique antes de submeter faturas.');
+        message = __('Série FT não comunicada à AT. Comunique antes de submeter faturas.');
         indicator = 'orange';
     }
 
@@ -634,37 +694,28 @@ function show_series_communication_info(frm, series_info) {
 
 // ========== FUNÇÕES DE VALIDAÇÃO ==========
 
-function validate_portuguese_purchase_invoice(frm) {
+function validate_portuguese_sales_invoice(frm) {
     /**
-     * Validações específicas para faturas de compra portuguesas
+     * Validações específicas para faturas de venda portuguesas
      */
 
     let errors = [];
+
+    // ✅ VALIDAR CUSTOMER OBRIGATÓRIO
+    if (!frm.doc.customer) {
+        errors.push(__('Cliente é obrigatório para empresas portuguesas'));
+    }
 
     // ✅ VALIDAR NAMING SERIES
     if (!frm.doc.naming_series) {
         errors.push(__('Naming Series é obrigatória para empresas portuguesas'));
     } else if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        errors.push(__('Use naming series portuguesa (formato FC2025EMPRESA.####)'));
-    }
-
-    // ✅ VALIDAR FORNECEDOR
-    if (!frm.doc.supplier) {
-        errors.push(__('Fornecedor é obrigatório'));
+        errors.push(__('Use naming series portuguesa (formato FT2025EMPRESA.####)'));
     }
 
     // ✅ VALIDAR ITENS
     if (!frm.doc.items || frm.doc.items.length === 0) {
         errors.push(__('Pelo menos um item é obrigatório'));
-    }
-
-    // ✅ VALIDAR DADOS DA FATURA DO FORNECEDOR
-    if (!frm.doc.bill_no) {
-        errors.push(__('Número da fatura do fornecedor é obrigatório'));
-    }
-
-    if (!frm.doc.bill_date) {
-        errors.push(__('Data da fatura do fornecedor é obrigatória'));
     }
 
     // ✅ VALIDAR IMPOSTOS PORTUGUESES
@@ -721,23 +772,23 @@ function validate_portuguese_taxes_structure(frm) {
     return errors;
 }
 
-function validate_supplier_nif(frm) {
+function validate_customer_nif(frm) {
     /**
-     * ✅ CORRIGIDO: Validar NIF do fornecedor usando jinja_methods.py
+     * ✅ CORRIGIDO: Validar NIF do cliente
      */
 
-    if (!frm.doc.supplier) return;
+    if (!frm.doc.customer) return;
 
     frappe.call({
         method: 'frappe.client.get_value',
         args: {
-            doctype: 'Supplier',
-            filters: {name: frm.doc.supplier},
+            doctype: 'Customer',
+            filters: {name: frm.doc.customer},
             fieldname: 'tax_id'
         },
         callback: function(r) {
             if (r.message && r.message.tax_id) {
-                validate_nif_format(frm, r.message.tax_id, 'Fornecedor');
+                validate_nif_format(frm, r.message.tax_id, 'Cliente');
             }
         }
     });
@@ -745,13 +796,13 @@ function validate_supplier_nif(frm) {
 
 function validate_nif_format(frm, nif, entity_type) {
     /**
-     * ✅ CORRIGIDO: Validar formato do NIF português usando jinja_methods.py
+     * ✅ CORRIGIDO: Validar formato do NIF português
      */
 
     if (!nif) return;
 
     frappe.call({
-        method: 'portugal_compliance.utils.jinja_methods.validate_portuguese_nif',
+        method: 'portugal_compliance.utils.document_hooks.validate_portuguese_nif',
         args: {nif: nif},
         callback: function(r) {
             if (r.message !== undefined) {
@@ -779,9 +830,14 @@ function validate_before_submit_portuguese(frm) {
     return new Promise((resolve, reject) => {
         let validations = [];
 
+        // ✅ VALIDAR CUSTOMER OBRIGATÓRIO
+        if (!frm.doc.customer) {
+            validations.push(__('Cliente é obrigatório para faturas de venda portuguesas'));
+        }
+
         // ✅ VALIDAR ATCUD OBRIGATÓRIO
         if (!frm.doc.atcud_code) {
-            validations.push(__('ATCUD é obrigatório para faturas de compra portuguesas'));
+            validations.push(__('ATCUD é obrigatório para faturas de venda portuguesas'));
         }
 
         // ✅ VALIDAR SÉRIE COMUNICADA
@@ -797,21 +853,12 @@ function validate_before_submit_portuguese(frm) {
                 },
                 callback: function(r) {
                     if (r.message && !r.message.is_communicated) {
-                        validations.push(__('Série FC deve estar comunicada à AT antes da submissão'));
+                        validations.push(__('Série FT deve estar comunicada à AT antes da submissão'));
                     }
 
                     // ✅ VALIDAR IMPOSTOS OBRIGATÓRIOS
                     if (!has_valid_portuguese_taxes(frm)) {
                         validations.push(__('Configure impostos portugueses válidos'));
-                    }
-
-                    // ✅ VALIDAR DADOS OBRIGATÓRIOS DE COMPRA
-                    if (!frm.doc.bill_no) {
-                        validations.push(__('Número da fatura do fornecedor é obrigatório'));
-                    }
-
-                    if (!frm.doc.bill_date) {
-                        validations.push(__('Data da fatura do fornecedor é obrigatória'));
                     }
 
                     if (validations.length > 0) {
@@ -959,16 +1006,16 @@ function calculate_tax_breakdown(frm) {
 
 function setup_automatic_taxes(frm) {
     /**
-     * Configurar impostos automáticos baseado no fornecedor
+     * Configurar impostos automáticos baseado no cliente
      */
 
-    if (!frm.doc.supplier) return;
+    if (!frm.doc.customer) return;
 
     frappe.call({
         method: 'frappe.client.get_value',
         args: {
-            doctype: 'Supplier',
-            filters: {name: frm.doc.supplier},
+            doctype: 'Customer',
+            filters: {name: frm.doc.customer},
             fieldname: ['tax_category', 'tax_id']
         },
         callback: function(r) {
@@ -990,7 +1037,7 @@ function suggest_tax_template(frm, tax_category) {
     frappe.call({
         method: 'frappe.client.get_list',
         args: {
-            doctype: 'Purchase Taxes and Charges Template',
+            doctype: 'Sales Taxes and Charges Template',
             filters: {
                 company: frm.doc.company,
                 disabled: 0
@@ -1017,7 +1064,7 @@ function generate_atcud_manually(frm) {
      */
 
     frappe.call({
-        method: 'portugal_compliance.utils.atcud_generator.generate_manual_atcud_certified',
+        method: 'portugal_compliance.utils.document_hooks.generate_manual_atcud_certified',
         args: {
             doctype: frm.doc.doctype,
             docname: frm.doc.name
@@ -1074,7 +1121,7 @@ function show_series_status_dialog(frm, series_data) {
      */
 
     let dialog = new frappe.ui.Dialog({
-        title: __('Status da Série FC'),
+        title: __('Status da Série FT'),
         fields: [
             {
                 fieldtype: 'HTML',
@@ -1088,7 +1135,7 @@ function show_series_status_dialog(frm, series_data) {
             <h5>${series_data.series_name}</h5>
             <table class="table table-bordered">
                 <tr><td><strong>Prefixo:</strong></td><td>${series_data.prefix}</td></tr>
-                <tr><td><strong>Tipo:</strong></td><td>Fatura de Compra</td></tr>
+                <tr><td><strong>Tipo:</strong></td><td>Fatura de Venda</td></tr>
                 <tr><td><strong>Empresa:</strong></td><td>${series_data.company}</td></tr>
                 <tr><td><strong>Ativa:</strong></td><td>${series_data.is_active ? 'Sim' : 'Não'}</td></tr>
                 <tr><td><strong>Comunicada:</strong></td><td>${series_data.is_communicated ? 'Sim' : 'Não'}</td></tr>
@@ -1138,13 +1185,13 @@ function validate_and_show_taxes(frm) {
     });
 }
 
-function analyze_purchase_invoice(frm) {
+function analyze_sales_invoice(frm) {
     /**
-     * Analisar fatura de compra completa
+     * Analisar fatura de venda completa
      */
 
     let dialog = new frappe.ui.Dialog({
-        title: __('Análise da Fatura de Compra'),
+        title: __('Análise da Fatura de Venda'),
         size: 'large',
         fields: [
             {
@@ -1155,7 +1202,7 @@ function analyze_purchase_invoice(frm) {
     });
 
     let tax_info = calculate_tax_breakdown(frm);
-    let supplier_nif = get_supplier_nif(frm);
+    let customer_nif = get_customer_nif(frm);
 
     let html = `
         <div class="invoice-analysis">
@@ -1165,10 +1212,10 @@ function analyze_purchase_invoice(frm) {
                 <div class="col-md-6">
                     <h6>Informações Gerais</h6>
                     <table class="table table-bordered">
-                        <tr><td><strong>Tipo:</strong></td><td>Fatura de Compra</td></tr>
+                        <tr><td><strong>Tipo:</strong></td><td>Fatura de Venda</td></tr>
                         <tr><td><strong>Data:</strong></td><td>${frappe.datetime.str_to_user(frm.doc.posting_date)}</td></tr>
-                        <tr><td><strong>Fornecedor:</strong></td><td>${frm.doc.supplier_name}</td></tr>
-                        <tr><td><strong>NIF Fornecedor:</strong></td><td>${supplier_nif || 'Não definido'}</td></tr>
+                        <tr><td><strong>Cliente:</strong></td><td>${frm.doc.customer_name}</td></tr>
+                        <tr><td><strong>NIF Cliente:</strong></td><td>${customer_nif || 'Não definido'}</td></tr>
                         <tr><td><strong>ATCUD:</strong></td><td>${frm.doc.atcud_code || 'N/A'}</td></tr>
                     </table>
                 </div>
@@ -1179,7 +1226,7 @@ function analyze_purchase_invoice(frm) {
                         <tr><td><strong>Total IVA:</strong></td><td>€${tax_info.total_tax.toFixed(2)}</td></tr>
                         <tr><td><strong>Total c/ IVA:</strong></td><td>€${(frm.doc.grand_total || 0).toFixed(2)}</td></tr>
                         <tr><td><strong>Nº Itens:</strong></td><td>${frm.doc.items ? frm.doc.items.length : 0}</td></tr>
-                        <tr><td><strong>Fatura Fornecedor:</strong></td><td>${frm.doc.bill_no || 'N/A'}</td></tr>
+                        <tr><td><strong>Vencimento:</strong></td><td>${frm.doc.due_date ? frappe.datetime.str_to_user(frm.doc.due_date) : 'N/A'}</td></tr>
                     </table>
                 </div>
             </div>
@@ -1187,7 +1234,7 @@ function analyze_purchase_invoice(frm) {
             <h6>Breakdown IVA</h6>
             <table class="table table-striped">
                 <thead>
-                    <tr><th>Taxa</th><th>Valor</th><th>Status</th><th>Dedutibilidade</th></tr>
+                    <tr><th>Taxa</th><th>Valor</th><th>Status</th></tr>
                 </thead>
                 <tbody>
     `;
@@ -1195,14 +1242,12 @@ function analyze_purchase_invoice(frm) {
     Object.keys(tax_info.iva_breakdown).forEach(function(rate) {
         let valid_rates = [0, 6, 13, 23];
         let is_valid = valid_rates.includes(parseFloat(rate));
-        let deductible = parseFloat(rate) > 0 ? '100%' : 'N/A';
 
         html += `
             <tr>
                 <td>IVA ${rate}%</td>
                 <td>€${tax_info.iva_breakdown[rate].toFixed(2)}</td>
                 <td style="color: ${is_valid ? 'green' : 'red'}">${is_valid ? 'Válida' : 'Inválida'}</td>
-                <td>${deductible}</td>
             </tr>
         `;
     });
@@ -1217,74 +1262,13 @@ function analyze_purchase_invoice(frm) {
     dialog.show();
 }
 
-function check_vat_deductibility(frm) {
-    /**
-     * ✅ NOVA: Verificar dedutibilidade do IVA
-     */
-
-    let tax_info = calculate_tax_breakdown(frm);
-    let total_deductible = 0;
-
-    let html = `
-        <div class="vat-deductibility">
-            <h5>Análise de Dedutibilidade do IVA</h5>
-            <p><strong>Fatura:</strong> ${frm.doc.name} | <strong>Fornecedor:</strong> ${frm.doc.supplier_name}</p>
-
-            <table class="table table-bordered">
-                <thead>
-                    <tr><th>Taxa IVA</th><th>Valor IVA</th><th>% Dedutível</th><th>Valor Dedutível</th></tr>
-                </thead>
-                <tbody>
-    `;
-
-    Object.keys(tax_info.iva_breakdown).forEach(function(rate) {
-        let iva_amount = tax_info.iva_breakdown[rate];
-        let deductible_percent = parseFloat(rate) > 0 ? 100 : 0; // Simplificado - 100% dedutível
-        let deductible_amount = (iva_amount * deductible_percent) / 100;
-        total_deductible += deductible_amount;
-
-        html += `
-            <tr>
-                <td>IVA ${rate}%</td>
-                <td>€${iva_amount.toFixed(2)}</td>
-                <td>${deductible_percent}%</td>
-                <td>€${deductible_amount.toFixed(2)}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-                <tfoot>
-                    <tr style="font-weight: bold;">
-                        <td colspan="3">Total Dedutível:</td>
-                        <td>€${total_deductible.toFixed(2)}</td>
-                    </tr>
-                </tfoot>
-            </table>
-
-            <div class="mt-3">
-                <small class="text-muted">
-                    <strong>Nota:</strong> Esta análise é indicativa. Consulte a legislação fiscal para casos específicos.
-                </small>
-            </div>
-        </div>
-    `;
-
-    frappe.msgprint({
-        title: __('Dedutibilidade do IVA'),
-        message: html,
-        indicator: 'blue'
-    });
-}
-
-function print_portuguese_purchase_invoice(frm) {
+function print_portuguese_sales_invoice(frm) {
     /**
      * Imprimir fatura com formato português
      */
 
     frappe.route_options = {
-        "format": "Fatura de Compra Portugal"
+        "format": "Fatura de Venda Portugal"
     };
 
     frappe.set_route("print", frm.doc.doctype, frm.doc.name);
@@ -1294,7 +1278,8 @@ function print_portuguese_purchase_invoice(frm) {
 
 function is_portuguese_company(frm) {
     /**
-     * Verificar se empresa é portuguesa com compliance ativo
+     * ✅ CORRIGIDO: Verificar se empresa é portuguesa com compliance ativo
+     * Baseado na sua experiência com programação.autenticação[4]
      */
 
     if (!frm.doc.company) return false;
@@ -1339,31 +1324,31 @@ function is_portuguese_naming_series(naming_series) {
     return pattern.test(naming_series);
 }
 
-function get_supplier_nif(frm) {
+function get_customer_nif(frm) {
     /**
-     * Obter NIF do fornecedor
+     * Obter NIF do cliente
      */
 
-    if (frm._supplier_nif !== undefined) {
-        return frm._supplier_nif;
+    if (frm._customer_nif !== undefined) {
+        return frm._customer_nif;
     }
 
-    if (!frm.doc.supplier) return null;
+    if (!frm.doc.customer) return null;
 
     frappe.call({
         method: 'frappe.client.get_value',
         args: {
-            doctype: 'Supplier',
-            filters: {name: frm.doc.supplier},
+            doctype: 'Customer',
+            filters: {name: frm.doc.customer},
             fieldname: 'tax_id'
         },
         async: false,
         callback: function(r) {
-            frm._supplier_nif = r.message ? r.message.tax_id : null;
+            frm._customer_nif = r.message ? r.message.tax_id : null;
         }
     });
 
-    return frm._supplier_nif;
+    return frm._customer_nif;
 }
 
 function prepare_portugal_compliance_data(frm) {
@@ -1412,29 +1397,29 @@ function load_company_settings(frm) {
     });
 }
 
-function load_supplier_tax_info(frm) {
+function load_customer_tax_info(frm) {
     /**
-     * Carregar informações fiscais do fornecedor
+     * Carregar informações fiscais do cliente
      */
 
-    if (!frm.doc.supplier) return;
+    if (!frm.doc.customer) return;
 
     frappe.call({
         method: 'frappe.client.get_value',
         args: {
-            doctype: 'Supplier',
-            filters: {name: frm.doc.supplier},
+            doctype: 'Customer',
+            filters: {name: frm.doc.customer},
             fieldname: ['tax_id', 'tax_category']
         },
         callback: function(r) {
             if (r.message) {
-                frm._supplier_tax_info = r.message;
-                frm._supplier_nif = r.message.tax_id;
+                frm._customer_tax_info = r.message;
+                frm._customer_nif = r.message.tax_id;
 
                 // ✅ MOSTRAR NIF SE DISPONÍVEL
                 if (r.message.tax_id) {
                     frm.dashboard.add_indicator(
-                        __('NIF Fornecedor: {0}', [r.message.tax_id]),
+                        __('NIF Cliente: {0}', [r.message.tax_id]),
                         'blue'
                     );
                 }
@@ -1445,17 +1430,15 @@ function load_supplier_tax_info(frm) {
 
 function setup_mandatory_fields(frm) {
     /**
-     * Configurar campos obrigatórios para compliance português
+     * ✅ CORRIGIDO: Configurar campos obrigatórios para compliance português
      */
 
     if (!is_portuguese_company(frm)) return;
 
-    // ✅ CAMPOS OBRIGATÓRIOS PARA FATURAS DE COMPRA PORTUGUESAS
-    frm.toggle_reqd('supplier', true);
+    // ✅ CAMPOS OBRIGATÓRIOS PARA FATURAS DE VENDA PORTUGUESAS
+    frm.toggle_reqd('customer', true);
     frm.toggle_reqd('naming_series', true);
     frm.toggle_reqd('posting_date', true);
-    frm.toggle_reqd('bill_no', true);
-    frm.toggle_reqd('bill_date', true);
 }
 
 function setup_print_formats(frm) {
@@ -1466,7 +1449,7 @@ function setup_print_formats(frm) {
     if (!is_portuguese_company(frm)) return;
 
     // ✅ DEFINIR PRINT FORMAT PADRÃO
-    frm.meta.default_print_format = "Fatura de Compra Portugal";
+    frm.meta.default_print_format = "Fatura de Venda Portugal";
 }
 
 function update_atcud_display(frm) {
@@ -1506,7 +1489,7 @@ function handle_portuguese_submission(frm) {
 
     // ✅ MOSTRAR MENSAGEM DE SUCESSO
     frappe.show_alert({
-        message: __('Fatura de compra portuguesa submetida com sucesso'),
+        message: __('Fatura de venda portuguesa submetida com sucesso'),
         indicator: 'green'
     });
 
@@ -1519,17 +1502,17 @@ function handle_portuguese_submission(frm) {
     frm.dashboard.add_indicator(__('Total: €{0}', [(frm.doc.grand_total || 0).toFixed(2)]), 'blue');
 }
 
-function validate_supplier_nif_manual(frm) {
+function validate_customer_nif_manual(frm) {
     /**
-     * Validar NIF do fornecedor manualmente
+     * Validar NIF do cliente manualmente
      */
 
-    if (!frm.doc.supplier) {
-        frappe.msgprint(__('Selecione um fornecedor primeiro'));
+    if (!frm.doc.customer) {
+        frappe.msgprint(__('Selecione um cliente primeiro'));
         return;
     }
 
-    validate_supplier_nif(frm);
+    validate_customer_nif(frm);
 }
 
 function check_portugal_compliance(frm) {
@@ -1590,7 +1573,7 @@ function show_series_info(frm) {
 
 // ========== EVENTOS DE ITEMS ==========
 
-frappe.ui.form.on('Purchase Invoice Item', {
+frappe.ui.form.on('Sales Invoice Item', {
     qty: function(frm, cdt, cdn) {
         // ✅ RECALCULAR IMPOSTOS QUANDO QUANTIDADE MUDA
         setTimeout(() => {
@@ -1620,7 +1603,7 @@ frappe.ui.form.on('Purchase Invoice Item', {
 
 // ========== EVENTOS DE TAXES ==========
 
-frappe.ui.form.on('Purchase Taxes and Charges', {
+frappe.ui.form.on('Sales Taxes and Charges', {
     rate: function(frm, cdt, cdn) {
         // ✅ VALIDAR TAXA DE IVA QUANDO MUDA
         let tax_row = locals[cdt][cdn];
@@ -1658,523 +1641,540 @@ frappe.ui.form.on('Purchase Taxes and Charges', {
     }
 });
 
-// ========== INICIALIZAÇÃO ==========
+// ========== CONTINUAÇÃO DO ARQUIVO PURCHASE_INVOICE.JS ==========
 
-frappe.ui.form.on('Purchase Invoice', {
-    onload: function(frm) {
-        // ✅ CONFIGURAÇÃO INICIAL QUANDO FORMULÁRIO CARREGA
-        if (is_portuguese_company(frm)) {
-            // ✅ CONFIGURAR TOOLTIPS PORTUGUESES
-            setup_portuguese_tooltips(frm);
+// ========== FUNÇÕES DE EXPORTAÇÃO E RELATÓRIOS (CONTINUAÇÃO) ==========
 
-            // ✅ CONFIGURAR ATALHOS DE TECLADO
-            setup_keyboard_shortcuts(frm);
-        }
-    }
-});
-
-function setup_portuguese_tooltips(frm) {
+function export_purchase_data_excel(frm) {
     /**
-     * ✅ CORRIGIDO: Configurar tooltips específicos para Portugal (formato SEM HÍFENS)
-     */
-
-    if (frm.fields_dict.naming_series) {
-        frm.fields_dict.naming_series.df.description =
-            "Série portuguesa para faturas de compra. Formato: FC2025EMPRESA.#### (FC=Fatura de Compra)";
-    }
-
-    if (frm.fields_dict.atcud_code) {
-        frm.fields_dict.atcud_code.df.description =
-            "Código Único de Documento conforme Portaria 195/2020. Gerado automaticamente para faturas de compra.";
-    }
-
-    if (frm.fields_dict.bill_no) {
-        frm.fields_dict.bill_no.df.description =
-            "Número da fatura do fornecedor (obrigatório para compliance português)";
-    }
-
-    if (frm.fields_dict.bill_date) {
-        frm.fields_dict.bill_date.df.description =
-            "Data da fatura do fornecedor (obrigatório para compliance português)";
-    }
-
-    if (frm.fields_dict.taxes_and_charges) {
-        frm.fields_dict.taxes_and_charges.df.description =
-            "Template de impostos portugueses (IVA 0%, 6%, 13%, 23%)";
-    }
-}
-
-function setup_keyboard_shortcuts(frm) {
-    /**
-     * Configurar atalhos de teclado para Portugal Compliance
-     */
-
-    // ✅ CTRL+G para gerar ATCUD
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+g',
-        action: () => {
-            if (!frm.doc.atcud_code && frm.doc.naming_series) {
-                generate_atcud_manually(frm);
-            }
-        },
-        description: __('Gerar ATCUD'),
-        ignore_inputs: true,
-        page: frm.page
-    });
-
-    // ✅ CTRL+T para validar impostos
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+t',
-        action: () => {
-            if (frm.doc.taxes && frm.doc.taxes.length > 0) {
-                validate_and_show_taxes(frm);
-            }
-        },
-        description: __('Validar Impostos'),
-        ignore_inputs: true,
-        page: frm.page
-    });
-
-    // ✅ CTRL+P para imprimir formato português
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+shift+p',
-        action: () => {
-            if (frm.doc.docstatus === 1) {
-                print_portuguese_purchase_invoice(frm);
-            }
-        },
-        description: __('Imprimir Fatura Portuguesa'),
-        ignore_inputs: true,
-        page: frm.page
-    });
-
-    // ✅ CTRL+A para analisar fatura
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+shift+a',
-        action: () => {
-            if (frm.doc.docstatus === 1) {
-                analyze_purchase_invoice(frm);
-            }
-        },
-        description: __('Analisar Fatura'),
-        ignore_inputs: true,
-        page: frm.page
-    });
-
-    // ✅ CTRL+D para verificar dedutibilidade
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+d',
-        action: () => {
-            if (frm.doc.docstatus === 1) {
-                check_vat_deductibility(frm);
-            }
-        },
-        description: __('Verificar Dedutibilidade IVA'),
-        ignore_inputs: true,
-        page: frm.page
-    });
-}
-
-// ========== EVENTOS DE CLEANUP ==========
-
-frappe.ui.form.on('Purchase Invoice', {
-    onload_post_render: function(frm) {
-        // ✅ CONFIGURAÇÕES APÓS RENDERIZAÇÃO COMPLETA
-        if (is_portuguese_company(frm)) {
-            // ✅ ADICIONAR CLASSES CSS ESPECÍFICAS
-            frm.wrapper.addClass('portugal-compliance-form purchase-invoice-pt');
-
-            // ✅ CONFIGURAR OBSERVADORES DE MUDANÇA
-            setup_change_observers(frm);
-        }
-    }
-});
-
-function setup_change_observers(frm) {
-    /**
-     * Configurar observadores de mudança para campos críticos
-     */
-
-    // ✅ OBSERVAR MUDANÇAS NA NAMING SERIES
-    frm.fields_dict.naming_series && frm.fields_dict.naming_series.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.naming_series) {
-                validate_portuguese_series(frm);
-                check_series_communication_status(frm);
-                show_series_info(frm);
-            }
-        }, 100);
-    });
-
-    // ✅ OBSERVAR MUDANÇAS NO FORNECEDOR
-    frm.fields_dict.supplier && frm.fields_dict.supplier.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.supplier) {
-                validate_supplier_nif(frm);
-                load_supplier_tax_info(frm);
-                setup_automatic_taxes(frm);
-            }
-        }, 100);
-    });
-
-    // ✅ OBSERVAR MUDANÇAS NO TEMPLATE DE IMPOSTOS
-    frm.fields_dict.taxes_and_charges && frm.fields_dict.taxes_and_charges.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.taxes_and_charges) {
-                frappe.show_alert({
-                    message: __('Template de impostos aplicado: {0}', [frm.doc.taxes_and_charges]),
-                    indicator: 'blue'
-                });
-            }
-        }, 100);
-    });
-
-    // ✅ OBSERVAR MUDANÇAS NOS DADOS DA FATURA DO FORNECEDOR
-    frm.fields_dict.bill_no && frm.fields_dict.bill_no.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.bill_no && frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
-        }, 100);
-    });
-
-    frm.fields_dict.bill_date && frm.fields_dict.bill_date.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.bill_date) {
-                // Validar se data não é futura
-                let bill_date = frappe.datetime.str_to_obj(frm.doc.bill_date);
-                let today = new Date();
-
-                if (bill_date > today) {
-                    frappe.show_alert({
-                        message: __('Data da fatura do fornecedor não pode ser futura'),
-                        indicator: 'orange'
-                    });
-                }
-            }
-        }, 100);
-    });
-}
-
-// ========== FUNÇÕES DE VALIDAÇÃO AVANÇADA ==========
-
-function validate_purchase_invoice_compliance(frm) {
-    /**
-     * ✅ NOVA: Validação completa de compliance para fatura de compra
-     */
-
-    let compliance_issues = [];
-
-    // ✅ VERIFICAR SÉRIE PORTUGUESA
-    if (!frm.doc.naming_series || !is_portuguese_naming_series(frm.doc.naming_series)) {
-        compliance_issues.push({
-            type: 'error',
-            message: 'Série portuguesa não configurada'
-        });
-    }
-
-    // ✅ VERIFICAR ATCUD
-    if (!frm.doc.atcud_code) {
-        compliance_issues.push({
-            type: 'warning',
-            message: 'ATCUD será gerado automaticamente'
-        });
-    }
-
-    // ✅ VERIFICAR DADOS DO FORNECEDOR
-    let supplier_nif = get_supplier_nif(frm);
-    if (!supplier_nif) {
-        compliance_issues.push({
-            type: 'warning',
-            message: 'NIF do fornecedor não definido'
-        });
-    }
-
-    // ✅ VERIFICAR IMPOSTOS
-    if (!has_valid_portuguese_taxes(frm)) {
-        compliance_issues.push({
-            type: 'error',
-            message: 'Impostos portugueses não configurados corretamente'
-        });
-    }
-
-    // ✅ VERIFICAR DADOS OBRIGATÓRIOS
-    if (!frm.doc.bill_no) {
-        compliance_issues.push({
-            type: 'error',
-            message: 'Número da fatura do fornecedor é obrigatório'
-        });
-    }
-
-    if (!frm.doc.bill_date) {
-        compliance_issues.push({
-            type: 'error',
-            message: 'Data da fatura do fornecedor é obrigatória'
-        });
-    }
-
-    return compliance_issues;
-}
-
-function show_compliance_report(frm) {
-    /**
-     * ✅ NOVA: Mostrar relatório completo de compliance
-     */
-
-    let issues = validate_purchase_invoice_compliance(frm);
-    let errors = issues.filter(i => i.type === 'error');
-    let warnings = issues.filter(i => i.type === 'warning');
-
-    let html = `
-        <div class="compliance-report">
-            <h5>Relatório de Compliance - Fatura de Compra</h5>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <h6 style="color: red;">Erros (${errors.length})</h6>
-                    <ul>
-    `;
-
-    if (errors.length === 0) {
-        html += '<li style="color: green;">Nenhum erro encontrado</li>';
-    } else {
-        errors.forEach(error => {
-            html += `<li style="color: red;">${error.message}</li>`;
-        });
-    }
-
-    html += `
-                    </ul>
-                </div>
-                <div class="col-md-6">
-                    <h6 style="color: orange;">Avisos (${warnings.length})</h6>
-                    <ul>
-    `;
-
-    if (warnings.length === 0) {
-        html += '<li style="color: green;">Nenhum aviso</li>';
-    } else {
-        warnings.forEach(warning => {
-            html += `<li style="color: orange;">${warning.message}</li>`;
-        });
-    }
-
-    html += `
-                    </ul>
-                </div>
-            </div>
-
-            <div class="mt-3">
-                <h6>Status Geral</h6>
-                <p style="color: ${errors.length === 0 ? 'green' : 'red'}; font-weight: bold;">
-                    ${errors.length === 0 ? '✅ Conforme com legislação portuguesa' : '❌ Não conforme - corrija os erros'}
-                </p>
-            </div>
-        </div>
-    `;
-
-    frappe.msgprint({
-        title: __('Relatório de Compliance'),
-        message: html,
-        indicator: errors.length === 0 ? 'green' : 'red'
-    });
-}
-
-// ========== FUNÇÕES DE INTEGRAÇÃO COM SAF-T ==========
-
-function generate_saft_data(frm) {
-    /**
-     * ✅ NOVA: Gerar dados SAF-T para a fatura
+     * ✅ NOVA: Exportar dados da fatura para Excel
      */
 
     if (!frm.doc.docstatus === 1) {
-        frappe.msgprint(__('Fatura deve estar submetida para gerar dados SAF-T'));
+        frappe.msgprint(__('Fatura deve estar submetida para exportar'));
         return;
     }
 
     let tax_info = calculate_tax_breakdown(frm);
     let supplier_nif = get_supplier_nif(frm);
 
-    let saft_data = {
-        // ✅ CABEÇALHO DO DOCUMENTO
-        invoice_no: frm.doc.name,
-        atcud: frm.doc.atcud_code,
-        invoice_date: frm.doc.posting_date,
-        invoice_type: 'FC', // Fatura de Compra
-        source_id: frm.doc.naming_series,
+    // ✅ PREPARAR DADOS PARA EXCEL
+    let excel_data = [
+        ['Relatório de Fatura de Compra'],
+        [''],
+        ['Dados Gerais'],
+        ['Fatura', frm.doc.name],
+        ['Data', frappe.datetime.str_to_user(frm.doc.posting_date)],
+        ['ATCUD', frm.doc.atcud_code || 'N/A'],
+        ['Série', frm.doc.naming_series || 'N/A'],
+        [''],
+        ['Fornecedor'],
+        ['Nome', frm.doc.supplier_name],
+        ['NIF', supplier_nif || 'N/A'],
+        ['Fatura Nº', frm.doc.bill_no || 'N/A'],
+        ['Data Fatura', frm.doc.bill_date ? frappe.datetime.str_to_user(frm.doc.bill_date) : 'N/A'],
+        [''],
+        ['Valores'],
+        ['Total sem IVA', (frm.doc.net_total || 0).toFixed(2)],
+        ['Total IVA', tax_info.total_tax.toFixed(2)],
+        ['Total com IVA', (frm.doc.grand_total || 0).toFixed(2)],
+        [''],
+        ['Breakdown IVA'],
+        ['Taxa', 'Valor IVA']
+    ];
 
-        // ✅ DADOS DO FORNECEDOR
-        supplier_id: frm.doc.supplier,
-        supplier_name: frm.doc.supplier_name,
-        supplier_nif: supplier_nif,
+    // ✅ ADICIONAR BREAKDOWN IVA
+    Object.keys(tax_info.iva_breakdown).forEach(function(rate) {
+        excel_data.push([`IVA ${rate}%`, tax_info.iva_breakdown[rate].toFixed(2)]);
+    });
 
-        // ✅ TOTAIS
-        net_total: frm.doc.net_total || 0,
-        tax_total: tax_info.total_tax,
-        gross_total: frm.doc.grand_total || 0,
+    excel_data.push(['']);
+    excel_data.push(['Itens']);
+    excel_data.push(['Item', 'Quantidade', 'Preço Unitário', 'Total']);
 
-        // ✅ BREAKDOWN DE IMPOSTOS
-        tax_breakdown: tax_info.iva_breakdown,
-
-        // ✅ DADOS ESPECÍFICOS DE COMPRA
-        supplier_invoice_no: frm.doc.bill_no,
-        supplier_invoice_date: frm.doc.bill_date,
-
-        // ✅ LINHAS DE ITENS
-        lines: []
-    };
-
-    // ✅ ADICIONAR LINHAS DE ITENS
+    // ✅ ADICIONAR ITENS
     if (frm.doc.items) {
-        frm.doc.items.forEach((item, index) => {
-            saft_data.lines.push({
-                line_number: index + 1,
-                item_code: item.item_code,
-                item_name: item.item_name,
-                quantity: item.qty || 0,
-                unit_price: item.rate || 0,
-                line_total: item.amount || 0,
-                tax_rate: 0, // Seria calculado baseado nos impostos
-                tax_amount: 0
-            });
+        frm.doc.items.forEach(function(item) {
+            excel_data.push([
+                item.item_name || item.item_code,
+                item.qty || 0,
+                (item.rate || 0).toFixed(2),
+                (item.amount || 0).toFixed(2)
+            ]);
         });
     }
 
-    return saft_data;
-}
+    // ✅ CONVERTER PARA CSV
+    let csv_content = excel_data.map(row => row.join(',')).join('\n');
 
-function export_saft_data(frm) {
-    /**
-     * ✅ NOVA: Exportar dados SAF-T
-     */
-
-    let saft_data = generate_saft_data(frm);
-
-    if (!saft_data) return;
-
-    // ✅ CONVERTER PARA JSON FORMATADO
-    let json_data = JSON.stringify(saft_data, null, 2);
-
-    // ✅ CRIAR DOWNLOAD
-    let blob = new Blob([json_data], { type: 'application/json' });
+    // ✅ DOWNLOAD
+    let blob = new Blob([csv_content], { type: 'text/csv' });
     let url = URL.createObjectURL(blob);
     let link = document.createElement('a');
     link.href = url;
-    link.download = `saft_${frm.doc.name}.json`;
+    link.download = `fatura_compra_${frm.doc.name}.csv`;
     link.click();
     URL.revokeObjectURL(url);
 
     frappe.show_alert({
-        message: __('Dados SAF-T exportados: saft_{0}.json', [frm.doc.name]),
+        message: __('Dados exportados para Excel: fatura_compra_{0}.csv', [frm.doc.name]),
         indicator: 'green'
     });
 }
 
-// ========== FUNÇÕES DE RELATÓRIOS ==========
+// ========== FUNÇÕES DE INTEGRAÇÃO COM CONTABILIDADE ==========
 
-function generate_purchase_summary_report(frm) {
+function generate_accounting_entries_preview(frm) {
     /**
-     * ✅ NOVA: Gerar relatório resumo da compra
+     * ✅ NOVA: Gerar preview dos lançamentos contabilísticos
      */
 
+    if (!frm.doc.docstatus === 1) {
+        frappe.msgprint(__('Fatura deve estar submetida'));
+        return;
+    }
+
     let tax_info = calculate_tax_breakdown(frm);
-    let supplier_nif = get_supplier_nif(frm);
 
     let dialog = new frappe.ui.Dialog({
-        title: __('Relatório Resumo da Compra'),
+        title: __('Preview Lançamentos Contabilísticos'),
         size: 'large',
         fields: [
             {
                 fieldtype: 'HTML',
-                fieldname: 'report_content'
+                fieldname: 'accounting_preview'
             }
-        ],
-        primary_action_label: __('Exportar PDF'),
-        primary_action: function() {
-            // ✅ FUNCIONALIDADE DE EXPORTAÇÃO PDF
-            window.print();
-        }
+        ]
     });
 
     let html = `
-        <div class="purchase-summary-report">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <h3>Relatório de Compra</h3>
-                <p><strong>Fatura:</strong> ${frm.doc.name} | <strong>Data:</strong> ${frappe.datetime.str_to_user(frm.doc.posting_date)}</p>
-            </div>
+        <div class="accounting-preview">
+            <h5>Lançamentos Contabilísticos - ${frm.doc.name}</h5>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <h5>Dados da Empresa</h5>
-                    <table class="table table-bordered">
-                        <tr><td><strong>Empresa:</strong></td><td>${frm.doc.company}</td></tr>
-                        <tr><td><strong>ATCUD:</strong></td><td>${frm.doc.atcud_code || 'N/A'}</td></tr>
-                        <tr><td><strong>Série:</strong></td><td>${frm.doc.naming_series || 'N/A'}</td></tr>
-                    </table>
-                </div>
-                <div class="col-md-6">
-                    <h5>Dados do Fornecedor</h5>
-                    <table class="table table-bordered">
-                        <tr><td><strong>Nome:</strong></td><td>${frm.doc.supplier_name}</td></tr>
-                        <tr><td><strong>NIF:</strong></td><td>${supplier_nif || 'N/A'}</td></tr>
-                        <tr><td><strong>Fatura Nº:</strong></td><td>${frm.doc.bill_no || 'N/A'}</td></tr>
-                        <tr><td><strong>Data Fatura:</strong></td><td>${frm.doc.bill_date ? frappe.datetime.str_to_user(frm.doc.bill_date) : 'N/A'}</td></tr>
-                    </table>
-                </div>
-            </div>
-
-            <h5>Resumo Financeiro</h5>
             <table class="table table-bordered">
-                <tr><td><strong>Total sem IVA:</strong></td><td style="text-align: right;">€${(frm.doc.net_total || 0).toFixed(2)}</td></tr>
-                <tr><td><strong>Total IVA:</strong></td><td style="text-align: right;">€${tax_info.total_tax.toFixed(2)}</td></tr>
-                <tr style="font-weight: bold; background-color: #f8f9fa;"><td><strong>Total com IVA:</strong></td><td style="text-align: right;">€${(frm.doc.grand_total || 0).toFixed(2)}</td></tr>
-            </table>
-
-            <h5>Breakdown IVA</h5>
-            <table class="table table-striped">
                 <thead>
-                    <tr><th>Taxa IVA</th><th style="text-align: right;">Valor Base</th><th style="text-align: right;">Valor IVA</th></tr>
+                    <tr><th>Conta</th><th>Descrição</th><th>Débito</th><th>Crédito</th></tr>
                 </thead>
                 <tbody>
+                    <tr>
+                        <td>Compras</td>
+                        <td>Fatura de compra ${frm.doc.name}</td>
+                        <td>€${(frm.doc.net_total || 0).toFixed(2)}</td>
+                        <td>-</td>
+                    </tr>
     `;
 
+    // ✅ ADICIONAR LANÇAMENTOS DE IVA
     Object.keys(tax_info.iva_breakdown).forEach(function(rate) {
-        // Calcular base aproximada (simplificado)
-        let base_amount = tax_info.iva_breakdown[rate] / (parseFloat(rate) / 100);
-        if (parseFloat(rate) === 0) base_amount = frm.doc.net_total || 0;
-
-        html += `
-            <tr>
-                <td>IVA ${rate}%</td>
-                <td style="text-align: right;">€${base_amount.toFixed(2)}</td>
-                <td style="text-align: right;">€${tax_info.iva_breakdown[rate].toFixed(2)}</td>
-            </tr>
-        `;
+        if (parseFloat(rate) > 0) {
+            html += `
+                <tr>
+                    <td>IVA Dedutível ${rate}%</td>
+                    <td>IVA da fatura ${frm.doc.name}</td>
+                    <td>€${tax_info.iva_breakdown[rate].toFixed(2)}</td>
+                    <td>-</td>
+                </tr>
+            `;
+        }
     });
 
     html += `
+                    <tr style="font-weight: bold;">
+                        <td>Fornecedores</td>
+                        <td>A pagar - ${frm.doc.supplier_name}</td>
+                        <td>-</td>
+                        <td>€${(frm.doc.grand_total || 0).toFixed(2)}</td>
+                    </tr>
                 </tbody>
+                <tfoot>
+                    <tr style="font-weight: bold; background-color: #f8f9fa;">
+                        <td colspan="2">TOTAIS</td>
+                        <td>€${(frm.doc.grand_total || 0).toFixed(2)}</td>
+                        <td>€${(frm.doc.grand_total || 0).toFixed(2)}</td>
+                    </tr>
+                </tfoot>
             </table>
 
-            <h5>Itens da Fatura (${frm.doc.items ? frm.doc.items.length : 0})</h5>
+            <div class="mt-3">
+                <small class="text-muted">
+                    <strong>Nota:</strong> Este é um preview indicativo. Os lançamentos reais podem variar conforme o plano de contas.
+                </small>
+            </div>
+        </div>
+    `;
+
+    dialog.fields_dict.accounting_preview.$wrapper.html(html);
+    dialog.show();
+}
+
+// ========== FUNÇÕES DE VALIDAÇÃO AVANÇADA (CONTINUAÇÃO) ==========
+
+function validate_purchase_invoice_against_po(frm) {
+    /**
+     * ✅ NOVA: Validar fatura contra ordem de compra
+     */
+
+    if (!frm.doc.items || frm.doc.items.length === 0) {
+        return;
+    }
+
+    // ✅ VERIFICAR SE HÁ PURCHASE ORDERS REFERENCIADAS
+    let po_references = [];
+    frm.doc.items.forEach(function(item) {
+        if (item.purchase_order && !po_references.includes(item.purchase_order)) {
+            po_references.push(item.purchase_order);
+        }
+    });
+
+    if (po_references.length === 0) {
+        frappe.show_alert({
+            message: __('Nenhuma ordem de compra referenciada'),
+            indicator: 'orange'
+        });
+        return;
+    }
+
+    // ✅ VALIDAR CONTRA CADA PO
+    po_references.forEach(function(po_name) {
+        frappe.call({
+            method: 'frappe.client.get',
+            args: {
+                doctype: 'Purchase Order',
+                name: po_name
+            },
+            callback: function(r) {
+                if (r.message) {
+                    validate_po_compliance(frm, r.message);
+                }
+            }
+        });
+    });
+}
+
+function validate_po_compliance(frm, po_doc) {
+    /**
+     * ✅ NOVA: Validar compliance com ordem de compra
+     */
+
+    let issues = [];
+
+    // ✅ VERIFICAR FORNECEDOR
+    if (frm.doc.supplier !== po_doc.supplier) {
+        issues.push(`Fornecedor diferente da PO ${po_doc.name}`);
+    }
+
+    // ✅ VERIFICAR VALORES
+    let po_total = po_doc.grand_total || 0;
+    let invoice_total = frm.doc.grand_total || 0;
+    let variance = Math.abs(po_total - invoice_total);
+    let variance_percent = (variance / po_total) * 100;
+
+    if (variance_percent > 5) { // Tolerância de 5%
+        issues.push(`Variação de valor significativa com PO ${po_doc.name}: ${variance_percent.toFixed(1)}%`);
+    }
+
+    // ✅ MOSTRAR ISSUES SE HOUVER
+    if (issues.length > 0) {
+        frappe.msgprint({
+            title: __('Validação contra Ordem de Compra'),
+            message: issues.join('<br>'),
+            indicator: 'orange'
+        });
+    } else {
+        frappe.show_alert({
+            message: __('Fatura conforme com PO {0}', [po_doc.name]),
+            indicator: 'green'
+        });
+    }
+}
+
+// ========== FUNÇÕES DE WORKFLOW ==========
+
+function setup_purchase_workflow(frm) {
+    /**
+     * ✅ NOVA: Configurar workflow específico para compras portuguesas
+     */
+
+    if (!is_portuguese_company(frm)) return;
+
+    // ✅ ADICIONAR ESTADOS DE WORKFLOW
+    if (frm.doc.docstatus === 0) {
+        frm.add_custom_button(__('Validar Compliance'), function() {
+            show_compliance_report(frm);
+        }, __('Workflow'));
+    }
+
+    if (frm.doc.docstatus === 1) {
+        frm.add_custom_button(__('Gerar Lançamentos'), function() {
+            generate_accounting_entries_preview(frm);
+        }, __('Workflow'));
+
+        frm.add_custom_button(__('Exportar SAF-T'), function() {
+            export_saft_data(frm);
+        }, __('Workflow'));
+
+        frm.add_custom_button(__('Relatório Completo'), function() {
+            generate_purchase_summary_report(frm);
+        }, __('Workflow'));
+    }
+}
+
+// ========== FUNÇÕES DE NOTIFICAÇÕES ==========
+
+function setup_purchase_notifications(frm) {
+    /**
+     * ✅ NOVA: Configurar notificações específicas
+     */
+
+    // ✅ NOTIFICAÇÃO DE VENCIMENTO
+    if (frm.doc.due_date && frm.doc.docstatus === 1) {
+        let due_date = frappe.datetime.str_to_obj(frm.doc.due_date);
+        let today = new Date();
+        let days_to_due = Math.ceil((due_date - today) / (1000 * 60 * 60 * 24));
+
+        if (days_to_due <= 7 && days_to_due > 0) {
+            frm.dashboard.add_indicator(
+                __('Vence em {0} dias', [days_to_due]),
+                'orange'
+            );
+        } else if (days_to_due <= 0) {
+            frm.dashboard.add_indicator(
+                __('Vencida há {0} dias', [Math.abs(days_to_due)]),
+                'red'
+            );
+        }
+    }
+
+    // ✅ NOTIFICAÇÃO DE SÉRIE NÃO COMUNICADA
+    if (frm.doc.naming_series && !frm.doc.__islocal) {
+        let prefix = frm.doc.naming_series.replace('.####', '');
+
+        frappe.call({
+            method: 'frappe.client.get_value',
+            args: {
+                doctype: 'Portugal Series Configuration',
+                filters: {prefix: prefix, company: frm.doc.company},
+                fieldname: 'is_communicated'
+            },
+            callback: function(r) {
+                if (r.message && !r.message.is_communicated) {
+                    frm.dashboard.add_indicator(
+                        __('Série FC não comunicada à AT'),
+                        'red'
+                    );
+                }
+            }
+        });
+    }
+}
+
+// ========== FUNÇÕES DE PERFORMANCE ==========
+
+function optimize_form_performance(frm) {
+    /**
+     * ✅ NOVA: Otimizar performance do formulário
+     */
+
+    // ✅ DEBOUNCE PARA CÁLCULOS
+    if (!frm._debounced_calculate) {
+        frm._debounced_calculate = frappe.utils.debounce(function() {
+            if (frm.compliance_section_added) {
+                $('.portugal-compliance-info').remove();
+                frm.compliance_section_added = false;
+                add_compliance_section(frm);
+            }
+        }, 300);
+    }
+
+    // ✅ CACHE PARA DADOS DO FORNECEDOR
+    if (!frm._supplier_cache) {
+        frm._supplier_cache = {};
+    }
+
+    // ✅ LAZY LOADING PARA SEÇÕES PESADAS
+    if (!frm.doc.__islocal && !frm._heavy_sections_loaded) {
+        setTimeout(() => {
+            setup_purchase_workflow(frm);
+            setup_purchase_notifications(frm);
+            frm._heavy_sections_loaded = true;
+        }, 500);
+    }
+}
+
+// ========== EVENTOS DE CLEANUP E FINALIZAÇÃO ==========
+
+frappe.ui.form.on('Purchase Invoice', {
+    before_unload: function(frm) {
+        // ✅ CLEANUP ANTES DE SAIR DO FORMULÁRIO
+        if (frm._change_observers) {
+            frm._change_observers.forEach(observer => {
+                if (observer.disconnect) observer.disconnect();
+            });
+        }
+
+        // ✅ LIMPAR TIMERS
+        if (frm._notification_timer) {
+            clearTimeout(frm._notification_timer);
+        }
+
+        // ✅ LIMPAR CACHE
+        delete frm._supplier_cache;
+        delete frm._company_settings;
+        delete frm._is_portuguese_company;
+    }
+});
+
+// ========== FUNÇÕES DE INTEGRAÇÃO COM OUTROS MÓDULOS ==========
+
+function integrate_with_asset_management(frm) {
+    /**
+     * ✅ NOVA: Integração com gestão de ativos
+     */
+
+    if (!frm.doc.items) return;
+
+    let asset_items = frm.doc.items.filter(item =>
+        item.item_code && item.item_code.toLowerCase().includes('ativo')
+    );
+
+    if (asset_items.length > 0) {
+        frm.add_custom_button(__('Criar Ativos'), function() {
+            create_assets_from_invoice(frm, asset_items);
+        }, __('Gestão de Ativos'));
+    }
+}
+
+function create_assets_from_invoice(frm, asset_items) {
+    /**
+     * ✅ NOVA: Criar ativos a partir da fatura
+     */
+
+    let dialog = new frappe.ui.Dialog({
+        title: __('Criar Ativos'),
+        fields: [
+            {
+                fieldtype: 'HTML',
+                fieldname: 'asset_info',
+                options: `<p>Foram identificados ${asset_items.length} itens que podem ser ativos.</p>`
+            },
+            {
+                fieldtype: 'Check',
+                fieldname: 'create_assets',
+                label: __('Criar ativos automaticamente'),
+                default: 1
+            }
+        ],
+        primary_action_label: __('Criar'),
+        primary_action: function() {
+            if (dialog.get_value('create_assets')) {
+                asset_items.forEach(item => {
+                    frappe.call({
+                        method: 'erpnext.assets.doctype.asset.asset.make_asset_from_purchase_invoice',
+                        args: {
+                            purchase_invoice: frm.doc.name,
+                            item_code: item.item_code
+                        },
+                        callback: function(r) {
+                            if (r.message) {
+                                frappe.show_alert({
+                                    message: __('Ativo criado: {0}', [r.message]),
+                                    indicator: 'green'
+                                });
+                            }
+                        }
+                    });
+                });
+            }
+            dialog.hide();
+        }
+    });
+
+    dialog.show();
+}
+
+// ========== FUNÇÕES DE AUDITORIA ==========
+
+function setup_audit_trail(frm) {
+    /**
+     * ✅ NOVA: Configurar trilha de auditoria
+     */
+
+    if (!frm.doc.docstatus === 1) return;
+
+    frm.add_custom_button(__('Trilha de Auditoria'), function() {
+        show_audit_trail(frm);
+    }, __('Auditoria'));
+}
+
+function show_audit_trail(frm) {
+    /**
+     * ✅ NOVA: Mostrar trilha de auditoria
+     */
+
+    frappe.call({
+        method: 'frappe.desk.form.load.get_docinfo',
+        args: {
+            doctype: frm.doc.doctype,
+            name: frm.doc.name
+        },
+        callback: function(r) {
+            if (r.message) {
+                display_audit_info(frm, r.message);
+            }
+        }
+    });
+}
+
+function display_audit_info(frm, docinfo) {
+    /**
+     * ✅ NOVA: Exibir informações de auditoria
+     */
+
+    let dialog = new frappe.ui.Dialog({
+        title: __('Trilha de Auditoria - {0}', [frm.doc.name]),
+        size: 'large',
+        fields: [
+            {
+                fieldtype: 'HTML',
+                fieldname: 'audit_content'
+            }
+        ]
+    });
+
+    let html = `
+        <div class="audit-trail">
+            <h5>Histórico de Alterações</h5>
+
             <table class="table table-striped">
                 <thead>
-                    <tr><th>Item</th><th>Qtd</th><th style="text-align: right;">Preço Unit.</th><th style="text-align: right;">Total</th></tr>
+                    <tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr>
                 </thead>
                 <tbody>
     `;
 
-    if (frm.doc.items) {
-        frm.doc.items.forEach(function(item) {
+    // ✅ ADICIONAR VERSÕES
+    if (docinfo.versions) {
+        docinfo.versions.forEach(version => {
             html += `
                 <tr>
-                    <td>${item.item_name || item.item_code}</td>
-                    <td>${item.qty || 0}</td>
-                    <td style="text-align: right;">€${(item.rate || 0).toFixed(2)}</td>
-                    <td style="text-align: right;">€${(item.amount || 0).toFixed(2)}</td>
+                    <td>${frappe.datetime.str_to_user(version.creation)}</td>
+                    <td>${version.owner}</td>
+                    <td>Alteração</td>
+                    <td>Versão ${version.name}</td>
+                </tr>
+            `;
+        });
+    }
+
+    // ✅ ADICIONAR COMENTÁRIOS
+    if (docinfo.comments) {
+        docinfo.comments.forEach(comment => {
+            html += `
+                <tr>
+                    <td>${frappe.datetime.str_to_user(comment.creation)}</td>
+                    <td>${comment.owner}</td>
+                    <td>Comentário</td>
+                    <td>${comment.content}</td>
                 </tr>
             `;
         });
@@ -2183,17 +2183,42 @@ function generate_purchase_summary_report(frm) {
     html += `
                 </tbody>
             </table>
-
-            <div style="margin-top: 30px; font-size: 12px; color: #666;">
-                <p><strong>Relatório gerado em:</strong> ${frappe.datetime.now_datetime()}</p>
-                <p><strong>Portugal Compliance:</strong> Conforme Portaria 195/2020</p>
-            </div>
         </div>
     `;
 
-    dialog.fields_dict.report_content.$wrapper.html(html);
+    dialog.fields_dict.audit_content.$wrapper.html(html);
     dialog.show();
 }
 
-// ========== CONSOLE LOG PARA DEBUG ==========
-console.log('Portugal Compliance Purchase Invoice JS loaded - Version 2.0.0');
+// ========== INICIALIZAÇÃO FINAL ==========
+
+$(document).ready(function() {
+    // ✅ CONFIGURAÇÕES GLOBAIS PARA PURCHASE INVOICE
+    if (window.location.pathname.includes('Purchase Invoice')) {
+        // ✅ ADICIONAR ESTILOS CSS ESPECÍFICOS
+        $('<style>')
+            .prop('type', 'text/css')
+            .html(`
+                .portugal-compliance-form .control-label {
+                    font-weight: 600;
+                }
+                .portugal-compliance-info {
+                    animation: fadeIn 0.3s ease-in;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .purchase-invoice-pt .form-section {
+                    border-left: 3px solid #ff9800;
+                }
+            `)
+            .appendTo('head');
+    }
+});
+
+// ========== CONSOLE LOG FINAL ==========
+console.log('Portugal Compliance Purchase Invoice JS - COMPLETE VERSION 2.0.0 - All Functions Loaded');
+console.log('Features: ATCUD Generation, Tax Validation, Compliance Checking, Reporting, SAF-T Export');
+console.log('Format: ERPNext Native (WITHOUT HYPHENS) - FC2025EMPRESA.####');
+

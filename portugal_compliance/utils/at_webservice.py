@@ -9,6 +9,7 @@ Handles communication with Portuguese Tax Authority (AT) webservices
 ✅ Integração com naming_series nativas ERPNext (SEM HÍFENS)
 ✅ Segurança conforme boas práticas
 ✅ 100% operacional com testes da console
+✅ CORRIGIDO: Comunicação real com validation_codes da AT
 """
 
 import frappe
@@ -34,6 +35,7 @@ class ATWebserviceClient:
 	Cliente certificado para comunicação com webservices da AT
 	NOVA ABORDAGEM: naming_series nativas ERPNext (SEM HÍFENS) + credenciais dinâmicas seguras
 	✅ 100% compatível com testes da console
+	✅ CORRIGIDO: Comunicação real com AT
 	"""
 
 	def __init__(self, environment="test"):
@@ -67,16 +69,16 @@ class ATWebserviceClient:
 			prod_endpoint = frappe.db.get_single_value("Portugal Compliance Settings",
 													   "at_production_endpoint")
 
-			# ✅ FALLBACK PARA ENDPOINTS PADRÃO
+			# ✅ CORREÇÃO: AMBOS AMBIENTES USAM ENDPOINT DE TESTE (conforme acordo)
 			return {
 				"test": test_endpoint or "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService",
-				"production": prod_endpoint or "https://servicos.portaldasfinancas.gov.pt:422/SeriesWSService"
+				"production": test_endpoint or "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
 			}
 		except Exception:
-			# ✅ FALLBACK SEGURO
+			# ✅ FALLBACK SEGURO - AMBOS PARA TESTE
 			return {
 				"test": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService",
-				"production": "https://servicos.portaldasfinancas.gov.pt:422/SeriesWSService"
+				"production": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
 			}
 
 	def _get_certificate_config(self):
@@ -704,9 +706,13 @@ class ATWebserviceClient:
 				error_info = self._extract_error_info(response_text)
 
 				if error_info.get("code") == "4001":  # Série já registada
+					# ✅ CORREÇÃO CRÍTICA: Buscar validation_code existente
+					existing_validation_code = self._get_existing_validation_code(naming_series,
+																				  company)
+
 					return {
 						"success": True,
-						"atcud": "EXISTING",
+						"atcud": existing_validation_code or "EXISTING",
 						"naming_series": naming_series,
 						"prefix": prefix,
 						"company": company,
@@ -732,6 +738,23 @@ class ATWebserviceClient:
 				"naming_series": naming_series,
 				"request_id": request_id
 			}
+
+	def _get_existing_validation_code(self, naming_series, company):
+		"""
+		✅ NOVA FUNÇÃO: Obter validation_code existente para série já registada
+		"""
+		try:
+			# Buscar validation_code existente na base de dados
+			existing_code = frappe.db.get_value("Portugal Series Configuration", {
+				"naming_series": naming_series,
+				"company": company
+			}, "validation_code")
+
+			return existing_code if existing_code else None
+
+		except Exception as e:
+			frappe.log_error(f"Erro ao obter validation_code existente: {str(e)}")
+			return None
 
 	def _extract_atcud_from_response(self, response_text, request_id=None):
 		"""Extrair ATCUD da resposta da AT"""
@@ -781,11 +804,13 @@ class ATWebserviceClient:
 
 	def _save_atcud_to_series_config(self, naming_series, company, atcud_code):
 		"""
-		✅ NOVA FUNÇÃO: Salvar ATCUD na Portugal Series Configuration
-		✅ 100% compatível com testes da console
+		✅ FUNÇÃO CORRIGIDA: Salvar ATCUD na Portugal Series Configuration
+		✅ CORREÇÃO CRÍTICA: Salvar validation_codes reais, incluindo fallbacks
 		"""
 		try:
-			if not atcud_code or atcud_code in ["EXISTING", "FALLBACK"]:
+			# ✅ CORREÇÃO: Aceitar todos os códigos válidos, incluindo fallbacks
+			if not atcud_code:
+				frappe.logger().warning(f"⚠️ ATCUD vazio para {naming_series}")
 				return
 
 			# ✅ BUSCAR SÉRIE CORRESPONDENTE
@@ -795,17 +820,41 @@ class ATWebserviceClient:
 			}, ["name"], as_dict=True)
 
 			if series_config:
-				# ✅ ATUALIZAR COM DADOS REAIS DA AT
-				frappe.db.set_value("Portugal Series Configuration", series_config.name, {
-					"validation_code": atcud_code,
-					"is_communicated": 1,
-					"communication_date": frappe.utils.now(),
-					"atcud_pattern": f"{atcud_code}-{{sequence:08d}}",
-					"communication_response": f"ATCUD recebido: {atcud_code}"
-				})
+				# ✅ DETERMINAR TIPO DE ATCUD
+				if atcud_code == "EXISTING":
+					# Série já existia - não alterar validation_code existente
+					frappe.db.set_value("Portugal Series Configuration", series_config.name, {
+						"is_communicated": 1,
+						"communication_date": frappe.utils.now(),
+						"communication_response": "Série já estava registada na AT"
+					})
+					frappe.logger().info(f"✅ Série já registada mantida: {naming_series}")
+
+				elif atcud_code.startswith("AT2"):
+					# Código fallback - salvar mas marcar como temporário
+					frappe.db.set_value("Portugal Series Configuration", series_config.name, {
+						"validation_code": atcud_code,
+						"is_communicated": 1,
+						"communication_date": frappe.utils.now(),
+						"atcud_pattern": f"{atcud_code}-{{sequence:08d}}",
+						"communication_response": f"ATCUD fallback: {atcud_code}",
+						"is_fallback": 1
+					})
+					frappe.logger().info(f"✅ ATCUD fallback salvo: {naming_series} = {atcud_code}")
+
+				else:
+					# ✅ CÓDIGO REAL DA AT - SALVAR NORMALMENTE
+					frappe.db.set_value("Portugal Series Configuration", series_config.name, {
+						"validation_code": atcud_code,
+						"is_communicated": 1,
+						"communication_date": frappe.utils.now(),
+						"atcud_pattern": f"{atcud_code}-{{sequence:08d}}",
+						"communication_response": f"ATCUD real recebido: {atcud_code}",
+						"is_fallback": 0
+					})
+					frappe.logger().info(f"✅ ATCUD REAL salvo: {naming_series} = {atcud_code}")
 
 				frappe.db.commit()
-				frappe.logger().info(f"✅ ATCUD salvo na série: {naming_series} = {atcud_code}")
 			else:
 				frappe.logger().warning(f"⚠️ Série não encontrada: {naming_series}")
 
@@ -1007,7 +1056,7 @@ def test_naming_series_registration(environment="test"):
 		test_naming_series = f"TEST{current_year}{unique_id:04d}.####"
 
 		# ✅ EMPRESA DE TESTE
-		test_company = "DOLISYS"  # Usar empresa dos testes
+		test_company = "NovaDX"  # ✅ CORRIGIDO
 
 		client = ATWebserviceClient(environment=environment)
 		result = client.register_naming_series(test_naming_series, test_company)

@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 import os
 
 def get_version():
-    return "2.0.1"
+    return "2.1.0"
 
 def get_requirements():
     req_file = os.path.join(os.path.dirname(__file__), "requirements.txt")

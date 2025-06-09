@@ -65,11 +65,24 @@ doctype_js = {
 }
 
 # ✅ INSTALAÇÃO E DESINSTALAÇÃO
-after_install = "portugal_compliance.regional.portugal.after_install"
+after_install = [
+    "portugal_compliance.regional.portugal.after_install",
+    "portugal_compliance.utils.startup_fixes.run_all_startup_fixes"
+]
+
 before_uninstall = "portugal_compliance.regional.portugal.before_uninstall"
 
+# ✅ HOOK PARA ATUALIZAÇÕES
+after_app_install = [
+    "portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters"
+]
+
 # ✅ MIGRATION HOOKS
-#after_migrate = "portugal_compliance.utils.migrate_to_native_approach.sync_all_naming_series_after_migrate"
+after_migrate = [
+    "portugal_compliance.utils.startup_fixes.fix_customer_search_on_startup",
+	"portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters"
+]
+
 
 # ✅ DOCUMENT EVENTS - VERSÃO CORRIGIDA E SEGURA
 # Baseado nos testes bem-sucedidos com programação.teste_no_console
@@ -198,7 +211,7 @@ override_whitelisted_methods = {
 #	]
 #}
 
-# ✅ FIXTURES - SIMPLIFICADO
+#  FIXTURES - SIMPLIFICADO
 fixtures = [
 	{
 		"dt": "Custom Field",
