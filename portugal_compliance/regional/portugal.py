@@ -1073,3 +1073,59 @@ def get_company_regional_summary_api(company):
 # ========== LOG FINAL ==========
 frappe.logger().info(
 	"Portugal Regional Configuration ATUALIZADO loaded - Version 2.1.0 - Regional Specific & Non-Blocking")
+
+# ============================================================
+# Hooks de instalacao/desinstalacao da app
+# (referenciados em hooks.py -> after_install / before_uninstall)
+# ============================================================
+
+def after_install():
+	"""
+	Hook pos-instalacao da app.
+	Configura o compliance para empresas portuguesas ja existentes no
+	site (relevante quando a app e instalada num site com dados previos,
+	nao apenas em sites novos).
+	"""
+	frappe.logger().info("Portugal Compliance: a executar configuracao pos-instalacao")
+
+	companies = frappe.get_all("Company", filters={"country": "Portugal"}, pluck="name")
+	configured = 0
+	for company in companies:
+		try:
+			setup_portugal_compliance_for_company_regional(company)
+			configured += 1
+		except Exception:
+			frappe.log_error(
+				title="Portugal Compliance - after_install",
+				message=f"Falha ao configurar compliance para a empresa {company}\n{frappe.get_traceback()}",
+			)
+
+	frappe.logger().info(
+		f"Portugal Compliance: configuracao pos-instalacao concluida "
+		f"({configured}/{len(companies)} empresa(s) portuguesa(s))"
+	)
+
+
+def before_uninstall():
+	"""
+	Hook pre-desinstalacao da app.
+	Nao bloqueia a desinstalacao, mas deixa um aviso no log de erros
+	sobre series/ATCUD que vao ser apagados com os doctypes da app,
+	para que o utilizador saiba que deve exportar um backup do SAF-T
+	antes de confirmar.
+	"""
+	try:
+		series_count = frappe.db.count("Portugal Series Configuration")
+	except Exception:
+		series_count = 0
+
+	if series_count:
+		frappe.log_error(
+			title="Portugal Compliance - before_uninstall",
+			message=(
+				f"A desinstalar com {series_count} serie(s) configurada(s). "
+				"Os dados de series/ATCUD serao apagados com os doctypes desta app. "
+				"Recomenda-se exportar um backup do SAF-T antes de confirmar a desinstalacao."
+			),
+		)
+

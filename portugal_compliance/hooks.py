@@ -33,18 +33,25 @@ app_include_css = [
 ]
 
 app_include_js = [
-    "/assets/portugal_compliance/js/portugal_compliance.js",
-    "/assets/portugal_compliance/js/company.js"
+    "/assets/portugal_compliance/js/portugal_compliance.js"
 ]
+# company.js removido daqui: chama frappe.ui.form.on(), que so existe
+# no contexto do Desk. Carregado globalmente (incluindo na pagina de
+# login publica) rebentava com "frappe.ui.form.on is not a function".
+# Continua correctamente registado abaixo em doctype_js, scoped so ao
+# formulario de Company.
 
 web_include_css = [
     "/assets/portugal_compliance/css/portugal_compliance.css"
 ]
 
-web_include_js = [
-    "/assets/portugal_compliance/js/portugal_compliance.js",
-    "/assets/portugal_compliance/js/company.js"
-]
+# web_include_js vazio: portugal_compliance.js chama frappe.ui.form.on()
+# dentro de init() -> initializeValidators(), que so funciona no contexto
+# do Desk (onde a framework de formularios esta totalmente carregada).
+# Nas paginas publicas (ex: login), frappe.ui.form existe como objeto mas
+# sem o metodo .on(), o que passava a guarda defensiva do ficheiro e
+# crashava. Mantido em app_include_js (Desk), removido daqui.
+web_include_js = []
 
 # ✅ DOCTYPE JS - CORRIGIDO (era lista, agora é dicionário)
 doctype_js = {
@@ -157,7 +164,7 @@ doc_events = {
 	# ========== CONFIGURAÇÃO DA EMPRESA ==========
 	"Company": {
 		"on_update": "portugal_compliance.utils.document_hooks.setup_company_portugal_compliance",
-		"validate": "portugal_compliance.regional.portugal.validate_portugal_company_settings"
+		"validate": "portugal_compliance.regional.portugal.validate_portugal_company_settings_safe"
 	},
 
 	# ========== VALIDAÇÃO DE ENTIDADES ==========
@@ -188,9 +195,16 @@ has_permission = {
 }
 
 # ✅ OVERRIDE DOCTYPE CLASS
-override_doctype_class = {
-	"Sales Invoice": "portugal_compliance.overrides.sales_invoice.CustomSalesInvoice"
-}
+# override_doctype_class removido: apontava para
+# "portugal_compliance.overrides.sales_invoice.CustomSalesInvoice", uma
+# classe que nunca existiu (a classe real chama-se
+# SalesInvoicePortugalCompliance, nao subclassa SalesInvoice e nunca e
+# instanciada em lado nenhum do codigo). A validacao/geracao de ATCUD
+# para Sales Invoice ja e feita via doc_events (document_hooks.py),
+# que e o mecanismo correto para isto - override_doctype_class so
+# deve ser usado quando e mesmo preciso substituir metodos do
+# controller, e nesse caso so uma app pode ser "dona" do doctype.
+override_doctype_class = {}
 
 # ✅ OVERRIDE WHITELISTED METHODS
 override_whitelisted_methods = {
@@ -286,9 +300,9 @@ domains = {
 #boot_session = "portugal_compliance.utils.boot.boot_session"
 
 # ✅ STARTUP HOOKS
-startup_hooks = [
-	"portugal_compliance.utils.startup.validate_portugal_compliance_setup"
-]
+# startup_hooks removido: nao e uma chave de hook consumida pelo
+# Frappe core, e o ficheiro utils/startup.py (distinto de
+# utils/startup_fixes.py, que esse existe) nunca existiu.
 
 # ✅ SOUNDS
 #sounds = [
@@ -326,13 +340,13 @@ calendars = ["ATCUD Log"]
 
 # ✅ DASHBOARD DATA
 dashboard_data = {
-	"Portugal Compliance": "portugal_compliance.dashboards.get_dashboard_data"
+	"Portugal Compliance": "portugal_compliance.dashboards.company.get_dashboard_data"
 }
 
 # ✅ STANDARD QUERIES
 standard_queries = {
-	"Customer": "portugal_compliance.queries.customer_query",
-	"Supplier": "portugal_compliance.queries.supplier_query"
+	"Customer": "portugal_compliance.queries.customer.customer_query",
+	"Supplier": "portugal_compliance.queries.customer.supplier_query"
 }
 
 # ✅ PORTAL MENU ITEMS

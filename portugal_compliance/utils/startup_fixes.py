@@ -108,7 +108,7 @@ def ensure_portugal_compliance_setup():
 		frappe.log_error(f"Erro na verificação de compliance: {str(e)}")
 
 
-def setup_naming_series_property_setters():
+def setup_naming_series_property_setters(app_name=None):
 	"""
 	✅ VERSÃO DINÂMICA: Property Setters baseados no abbr da empresa
 	Baseado na sua experiência com programação.consistência_de_dados[3]
