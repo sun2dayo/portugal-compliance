@@ -13,6 +13,7 @@ Handles communication with Portuguese Tax Authority (AT) webservices
 """
 
 import frappe
+from frappe import _
 import requests
 import ssl
 import os
@@ -28,6 +29,70 @@ from urllib3.util.ssl_ import create_urllib3_context
 import json
 import time
 from frappe.utils import now, today, get_datetime
+
+
+import zeep
+from zeep.transports import Transport
+from zeep.wsse.username import UsernameToken
+import requests
+from datetime import date as _date
+
+
+def _build_mtls_session(cert_path, key_path):
+	"""
+	Sessao requests com o certificado cliente da empresa anexado para
+	mTLS - a AT exige isto na camada de transporte, nao so credenciais
+	no corpo SOAP (confirmado pela documentacao tecnica do modulo
+	Dolibarr de referencia). Zeep usa esta sessao para todos os
+	pedidos HTTP subjacentes.
+	"""
+	session = requests.Session()
+	if cert_path and key_path:
+		session.cert = (cert_path, key_path)
+	return session
+
+
+def get_series_webservice_client(username=None, password=None):
+	"""
+	Cliente zeep para o webservice de comunicacao de series
+	(registarSerie/consultarSeries/finalizarSerie/anularSerie),
+	carregado a partir do WSDL real da AT incluido no repositorio.
+	Configura mTLS (certificado cliente) e WS-Security UsernameToken
+	(zeep aplica automaticamente o namespace OASIS 2004 correto - ver
+	zeep.wsse.username.UsernameToken).
+	"""
+	settings = frappe.get_single("Portugal Auth Settings")
+
+	cert_path = settings.get("mtls_certificate_path")
+	key_path = settings.get("mtls_private_key_path")
+	if not cert_path or not key_path:
+		raise ATWebserviceError(
+			_(
+				"Certificado mTLS nao configurado. Defina 'Certificado Cliente mTLS (PEM)' e "
+				"'Chave Privada mTLS (PEM)' em Portugal Auth Settings."
+			)
+		)
+
+	at_username = username or settings.get("at_username")
+	at_password = password or settings.get_password("at_password", raise_exception=False)
+	if not at_username or not at_password:
+		raise ATWebserviceError(
+			_(
+				"Credenciais do webservice da AT nao configuradas. Defina 'Utilizador AT' e "
+				"'Password AT' em Portugal Auth Settings (distintas do login do Portal das Financas)."
+			)
+		)
+
+	wsdl_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wsdl", "Comunicacao_Series.wsdl")
+	session = _build_mtls_session(cert_path, key_path)
+	transport = Transport(session=session, timeout=60)
+	wsse = UsernameToken(at_username, at_password)
+
+	return zeep.Client(wsdl=wsdl_path, transport=transport, wsse=wsse)
+
+
+class ATWebserviceError(Exception):
+	pass
 
 
 class ATWebserviceClient:
@@ -532,120 +597,100 @@ class ATWebserviceClient:
 
 	def register_naming_series(self, naming_series, company, username=None, password=None):
 		"""
-		✅ CORRIGIDO: Registar naming_series ERPNext (SEM HÍFENS) na AT
-		Integrada com nova abordagem e credenciais dinâmicas
-		✅ 100% compatível com testes da console
+		Regista uma naming_series (serie documental ERPNext) na AT via
+		o webservice real (registarSerie), usando zeep + mTLS + WSSE
+		(ver get_series_webservice_client). Devolve o codigo de
+		validacao da serie, necessario para gerar ATCUD reais (nao
+		temporarios) - ver utils/atcud_generator.py.
 		"""
-		try:
-			request_id = f"REG_NS_{int(time.time())}"
-			frappe.logger().info(
-				f"🚀 [{request_id}] Registando naming series ERPNext: {naming_series}")
+		request_id = f"REG_NS_{int(time.time())}"
+		frappe.logger().info(f"[{request_id}] Registando naming series: {naming_series}")
 
-			# ✅ VALIDAR NAMING SERIES (FORMATO SEM HÍFENS)
-			is_valid, validation_msg = self.validate_naming_series_format(naming_series)
-			if not is_valid:
-				return {
-					"success": False,
-					"error": f"Naming series inválida: {validation_msg}",
-					"naming_series": naming_series,
-					"expected_format": "XXYYYY+COMPANY.#### (ex: FT2025DSY.####)"
-				}
-
-			# ✅ OBTER CREDENCIAIS SEGURAS
-			try:
-				credentials_data = self.get_secure_credentials(company, username, password)
-				frappe.logger().info(
-					f"✅ [{request_id}] Credenciais obtidas de: {credentials_data['source']}")
-			except Exception as e:
-				return {
-					"success": False,
-					"error": f"Erro ao obter credenciais: {str(e)}",
-					"naming_series": naming_series
-				}
-
-			# ✅ OBTER SESSÃO AUTENTICADA
-			session = self.get_authenticated_session()
-
-			# ✅ CIFRAR CREDENCIAIS
-			credentials = self.encrypt_credentials(credentials_data['username'],
-												   credentials_data['password'])
-
-			# ✅ CONSTRUIR SOAP ENVELOPE (AGORA COM CONVERSÃO CORRETA)
-			soap_envelope, series_data = self.build_naming_series_soap_envelope(naming_series,
-																				company,
-																				credentials)
-
-			# ✅ HEADERS CORRETOS
-			headers = {
-				'Content-Type': 'text/xml; charset=utf-8',
-				'SOAPAction': '',
-				'User-Agent': 'Portugal-Compliance-ERPNext-Native/2.0'
-			}
-
-			# ✅ ENVIAR REQUISIÇÃO COM RETRY
-			last_exception = None
-			for attempt in range(self.max_retries):
-				try:
-					frappe.logger().info(
-						f"🔄 [{request_id}] Tentativa {attempt + 1}/{self.max_retries}")
-
-					response = session.post(
-						self.endpoints[self.environment],
-						data=soap_envelope,
-						headers=headers,
-						timeout=self.timeout
-					)
-
-					frappe.logger().info(
-						f"📋 [{request_id}] Response Status: {response.status_code}")
-
-					# ✅ PROCESSAR RESPOSTA
-					result = self.process_naming_series_response(response, naming_series, company,
-																 request_id)
-
-					if result.get("success"):
-						# ✅ SALVAR CÓDIGO AT NA PORTUGAL SERIES CONFIGURATION
-						self._save_atcud_to_series_config(naming_series, company,
-														  result.get("atcud"))
-
-					return result
-
-				except requests.exceptions.Timeout as e:
-					last_exception = e
-					frappe.logger().warning(f"⏰ [{request_id}] Timeout na tentativa {attempt + 1}")
-					if attempt < self.max_retries - 1:
-						time.sleep(self.retry_delay * (attempt + 1))
-
-				except requests.exceptions.ConnectionError as e:
-					last_exception = e
-					frappe.logger().warning(
-						f"🔌 [{request_id}] Erro de conexão na tentativa {attempt + 1}")
-					if attempt < self.max_retries - 1:
-						time.sleep(self.retry_delay * (attempt + 1))
-
-				except Exception as e:
-					last_exception = e
-					frappe.logger().error(
-						f"💥 [{request_id}] Erro inesperado na tentativa {attempt + 1}: {str(e)}")
-					if attempt < self.max_retries - 1:
-						time.sleep(self.retry_delay)
-
-			# ✅ FALHA APÓS TODAS AS TENTATIVAS
+		is_valid, validation_msg = self.validate_naming_series_format(naming_series)
+		if not is_valid:
 			return {
 				"success": False,
-				"error": f"Falha após {self.max_retries} tentativas: {str(last_exception)}",
+				"error": f"Naming series inválida: {validation_msg}",
 				"naming_series": naming_series,
 				"request_id": request_id,
-				"attempts": self.max_retries
 			}
 
-		except Exception as e:
-			frappe.log_error(f"Erro crítico no registro de naming series: {str(e)}")
+		prefix = self.extract_prefix_from_naming_series(naming_series)
+		if not prefix:
 			return {
 				"success": False,
-				"error": str(e),
-				"naming_series": naming_series
+				"error": f"Não foi possível extrair o prefixo de: {naming_series}",
+				"naming_series": naming_series,
+				"request_id": request_id,
 			}
+
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})$'
+		match = re.match(pattern, prefix)
+		if not match:
+			return {
+				"success": False,
+				"error": f"Formato de prefixo inválido: {prefix}",
+				"naming_series": naming_series,
+				"request_id": request_id,
+			}
+		doc_code, year, company_abbr = match.groups()
+		at_series_format = f"{doc_code}-{year}-{company_abbr}"
+
+		try:
+			client = get_series_webservice_client(username, password)
+		except ATWebserviceError as e:
+			return {"success": False, "error": str(e), "naming_series": naming_series, "request_id": request_id}
+
+		certificate_number = frappe.db.get_single_value(
+			"Portugal Auth Settings", "software_certificate_number"
+		) or "0"
+
+		try:
+			response = client.service.registarSerie(
+				serie=at_series_format,
+				tipoSerie="N",
+				classeDoc=self._map_doc_code_to_class(doc_code),
+				tipoDoc=doc_code,
+				numPrimDocSerie=1,
+				dataInicioPrevUtiliz=_date.today() + timedelta(days=1),
+				numCertSWFatur=str(certificate_number),
+				meioProcessamento="PI",
+			)
+		except Exception as e:
+			frappe.log_error(f"Erro ao comunicar com o webservice de séries da AT: {str(e)}", "ATWebserviceClient")
+			return {
+				"success": False,
+				"error": f"Erro na comunicação com a AT: {str(e)}",
+				"naming_series": naming_series,
+				"request_id": request_id,
+			}
+
+		erros = getattr(response, "listaErros", None)
+		if erros and getattr(erros, "erro", None):
+			mensagens = [
+				f"{getattr(erro, 'codigo', '?')}: {getattr(erro, 'mensagem', '')}"
+				for erro in erros.erro
+			]
+			return {
+				"success": False,
+				"error": "; ".join(mensagens),
+				"naming_series": naming_series,
+				"request_id": request_id,
+			}
+
+		info = getattr(response, "InfoSerie", None)
+		validation_code = getattr(info, "codValidacaoSerie", None) if info else None
+
+		frappe.logger().info(f"[{request_id}] Série registada com sucesso: {validation_code}")
+
+		return {
+			"success": True,
+			"naming_series": naming_series,
+			"series_at_format": at_series_format,
+			"validation_code": validation_code,
+			"request_id": request_id,
+			"raw_response": zeep.helpers.serialize_object(info) if info else None,
+		}
 
 	def process_naming_series_response(self, response, naming_series, company, request_id):
 		"""

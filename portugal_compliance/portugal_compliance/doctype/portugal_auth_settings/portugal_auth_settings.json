@@ -62,6 +62,38 @@
             "fieldtype": "Data",
             "default": "0",
             "description": "Numero atribuido pela AT apos certificacao. 0 enquanto o software nao estiver certificado (campo R do QR code)."
+        },
+        {
+            "fieldname": "webservice_credentials_section",
+            "fieldtype": "Section Break",
+            "label": "Credenciais do Webservice da AT (WS-Security)"
+        },
+        {
+            "fieldname": "at_username",
+            "label": "Utilizador AT (webservice)",
+            "fieldtype": "Data",
+            "description": "Utilizador registado no Portal das Financas para o servico de webservices (distinto do login normal)"
+        },
+        {
+            "fieldname": "at_password",
+            "label": "Password AT (webservice)",
+            "fieldtype": "Password"
+        },
+        {
+            "fieldname": "mtls_column_break",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "mtls_certificate_path",
+            "label": "Certificado Cliente mTLS (PEM)",
+            "fieldtype": "Data",
+            "description": "Certificado extraido do .pfx fornecido pela AT, convertido para PEM"
+        },
+        {
+            "fieldname": "mtls_private_key_path",
+            "label": "Chave Privada mTLS (PEM)",
+            "fieldtype": "Data",
+            "description": "Chave privada extraida do mesmo .pfx - NUNCA a mesma chave usada para assinar documentos (ver Chave de Assinatura acima)"
         }
     ]
 }
