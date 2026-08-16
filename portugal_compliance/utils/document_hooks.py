@@ -369,7 +369,23 @@ class PortugalComplianceDocumentHooks:
 	# ========== HOOKS DE DOCUMENTOS ==========
 
 	def generate_atcud_before_save(self, doc, method=None):
-		"""✅ OTIMIZADO: Hook principal para gerar ATCUD"""
+		"""
+		Hook principal para gerar ATCUD. Delega para ATCUDGenerator
+		(utils/atcud_generator.py), que e o unico gerador de ATCUD do
+		modulo - inclui assinatura digital RSA-SHA1, QR code com os
+		campos corretos, registo estruturado em ATCUD Log e sequencia
+		extraida da naming_series nativa do Frappe.
+
+		Existia anteriormente um segundo gerador aqui mesmo
+		(_generate_atcud_with_real_validation_code), com um contador de
+		sequencia proprio (o mesmo bug de dessincronizacao ja corrigido
+		em ATCUDGenerator) e sem assinatura/QR/log - nunca chamava
+		ATCUDGenerator, apesar de este ser claramente o gerador mais
+		completo e ser o que o proprio codigo diz estar alinhado com
+		document_hooks.py. Mantida como metodo nao utilizado para
+		referencia ate a Fase 3 (decisao sobre codigo morto) decidir se
+		vale a pena remover.
+		"""
 		try:
 			if not self._should_generate_atcud(doc):
 				return
@@ -377,11 +393,20 @@ class PortugalComplianceDocumentHooks:
 			if not getattr(doc, 'naming_series', None):
 				self._auto_select_communicated_series(doc)
 
-			if getattr(doc, 'naming_series', None):
-				atcud_code = self._generate_atcud_with_real_validation_code(doc)
-				if atcud_code:
-					doc.atcud_code = atcud_code
-					frappe.logger().info(f"✅ ATCUD gerado: {atcud_code}")
+			if not getattr(doc, 'naming_series', None):
+				return
+
+			from portugal_compliance.utils.atcud_generator import ATCUDGenerator
+			result = ATCUDGenerator().generate_atcud_for_document(doc)
+
+			if result.get("success"):
+				doc.atcud_code = result["atcud_code"]
+				frappe.logger().info(f"✅ ATCUD gerado: {result['atcud_code']}")
+			else:
+				frappe.log_error(
+					f"Falha ao gerar ATCUD para {doc.doctype} {doc.name}: {result.get('error')}",
+					"generate_atcud_before_save",
+				)
 
 			self._update_portugal_compliance_fields(doc)
 
@@ -427,8 +452,27 @@ class PortugalComplianceDocumentHooks:
 			config = self.supported_doctypes[doc.doctype]
 
 			if config.get("fiscal_document") and config.get("requires_atcud"):
-				if not getattr(doc, 'atcud_code', None):
+				atcud_code = getattr(doc, 'atcud_code', None)
+				if not atcud_code:
 					frappe.throw(_("ATCUD é obrigatório para documentos fiscais portugueses"))
+
+				# Bloquear submissao com codigo de validacao temporario
+				# (gerado quando a serie ainda nao foi comunicada a AT -
+				# ver _generate_enhanced_temporary_code). Um documento
+				# submetido fica imutavel; deixar passar um ATCUD
+				# fabricado significa que a unica forma de corrigir e
+				# anular e reemitir, nunca corrigir. A validacao
+				# anterior so verificava que o campo nao estava vazio,
+				# nao que o codigo era real.
+				validation_code = atcud_code.split('-')[0] if '-' in atcud_code else atcud_code
+				if validation_code.startswith('TEMP'):
+					frappe.throw(
+						_(
+							"Este documento tem um ATCUD temporário ({0}), gerado porque a série "
+							"ainda não foi comunicada à AT. Comunique a série antes de submeter "
+							"documentos fiscais - ver Portugal Series Configuration."
+						).format(atcud_code)
+					)
 
 			if not self._is_portuguese_naming_series(getattr(doc, 'naming_series', '')):
 				frappe.throw(_("Naming series portuguesa é obrigatória"))
@@ -436,6 +480,144 @@ class PortugalComplianceDocumentHooks:
 		except Exception as e:
 			frappe.log_error(f"Erro validação submissão: {str(e)}")
 			raise
+
+	# ========== HOOKS EM FALTA (referenciados em hooks.py, sem implementacao) ==========
+
+	def generate_atcud_after_insert(self, doc, method=None):
+		"""
+		Hook de after_insert. Duas responsabilidades:
+
+		1. Escrever o ATCUD Log estruturado (assinatura, QR, cadeia de
+		   hash) que generate_atcud_before_save calculou mas nao pode
+		   gravar ainda - o ATCUD Log tem uma Dynamic Link para este
+		   documento, que so existe de facto na BD a partir daqui
+		   (before_save corre antes do db_insert no ciclo de vida do
+		   Frappe).
+		2. Rede de seguranca: se por algum motivo o documento chegou
+		   aqui sem atcud_code (ex: fluxo de bulk insert que saltou
+		   before_save), gera agora.
+		"""
+		try:
+			if not self._should_generate_atcud(doc) and not getattr(doc, 'atcud_code', None):
+				return
+
+			if getattr(doc, '_portugal_atcud_pending_log', None):
+				from portugal_compliance.utils.atcud_generator import ATCUDGenerator
+				ATCUDGenerator().persist_pending_atcud_log(doc)
+				return
+
+			if getattr(doc, 'atcud_code', None):
+				return  # ja gerado e persistido, nada a fazer
+
+			frappe.logger().warning(
+				f"ATCUD nao encontrado apos insert para {doc.doctype} {doc.name} - "
+				"a gerar agora como rede de seguranca"
+			)
+			from portugal_compliance.utils.atcud_generator import ATCUDGenerator
+			generator = ATCUDGenerator()
+			result = generator.generate_atcud_for_document(doc)
+			if result.get("success"):
+				doc.db_set('atcud_code', result["atcud_code"], update_modified=False)
+				generator.persist_pending_atcud_log(doc)
+
+		except Exception as e:
+			frappe.log_error(f"Erro em generate_atcud_after_insert: {str(e)}")
+
+	def validate_portugal_compliance_light(self, doc, method=None):
+		"""
+		Validacao ligeira para documentos pre-fiscais (Quotation, Sales
+		Order, Purchase Order, Material Request) - estes documentos nao
+		sao fiscais em Portugal e nao precisam de ATCUD, mas convem
+		avisar cedo se a serie/empresa nao estiver bem configurada,
+		antes de o utilizador chegar a fatura.
+		"""
+		try:
+			if not self._is_portuguese_company(doc.company):
+				return
+
+			naming_series = getattr(doc, 'naming_series', None)
+			if naming_series and not self._is_portuguese_naming_series(naming_series):
+				frappe.msgprint(
+					_("Esta série não segue o formato de série portuguesa recomendado."),
+					indicator="orange",
+					alert=True,
+				)
+		except Exception as e:
+			frappe.log_error(f"Erro em validate_portugal_compliance_light: {str(e)}")
+
+	def validate_customer_nif(self, doc, method=None):
+		"""Valida o formato do NIF do cliente quando fornecido."""
+		self._validate_party_nif(doc, "Customer")
+
+	def validate_supplier_nif(self, doc, method=None):
+		"""Valida o formato do NIF do fornecedor quando fornecido."""
+		self._validate_party_nif(doc, "Supplier")
+
+	def _validate_party_nif(self, doc, party_type):
+		try:
+			tax_id = getattr(doc, 'tax_id', None)
+			if not tax_id:
+				return
+
+			from portugal_compliance.regional.portugal import validate_portuguese_nif_safe
+			result = validate_portuguese_nif_safe(tax_id)
+			if not result.get('valid'):
+				frappe.msgprint(
+					_("NIF de {0} pode estar inválido: {1}").format(party_type, result.get('message', '')),
+					indicator="orange",
+					alert=True,
+				)
+		except Exception as e:
+			frappe.log_error(f"Erro ao validar NIF de {party_type}: {str(e)}")
+
+	def validate_series_configuration(self, doc, method=None):
+		"""
+		Validacao de Portugal Series Configuration: prefixo obrigatorio
+		e sem duplicar outra serie ativa da mesma empresa/tipo de
+		documento (duas series ativas para o mesmo tipo confundem qual
+		usar e arriscam ATCUDs inconsistentes).
+		"""
+		try:
+			if not getattr(doc, 'prefix', None):
+				frappe.throw(_("Prefixo da série é obrigatório"))
+
+			if getattr(doc, 'is_active', 0):
+				duplicate = frappe.db.exists(
+					"Portugal Series Configuration",
+					{
+						"company": doc.company,
+						"document_type": doc.document_type,
+						"is_active": 1,
+						"name": ("!=", doc.name or ""),
+					},
+				)
+				if duplicate:
+					frappe.throw(
+						_(
+							"Já existe uma série ativa para {0} na empresa {1} ({2}). "
+							"Desative-a antes de ativar esta."
+						).format(doc.document_type, doc.company, duplicate)
+					)
+		except frappe.ValidationError:
+			raise
+		except Exception as e:
+			frappe.log_error(f"Erro em validate_series_configuration: {str(e)}")
+
+	def update_series_pattern(self, doc, method=None):
+		"""
+		Antes de gravar Portugal Series Configuration, atualiza os
+		campos informativos de apresentacao (padrao de nomeacao e
+		previsualizacao do ATCUD) a partir do prefixo atual.
+		"""
+		try:
+			if getattr(doc, 'prefix', None):
+				doc.naming_pattern = f"{doc.prefix}.####"
+				preview_seq = int(doc.current_sequence or 1)
+				preview_validation = doc.validation_code or "PENDENTE"
+				doc.sample_atcud = f"{preview_validation}-{preview_seq:08d}"
+				doc.next_sequence_preview = preview_seq
+		except Exception as e:
+			frappe.log_error(f"Erro em update_series_pattern: {str(e)}")
 
 	# ========== MÉTODOS AUXILIARES OTIMIZADOS ==========
 
@@ -794,6 +976,46 @@ def validate_portugal_compliance(doc, method=None):
 def before_submit_document(doc, method=None):
 	"""Hook para before_submit de documentos"""
 	return portugal_document_hooks.before_submit_document(doc, method)
+
+
+def setup_company_portugal_compliance(doc, method=None):
+	"""
+	Hook global para on_update de Company. Faltava esta funcao (hooks.py
+	referenciava-a mas so existia como metodo de classe, nunca acessivel
+	via frappe.get_attr) - qualquer gravacao de qualquer empresa, PT ou
+	nao, crashava com AttributeError assim que a app estava instalada.
+	"""
+	return portugal_document_hooks.setup_company_portugal_compliance(doc, method)
+
+
+def generate_atcud_after_insert(doc, method=None):
+	"""Hook para after_insert de documentos fiscais"""
+	return portugal_document_hooks.generate_atcud_after_insert(doc, method)
+
+
+def validate_portugal_compliance_light(doc, method=None):
+	"""Hook para validate de documentos pre-fiscais (Quotation, Sales/Purchase Order, Material Request)"""
+	return portugal_document_hooks.validate_portugal_compliance_light(doc, method)
+
+
+def validate_customer_nif(doc, method=None):
+	"""Hook para validate de Customer"""
+	return portugal_document_hooks.validate_customer_nif(doc, method)
+
+
+def validate_supplier_nif(doc, method=None):
+	"""Hook para validate de Supplier"""
+	return portugal_document_hooks.validate_supplier_nif(doc, method)
+
+
+def validate_series_configuration(doc, method=None):
+	"""Hook para validate de Portugal Series Configuration"""
+	return portugal_document_hooks.validate_series_configuration(doc, method)
+
+
+def update_series_pattern(doc, method=None):
+	"""Hook para before_save de Portugal Series Configuration"""
+	return portugal_document_hooks.update_series_pattern(doc, method)
 
 
 # ========== APIS WHITELISTED ==========

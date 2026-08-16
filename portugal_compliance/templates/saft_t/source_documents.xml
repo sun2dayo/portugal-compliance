@@ -71,8 +71,8 @@
                 <Tax>
                     <TaxType>IVA</TaxType>
                     <TaxCountryRegion>PT</TaxCountryRegion>
-                    <TaxCode>{{ item.item_tax_template or 'NOR' }}</TaxCode>
-                    <TaxPercentage>{{ item.tax_rate or '23' }}</TaxPercentage>
+                    <TaxCode>{{ item.tax_code or 'NOR' }}</TaxCode>
+                    <TaxPercentage>{{ '%.2f'|format(item.tax_percentage) if item.tax_percentage is defined else '23.00' }}</TaxPercentage>
                     {% if item.tax_amount %}
                     <TaxAmount>{{ item.tax_amount }}</TaxAmount>
                     {% endif %}
@@ -154,8 +154,8 @@
                 <Tax>
                     <TaxType>IVA</TaxType>
                     <TaxCountryRegion>PT</TaxCountryRegion>
-                    <TaxCode>{{ item.item_tax_template or 'NOR' }}</TaxCode>
-                    <TaxPercentage>{{ item.tax_rate or '23' }}</TaxPercentage>
+                    <TaxCode>{{ item.tax_code or 'NOR' }}</TaxCode>
+                    <TaxPercentage>{{ '%.2f'|format(item.tax_percentage) if item.tax_percentage is defined else '23.00' }}</TaxPercentage>
                     {% if item.tax_amount %}
                     <TaxAmount>{{ item.tax_amount }}</TaxAmount>
                     {% endif %}

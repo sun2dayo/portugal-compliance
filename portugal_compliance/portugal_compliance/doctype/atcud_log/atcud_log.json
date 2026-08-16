@@ -25,6 +25,13 @@
         "generation_status",
         "generation_date",
         "processing_time",
+        "signature_details",
+        "signature_hash",
+        "previous_signature_hash",
+        "signature_hash_control",
+        "column_break_sig_1",
+        "signing_key_version",
+        "qr_code_string",
         "section_break_18",
         "error_details",
         "error_message",
@@ -160,6 +167,48 @@
             "label": "Processing Time (seconds)",
             "precision": "3",
             "description": "Time taken to generate ATCUD"
+        },
+        {
+            "fieldname": "signature_details",
+            "fieldtype": "Section Break",
+            "label": "Assinatura Digital"
+        },
+        {
+            "fieldname": "signature_hash",
+            "fieldtype": "Small Text",
+            "label": "Signature Hash",
+            "description": "Assinatura RSA-SHA1 do documento, em Base64 (Portaria 363/2010)",
+            "read_only": 1
+        },
+        {
+            "fieldname": "previous_signature_hash",
+            "fieldtype": "Small Text",
+            "label": "Previous Signature Hash",
+            "description": "Hash do documento anterior na mesma serie, usada para encadeamento",
+            "read_only": 1
+        },
+        {
+            "fieldname": "signature_hash_control",
+            "fieldtype": "Data",
+            "label": "Hash Control",
+            "description": "4 caracteres da assinatura (posicoes 1, 11, 21, 31) - usado no QR code",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_sig_1",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "signing_key_version",
+            "fieldtype": "Data",
+            "label": "Signing Key Version",
+            "read_only": 1
+        },
+        {
+            "fieldname": "qr_code_string",
+            "fieldtype": "Small Text",
+            "label": "QR Code String",
+            "read_only": 1
         },
         {
             "fieldname": "section_break_18",

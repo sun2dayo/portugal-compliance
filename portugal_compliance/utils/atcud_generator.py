@@ -189,16 +189,45 @@ class ATCUDGenerator:
 					"generation_id": generation_id
 				}
 
+			# ✅ ASSINATURA DIGITAL RSA-SHA1 + CADEIA DE HASH (antes do QR:
+			# o campo Q do QR depende do resultado da assinatura)
+			signature_result = None
+			try:
+				from portugal_compliance.utils.signature import sign_document, SignatureError
+				signature_result = sign_document(
+					doc,
+					series_prefix=series_info["prefix"],
+					series_configuration=series_info.get("series_name"),
+					sequence_number=sequence_number,
+				)
+			except SignatureError as e:
+				frappe.log_error(f"Assinatura digital nao disponivel: {str(e)}", "ATCUDGenerator")
+			except Exception as e:
+				frappe.log_error(f"Erro inesperado na assinatura digital: {str(e)}", "ATCUDGenerator")
+
 			# ✅ GERAR QR CODE SE NECESSÁRIO (OTIMIZADO)
 			qr_code_data = None
 			if self._requires_qr_code(doc.doctype):
-				qr_result = self._generate_qr_code_optimized(doc, atcud_code, series_info)
+				qr_result = self._generate_qr_code_optimized(doc, atcud_code, series_info, signature_result)
 				if qr_result.get("success"):
 					qr_code_data = qr_result["qr_data"]
 
-			# ✅ CRIAR LOG DE AUDITORIA ESTRUTURADO
-			self._create_enhanced_audit_log(doc, atcud_code, validation_code, sequence_number,
-											generation_id)
+			# NOTA: o ATCUD Log so e escrito em after_insert
+			# (ver document_hooks.generate_atcud_after_insert), nunca aqui.
+			# Esta funcao corre tipicamente em before_save, antes do
+			# documento existir de facto na BD - o ATCUD Log tem uma
+			# Dynamic Link para o documento, que falha a validacao se o
+			# documento ainda nao foi commitado (db_insert so acontece
+			# depois de before_save no ciclo de vida do Frappe).
+			doc._portugal_atcud_pending_log = {
+				"atcud_code": atcud_code,
+				"validation_code": validation_code,
+				"sequence_number": sequence_number,
+				"generation_id": generation_id,
+				"series_info": series_info,
+				"signature_result": signature_result,
+				"qr_code_data": qr_code_data,
+			}
 
 			frappe.logger().info(f"✅ [{generation_id}] ATCUD gerado: {atcud_code}")
 
@@ -212,9 +241,11 @@ class ATCUDGenerator:
 				"document_name": doc.name,
 				"company": doc.company,
 				"qr_code_data": qr_code_data,
+				"signature_hash": signature_result["signature_hash"] if signature_result else None,
+				"signature_hash_control": signature_result["hash_control"] if signature_result else None,
 				"generation_id": generation_id,
 				"generation_date": now(),
-				"compliant_with": "Portaria 195/2020",
+				"compliant_with": "Portaria 195/2020 e Portaria 363/2010",
 				"format": "VALIDATION_CODE-SEQUENCE",
 				"is_temporary": not series_info.get("is_communicated", False)
 			}
@@ -416,27 +447,53 @@ class ATCUDGenerator:
 
 	def _get_next_sequence_thread_safe(self, series_info, doc):
 		"""
-		✅ THREAD-SAFE: Obter próximo número sequencial
-		Baseado na sua experiência com programação.autenticação[7]
+		A sequência do ATCUD é sempre extraída de doc.name, nunca de um
+		contador próprio. doc.name já foi atribuído pelo motor nativo de
+		naming_series do Frappe (tabela tabSeries) no momento do insert,
+		antes deste hook correr - é a única fonte de verdade para "qual é
+		o número real deste documento na sua série".
+
+		Manter um contador paralelo (como fazia a versão anterior, via
+		Portugal Series Configuration.current_sequence) permite que o
+		número do ATCUD e o número real do documento dessincronizem -
+		ex: um documento cancelado antes de submeter incrementa o
+		contador nativo do Frappe mas não necessariamente o contador
+		próprio, ou vice-versa numa condição de corrida.
+
+		current_sequence em Portugal Series Configuration é mantido só
+		como campo informativo (ver _update_series_display_sequence),
+		nunca como fonte de cálculo.
+		"""
+		sequence = self._extract_sequence_from_document_name_enhanced(doc.name)
+
+		if series_info.get("series_name"):
+			self._update_series_display_sequence(series_info["series_name"], sequence, doc)
+
+		return sequence
+
+	def _update_series_display_sequence(self, series_name, sequence, doc):
+		"""
+		Atualiza current_sequence em Portugal Series Configuration como
+		valor informativo para a UI (ex: "próxima sequência prevista").
+		Nunca deve ser lido de volta para calcular um ATCUD - ver
+		_get_next_sequence_thread_safe.
 		"""
 		try:
-			# ✅ USAR TRANSAÇÃO PARA THREAD SAFETY
-			with frappe.db.transaction():
-				if series_info.get("series_name"):
-					# ✅ ATUALIZAR SEQUÊNCIA NA CONFIGURAÇÃO
-					series_doc = frappe.get_doc("Portugal Series Configuration",
-												series_info["series_name"])
-					current_seq = series_doc.current_sequence
-					series_doc.current_sequence += 1
-					series_doc.save(ignore_permissions=True)
-					return current_seq
-				else:
-					# ✅ FALLBACK: Extrair do nome do documento
-					return self._extract_sequence_from_document_name_enhanced(doc.name)
-
+			frappe.db.set_value(
+				"Portugal Series Configuration",
+				series_name,
+				{
+					"current_sequence": sequence + 1,
+					"total_documents_issued": sequence,
+					"last_document_date": frappe.utils.nowdate(),
+					"last_document_name": doc.name,
+				},
+				update_modified=False,
+			)
 		except Exception as e:
-			frappe.log_error(f"Erro ao obter sequência: {str(e)}")
-			return 1
+			# Informativo apenas - uma falha aqui nunca deve impedir a
+			# geracao do ATCUD, que ja tem o numero certo em `sequence`.
+			frappe.log_error(f"Erro ao atualizar sequência informativa: {str(e)}")
 
 	def _extract_sequence_from_document_name_enhanced(self, document_name):
 		"""
@@ -633,13 +690,14 @@ class ATCUDGenerator:
 
 	# ========== GERAÇÃO DE QR CODE OTIMIZADA ==========
 
-	def _generate_qr_code_optimized(self, doc, atcud_code, series_info):
+	def _generate_qr_code_optimized(self, doc, atcud_code, series_info, signature_result=None):
 		"""
-		✅ OTIMIZADO: Gerar QR code com performance melhorada
+		Gerar imagem do QR code a partir da string de dados construida
+		por _build_qr_data_optimized (que agora recebe o resultado da
+		assinatura digital para o campo Q).
 		"""
 		try:
-			# ✅ DADOS PARA QR CODE OTIMIZADOS
-			qr_data = self._build_qr_data_optimized(doc, atcud_code, series_info)
+			qr_data = self._build_qr_data_optimized(doc, atcud_code, series_info, signature_result)
 
 			# ✅ CONFIGURAÇÃO QR CODE OTIMIZADA
 			qr = qrcode.QRCode(
@@ -671,44 +729,170 @@ class ATCUDGenerator:
 			frappe.log_error(f"Erro ao gerar QR code: {str(e)}")
 			return {"success": False, "error": str(e)}
 
-	def _build_qr_data_optimized(self, doc, atcud_code, series_info):
+	def _build_qr_data_optimized(self, doc, atcud_code, series_info, signature_result=None):
 		"""
-		✅ OTIMIZADO: Construir dados para QR code com cache de NIFs
+		Construir a string de dados do QR code conforme a Portaria
+		195/2020. Campos corrigidos nesta fase (estavam errados desde a
+		versao anterior - ver auditoria):
+
+		  C - pais do ADQUIRENTE (ISO 3166-1), nao o nome da empresa
+		  E - estado real do documento (N/A/S), nao fixo em "N"
+		  N - total de IMPOSTO isolado, nao duplicado do total geral
+		  Q - 4 caracteres da assinatura digital real (posicoes 1/11/21/31),
+		      nao um hash arbitrario sem relacao com o documento
+		  R - numero de certificado do software, nao o prefixo da serie
 		"""
 		try:
-			# ✅ CACHE PARA NIFs (performance)
 			company_nif = self._get_cached_nif("Company", doc.company)
 			customer_nif = ""
+			customer_country = "PT"
 
 			if hasattr(doc, 'customer') and doc.customer:
 				customer_nif = self._get_cached_nif("Customer", doc.customer)
+				customer_country = self._get_party_country("Customer", doc.customer)
 			elif hasattr(doc, 'supplier') and doc.supplier:
 				customer_nif = self._get_cached_nif("Supplier", doc.supplier)
+				customer_country = self._get_party_country("Supplier", doc.supplier)
 
-			# ✅ DADOS OBRIGATÓRIOS CONFORME LEGISLAÇÃO (OTIMIZADOS)
+			if not customer_nif:
+				customer_nif = "999999990"  # Consumidor final, conforme especificacao
+
+			tax_breakdown = self._get_qr_tax_breakdown(doc)
+
+			certificate_number = frappe.db.get_single_value(
+				"Portugal Auth Settings", "software_certificate_number"
+			) or "0"
+
+			if signature_result and signature_result.get("hash_control"):
+				hash_control = signature_result["hash_control"]
+			else:
+				# Sem assinatura configurada ainda: nao inventar um hash -
+				# deixar vazio e visivel como incompleto, em vez de um
+				# valor que parece uma assinatura real sem o ser.
+				hash_control = ""
+
 			qr_data = {
 				"A": company_nif,
 				"B": customer_nif,
-				"C": doc.company,
+				"C": self._normalize_country_code(customer_country),
 				"D": self.supported_document_types.get(doc.doctype, {}).get("saft_type", "FT"),
-				"E": "N",  # Estado do documento
+				"E": self._get_document_status_code(doc),
 				"F": getdate(getattr(doc, 'posting_date', today())).strftime('%Y%m%d'),
-				"G": doc.name,
+				"G": f"{self.supported_document_types.get(doc.doctype, {}).get('saft_type', 'FT')} {series_info['prefix']}/{doc.name}",
 				"H": atcud_code,
-				"I1": f"{flt(getattr(doc, 'net_total', 0)):.2f}",
-				"I2": f"{flt(getattr(doc, 'total_taxes_and_charges', 0)):.2f}",
-				"N": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",
+				**tax_breakdown,
+				"N": f"{flt(tax_breakdown.get('_total_tax', 0)):.2f}",
 				"O": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",
-				"Q": hashlib.sha1(f"{doc.name}{atcud_code}".encode()).hexdigest()[:4].upper(),
-				"R": series_info["prefix"]
+				"Q": hash_control,
+				"R": str(certificate_number),
 			}
+			qr_data.pop("_total_tax", None)
 
-			# ✅ CONVERTER PARA STRING CONFORME FORMATO AT
-			return "*".join([f"{key}:{value}" for key, value in qr_data.items()])
+			return "*".join([f"{key}:{value}" for key, value in qr_data.items() if value != ""])
 
 		except Exception as e:
 			frappe.log_error(f"Erro ao construir dados QR: {str(e)}")
 			return f"ERROR:{str(e)}"
+
+	def _get_party_country(self, doctype, name):
+		"""
+		Pais do cliente/fornecedor via o endereco default (padrao
+		correto do ERPNext - Customer/Supplier nao tem campo pais
+		proprio, vive no endereco ligado via Dynamic Link).
+		"""
+		try:
+			from frappe.contacts.doctype.address.address import get_default_address
+			address_name = get_default_address(doctype, name)
+			if address_name:
+				country = frappe.db.get_value("Address", address_name, "country")
+				if country:
+					return country
+		except Exception:
+			pass
+		return "Portugal"
+
+	def _normalize_country_code(self, country):
+		"""Converte nome de pais do Frappe (ex: 'Portugal') para ISO 3166-1 alpha-2."""
+		if not country:
+			return "PT"
+		if len(country) == 2:
+			return country.upper()
+		code = frappe.db.get_value("Country", country, "code")
+		return code.upper() if code else "PT"
+
+	def _get_document_status_code(self, doc):
+		"""N Normal, A Anulado, S Autofaturacao - conforme especificacao do QR."""
+		if getattr(doc, "docstatus", 1) == 2:
+			return "A"
+		if getattr(doc, "is_return", 0):
+			return "A"
+		if getattr(doc, "custom_is_self_billing", 0):
+			return "S"
+		return "N"
+
+	def _get_qr_tax_breakdown(self, doc):
+		"""
+		Agrega os totais tributaveis por taxa de IVA (campos I isento,
+		J reduzida, K intermedia, L normal) e devolve tambem o total de
+		imposto isolado (campo N, via chave interna _total_tax).
+		Le a taxa efetiva de cada linha via item_tax_template /
+		Sales Taxes and Charges, em vez de assumir uma taxa fixa.
+		"""
+		buckets = {"I": 0.0, "J": 0.0, "K": 0.0, "L": 0.0}
+		total_tax = 0.0
+
+		items = getattr(doc, "items", None) or []
+		tax_rows = getattr(doc, "taxes", None) or []
+		total_taxable = sum(flt(getattr(item, "net_amount", 0) or getattr(item, "amount", 0)) for item in items) or flt(getattr(doc, "net_total", 0))
+		total_tax = flt(getattr(doc, "total_taxes_and_charges", 0))
+
+		if not items:
+			buckets["L"] = flt(getattr(doc, "net_total", 0))
+			return {"I": f"{buckets['I']:.2f}", "J": f"{buckets['J']:.2f}", "K": f"{buckets['K']:.2f}", "L": f"{buckets['L']:.2f}", "_total_tax": total_tax}
+
+		for item in items:
+			rate = self._get_item_effective_tax_rate(item, tax_rows)
+			taxable_amount = flt(getattr(item, "net_amount", None) if getattr(item, "net_amount", None) is not None else getattr(item, "amount", 0))
+
+			if rate <= 0:
+				buckets["I"] += taxable_amount
+			elif rate < 10:
+				buckets["J"] += taxable_amount
+			elif rate < 20:
+				buckets["K"] += taxable_amount
+			else:
+				buckets["L"] += taxable_amount
+
+		return {
+			"I": f"{buckets['I']:.2f}",
+			"J": f"{buckets['J']:.2f}",
+			"K": f"{buckets['K']:.2f}",
+			"L": f"{buckets['L']:.2f}",
+			"_total_tax": total_tax,
+		}
+
+	def _get_item_effective_tax_rate(self, item, tax_rows):
+		"""
+		Obtem a taxa de IVA efetiva de uma linha. Prioridade:
+		1. item_tax_rate (JSON por conta fiscal, campo nativo do ERPNext)
+		2. taxa da primeira linha de Sales/Purchase Taxes and Charges
+		   aplicavel (fallback quando o item nao tem override proprio)
+		"""
+		item_tax_rate = getattr(item, "item_tax_rate", None)
+		if item_tax_rate:
+			try:
+				rates = json.loads(item_tax_rate) if isinstance(item_tax_rate, str) else item_tax_rate
+				if rates:
+					return flt(list(rates.values())[0])
+			except (ValueError, TypeError):
+				pass
+
+		for tax_row in tax_rows:
+			rate = getattr(tax_row, "rate", None)
+			if rate:
+				return flt(rate)
+
+		return 23.0  # taxa normal em Portugal continental, ultimo recurso
 
 	def _get_cached_nif(self, doctype, name):
 		"""
@@ -730,38 +914,90 @@ class ATCUDGenerator:
 
 	# ========== AUDITORIA MELHORADA ==========
 
-	def _create_enhanced_audit_log(self, doc, atcud_code, validation_code, sequence_number,
-								   generation_id):
+	def persist_pending_atcud_log(self, doc):
 		"""
-		✅ MELHORADO: Criar log de auditoria estruturado
+		Escreve o ATCUD Log a partir do resultado calculado por
+		generate_atcud_for_document (guardado em
+		doc._portugal_atcud_pending_log). Chamar em after_insert,
+		quando o documento ja existe na BD e a Dynamic Link do ATCUD
+		Log consegue validar contra ele.
+		"""
+		pending = getattr(doc, "_portugal_atcud_pending_log", None)
+		if not pending:
+			return
+		self._create_enhanced_audit_log(
+			doc,
+			pending["atcud_code"],
+			pending["validation_code"],
+			pending["sequence_number"],
+			pending["generation_id"],
+			pending["series_info"],
+			pending["signature_result"],
+			pending["qr_code_data"],
+		)
+		delattr(doc, "_portugal_atcud_pending_log")
+
+	def _create_enhanced_audit_log(self, doc, atcud_code, validation_code, sequence_number,
+								   generation_id, series_info=None, signature_result=None,
+								   qr_code_data=None):
+		"""
+		Cria um registo estruturado em ATCUD Log (necessario para o
+		encadeamento de hash entre documentos - ver signature.py,
+		get_previous_signature_hash) e um Comment legivel no documento
+		para visibilidade rapida.
 		"""
 		try:
-			# ✅ COMMENT ESTRUTURADO
-			comment_content = f"""
-🇵🇹 ATCUD GERADO AUTOMATICAMENTE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 Código ATCUD: {atcud_code}
-🔑 Código Validação: {validation_code}
-🔢 Sequência: {sequence_number:08d}
-📄 Naming Series: {doc.naming_series}
-🏢 Empresa: {doc.company}
-⏰ Data/Hora: {now()}
-👤 Usuário: {frappe.session.user}
-🆔 ID Geração: {generation_id}
-📜 Conforme: Portaria 195/2020
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-			""".strip()
+			log_doc = frappe.get_doc({
+				"doctype": "ATCUD Log",
+				"naming_series": "ATCUD-LOG-.YYYY.-.####",
+				"document_type": doc.doctype,
+				"document_name": doc.name,
+				"document_date": getattr(doc, "posting_date", None) or frappe.utils.nowdate(),
+				"company": doc.company,
+				"series_used": series_info.get("series_name") if series_info else None,
+				"atcud_code": atcud_code,
+				"validation_code_used": validation_code,
+				"sequence_number": sequence_number,
+				"generation_status": "Success",
+				"generation_date": now(),
+				"created_by_user": frappe.session.user,
+			})
+
+			if signature_result:
+				log_doc.signature_hash = signature_result.get("signature_hash")
+				log_doc.previous_signature_hash = signature_result.get("previous_signature_hash")
+				log_doc.signature_hash_control = signature_result.get("hash_control")
+				log_doc.signing_key_version = signature_result.get("key_version")
+
+			if qr_code_data:
+				log_doc.qr_code_string = qr_code_data
+
+			log_doc.insert(ignore_permissions=True)
+
+			comment_lines = [
+				"ATCUD gerado automaticamente",
+				f"Codigo ATCUD: {atcud_code}",
+				f"Codigo Validacao: {validation_code}",
+				f"Sequencia: {sequence_number:08d}",
+				f"Empresa: {doc.company}",
+				f"Data/Hora: {now()}",
+			]
+			if signature_result:
+				comment_lines.append(f"Hash control (QR): {signature_result.get('hash_control', '')}")
+			else:
+				comment_lines.append("Assinatura digital NAO gerada - configure a chave em Portugal Auth Settings")
+			comment_lines.append("Conforme: Portaria 195/2020 e Portaria 363/2010")
 
 			frappe.get_doc({
 				"doctype": "Comment",
 				"comment_type": "Info",
 				"reference_doctype": doc.doctype,
 				"reference_name": doc.name,
-				"content": comment_content,
+				"content": "<br>".join(comment_lines),
 				"comment_email": frappe.session.user
 			}).insert(ignore_permissions=True)
 
-			frappe.logger().info(f"📋 ATCUD Audit Log criado: {doc.name} → {atcud_code}")
+			frappe.logger().info(f"ATCUD Log criado: {doc.name} -> {atcud_code}")
 
 		except Exception as e:
 			frappe.log_error(f"Erro ao criar log de auditoria: {str(e)}")

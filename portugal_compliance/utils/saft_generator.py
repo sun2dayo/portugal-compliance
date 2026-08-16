@@ -1,7 +1,8 @@
 import frappe
 from frappe import _
-from frappe.utils import getdate, formatdate, now, get_site_path
+from frappe.utils import getdate, formatdate, now, get_site_path, flt
 import os
+import json
 import hashlib
 import xml.etree.ElementTree as ET
 from jinja2 import Environment, FileSystemLoader
@@ -16,6 +17,36 @@ class SAFTGenerator:
 			"templates", "saf_t"
 		)
 		self.records_count = 0
+
+	def _get_line_tax_rate(self, item_tax_rate_json, tax_rows=None):
+		"""
+		Taxa de IVA efetiva da linha. O SAF-T exige o codigo/taxa REAL
+		de cada linha, nao um valor fixo - a versao anterior gerava
+		sempre TaxCode=NOR / TaxPercentage=23, o que reporta IVA errado
+		para qualquer produto a taxa reduzida, intermedia ou isenta.
+		"""
+		if item_tax_rate_json:
+			try:
+				rates = json.loads(item_tax_rate_json) if isinstance(item_tax_rate_json, str) else item_tax_rate_json
+				if rates:
+					return flt(list(rates.values())[0])
+			except (ValueError, TypeError):
+				pass
+		if tax_rows:
+			for row in tax_rows:
+				if row.get("rate"):
+					return flt(row["rate"])
+		return 23.0
+
+	def _get_line_tax_code(self, rate):
+		"""Codigo de imposto SAF-T por faixa de taxa (categorias padrao PT)."""
+		if rate <= 0:
+			return "ISE"
+		if rate < 10:
+			return "RED"
+		if rate < 20:
+			return "INT"
+		return "NOR"
 
 	def generate_saft(self, company, from_date, to_date, export_type="full"):
 		"""
@@ -252,7 +283,8 @@ class SAFTGenerator:
 										sii.qty,
 										sii.rate,
 										sii.amount,
-										sii.base_amount
+										sii.base_amount,
+										sii.item_tax_rate
 								 FROM `tabSales Invoice` si
 										  INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
 								 WHERE si.company = %s
@@ -284,13 +316,17 @@ class SAFTGenerator:
 					'items': []
 				}
 
+			tax_rate = self._get_line_tax_rate(invoice.item_tax_rate)
 			grouped_invoices[invoice_id]['items'].append({
 				'item_code': invoice.item_code,
 				'item_name': invoice.item_name,
 				'qty': invoice.qty,
 				'rate': invoice.rate,
 				'amount': invoice.amount,
-				'base_amount': invoice.base_amount
+				'base_amount': invoice.base_amount,
+				'tax_percentage': tax_rate,
+				'tax_code': self._get_line_tax_code(tax_rate),
+				'tax_amount': flt(invoice.amount) * tax_rate / 100,
 			})
 
 		self.records_count += len(grouped_invoices)
@@ -318,7 +354,8 @@ class SAFTGenerator:
 										pii.qty,
 										pii.rate,
 										pii.amount,
-										pii.base_amount
+										pii.base_amount,
+										pii.item_tax_rate
 								 FROM `tabPurchase Invoice` pi
 										  INNER JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
 								 WHERE pi.company = %s
@@ -350,13 +387,17 @@ class SAFTGenerator:
 					'items': []
 				}
 
+			tax_rate = self._get_line_tax_rate(invoice.item_tax_rate)
 			grouped_invoices[invoice_id]['items'].append({
 				'item_code': invoice.item_code,
 				'item_name': invoice.item_name,
 				'qty': invoice.qty,
 				'rate': invoice.rate,
 				'amount': invoice.amount,
-				'base_amount': invoice.base_amount
+				'base_amount': invoice.base_amount,
+				'tax_percentage': tax_rate,
+				'tax_code': self._get_line_tax_code(tax_rate),
+				'tax_amount': flt(invoice.amount) * tax_rate / 100,
 			})
 
 		self.records_count += len(grouped_invoices)

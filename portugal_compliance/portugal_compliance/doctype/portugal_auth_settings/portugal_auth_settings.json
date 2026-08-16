@@ -32,6 +32,36 @@
             "label": "Session Tokens",
             "fieldtype": "Table",
             "options": "Portugal Session Token"
+        },
+        {
+            "fieldname": "invoice_signing_section",
+            "fieldtype": "Section Break",
+            "label": "Chave de Assinatura de Documentos (RSA-SHA1)"
+        },
+        {
+            "fieldname": "invoice_signing_key_path",
+            "label": "Caminho da Chave Privada (PEM)",
+            "fieldtype": "Data",
+            "description": "Chave privada RSA usada para assinar documentos (distinta do certificado do webservice)"
+        },
+        {
+            "fieldname": "invoice_signing_key_password",
+            "label": "Password da Chave Privada",
+            "fieldtype": "Password"
+        },
+        {
+            "fieldname": "invoice_signing_key_version",
+            "label": "Versao da Chave",
+            "fieldtype": "Data",
+            "default": "1",
+            "description": "Identificador da versao da chave usada, para auditoria caso a chave seja rodada"
+        },
+        {
+            "fieldname": "software_certificate_number",
+            "label": "Numero de Certificado do Software",
+            "fieldtype": "Data",
+            "default": "0",
+            "description": "Numero atribuido pela AT apos certificacao. 0 enquanto o software nao estiver certificado (campo R do QR code)."
         }
     ]
 }

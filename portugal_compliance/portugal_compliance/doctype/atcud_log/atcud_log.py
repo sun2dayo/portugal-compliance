@@ -48,16 +48,26 @@ class ATCUDLog(Document):
 				))
 
 	def set_system_info(self):
-		"""Define informações do sistema"""
+		"""
+		Define informacoes do sistema. Defensivo em relacao ao contexto
+		de execucao: ATCUD Log e frequentemente criado fora de um
+		pedido HTTP (bench execute, background jobs, migrations) - IP
+		e User-Agent so fazem sentido quando ha um pedido web real.
+		"""
 		if not self.created_by_user:
 			self.created_by_user = frappe.session.user
 
 		if not self.ip_address:
-			self.ip_address = frappe.local.request_ip if hasattr(frappe.local,
-																 'request_ip') else ""
+			try:
+				self.ip_address = frappe.local.request_ip if hasattr(frappe.local, 'request_ip') else ""
+			except RuntimeError:
+				self.ip_address = ""
 
 		if not self.user_agent:
-			self.user_agent = frappe.get_request_header("User-Agent") or ""
+			try:
+				self.user_agent = frappe.get_request_header("User-Agent") or ""
+			except RuntimeError:
+				self.user_agent = ""
 
 		if not self.erpnext_version:
 			self.erpnext_version = frappe.__version__
@@ -196,7 +206,9 @@ class ATCUDLog(Document):
 			generator = ATCUDGenerator()
 			start_time = time.time()
 
-			generator.generate_atcud(doc)
+			result = generator.generate_atcud_for_document(doc)
+			if not result.get("success"):
+				frappe.throw(result.get("error") or _("Falha ao gerar ATCUD"))
 
 			processing_time = time.time() - start_time
 

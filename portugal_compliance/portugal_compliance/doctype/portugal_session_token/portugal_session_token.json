@@ -1,0 +1,54 @@
+{
+    "doctype": "DocType",
+    "name": "Portugal Session Token",
+    "module": "Portugal Compliance",
+    "istable": 1,
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "environment",
+        "token",
+        "issued_at",
+        "expires_at",
+        "is_valid"
+    ],
+    "fields": [
+        {
+            "fieldname": "environment",
+            "label": "Ambiente",
+            "fieldtype": "Select",
+            "options": "Test\nProduction",
+            "default": "Test",
+            "in_list_view": 1,
+            "reqd": 1
+        },
+        {
+            "fieldname": "token",
+            "label": "Token",
+            "fieldtype": "Small Text",
+            "description": "Token de sessao devolvido pelo webservice da AT"
+        },
+        {
+            "fieldname": "issued_at",
+            "label": "Emitido em",
+            "fieldtype": "Datetime",
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "expires_at",
+            "label": "Expira em",
+            "fieldtype": "Datetime",
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "is_valid",
+            "label": "Valido",
+            "fieldtype": "Check",
+            "default": 1,
+            "in_list_view": 1
+        }
+    ],
+    "permissions": [],
+    "sort_field": "modified",
+    "sort_order": "DESC"
+}
