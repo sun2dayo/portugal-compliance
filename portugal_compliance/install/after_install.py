@@ -51,8 +51,10 @@ def execute():
 		# 8. Configurar scheduler jobs
 		setup_scheduler_jobs()
 
-		# 9. Criar configurações padrão
-		create_default_configurations()
+		# 9. (create_default_configurations removida - Fase 5: tentava criar
+		# um doc da doctype "Portugal Compliance Settings", que nunca
+		# existiu neste app; falhava sempre silenciosamente. Portugal Auth
+		# Settings e quem guarda a configuracao real desde a Fase 2.)
 
 		# 10. Validação final da instalação
 		validate_final_installation()
@@ -86,11 +88,12 @@ def verify_installation_success():
 
 		print("✅ App Portugal Compliance instalado")
 
-		# Verificar se DocTypes foram criados
+		# Verificar se DocTypes foram criados (Portugal AT Communication Log
+		# e Portugal Compliance Settings removidos desta lista - nunca
+		# existiram como doctypes reais neste app; Portugal Auth Settings
+		# e quem guarda a configuracao real desde a Fase 2)
 		required_doctypes = [
-			"Portugal Series Configuration",
-			"Portugal AT Communication Log",
-			"Portugal Compliance Settings"
+			"Portugal Series Configuration"
 		]
 
 		missing_doctypes = []
@@ -394,11 +397,8 @@ def setup_portugal_compliance_permissions():
 			{"role": "Accounts User", "read": 1}
 		])
 
-		# ✅ PERMISSÕES PARA PORTUGAL AT COMMUNICATION LOG
-		setup_doctype_permissions("Portugal AT Communication Log", [
-			{"role": "System Manager", "read": 1, "write": 1},
-			{"role": "Accounts Manager", "read": 1}
-		])
+		# Bloco de permissões para "Portugal AT Communication Log" removido
+		# (Fase 5) - essa doctype nunca existiu neste app.
 
 		print("✅ Permissões específicas configuradas")
 
@@ -491,34 +491,6 @@ def setup_scheduler_jobs():
 		print(f"⚠️ Erro ao configurar scheduler: {str(e)}")
 
 
-def create_default_configurations():
-	"""
-	✅ NOVO: Criar configurações padrão
-	"""
-	try:
-		print("\n📋 Criando configurações padrão...")
-
-		# ✅ PORTUGAL COMPLIANCE SETTINGS
-		if not frappe.db.exists("Portugal Compliance Settings", "Portugal Compliance Settings"):
-			settings_doc = frappe.get_doc({
-				"doctype": "Portugal Compliance Settings",
-				"name": "Portugal Compliance Settings",
-				"auto_generate_atcud": 1,
-				"validate_nif": 1,
-				"require_customer_nif": 0,
-				"default_at_environment": "test",
-				"enable_qr_codes": 1,
-				"enable_saft_export": 1
-			})
-			settings_doc.insert(ignore_permissions=True)
-			print("✅ Configurações padrão criadas")
-		else:
-			print("✅ Configurações padrão já existem")
-
-	except Exception as e:
-		print(f"⚠️ Erro ao criar configurações: {str(e)}")
-
-
 def validate_final_installation():
 	"""
 	✅ ATUALIZADO: Validação final da instalação
@@ -533,8 +505,6 @@ def validate_final_installation():
 			"doctypes_created": frappe.db.exists("DocType", "Portugal Series Configuration"),
 			"permissions_set": frappe.db.exists("Custom DocPerm",
 												{"parent": "Portugal Series Configuration"}),
-			"settings_created": frappe.db.exists("Portugal Compliance Settings",
-												 "Portugal Compliance Settings")
 		}
 
 		# Mostrar resultados

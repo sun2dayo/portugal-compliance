@@ -148,47 +148,14 @@ class SAFTExportLog(Document):
 			self.save()
 			return False
 
-	def submit_to_at(self, username, password):
-		"""Submete arquivo à AT"""
-		try:
-			if self.status != "Completed":
-				frappe.throw(_("Cannot submit incomplete export to AT"))
-
-			if not self.file_path or not os.path.exists(self.file_path):
-				frappe.throw(_("Export file not found"))
-
-			# Ler conteúdo do arquivo
-			with open(self.file_path, 'r', encoding='utf-8') as f:
-				file_content = f.read()
-
-			# Submeter via webservice
-			from portugal_compliance.utils.at_webservice import ATWebserviceClient
-
-			client = ATWebserviceClient()
-			result = client.submit_saft_file(file_content, username, password)
-
-			# Atualizar status de submissão
-			self.at_submission_status = "Submitted"
-			self.at_submission_date = frappe.utils.now()
-
-			if result.get("status") == "success":
-				self.at_submission_status = "Accepted"
-				self.at_response_code = result.get("response_code", "")
-			else:
-				self.at_submission_status = "Rejected"
-				self.at_response_code = result.get("error_code", "")
-
-			self.save()
-
-			return result
-
-		except Exception as e:
-			self.at_submission_status = "Rejected"
-			self.at_response_code = f"Error: {str(e)}"
-			self.save()
-
-			frappe.log_error(f"Error submitting SAF-T to AT: {str(e)}")
-			return {"status": "error", "message": str(e)}
+	def submit_to_at(self):
+		"""Removido (Fase 5): nao estava whitelisted (inalcancavel via API)
+		e chamava ATWebserviceClient.submit_saft_file, que nunca existiu -
+		a submissao de SAF-T a AT exige um WSDL/protocolo que nunca foi
+		obtido (ver Fase 2 - submitSaft/submitInvoice/submitTransport
+		ficaram fora do ambito por falta de especificacao). O botao
+		"Submit to AT" no formulario foi removido em conjunto."""
+		frappe.throw(_("Submissão de SAF-T à AT ainda não está implementada."))
 
 	def increment_download_count(self):
 		"""Incrementa contador de downloads"""

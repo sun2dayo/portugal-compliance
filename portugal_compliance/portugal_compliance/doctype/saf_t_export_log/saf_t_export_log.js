@@ -125,13 +125,9 @@ function add_action_buttons(frm) {
         }, __('Actions'));
     }
 
-    // Botão para submeter à AT
-    if (frm.doc.status === 'Completed' && frm.doc.xml_validation_status === 'Valid' &&
-        frm.doc.at_submission_status === 'Not Submitted') {
-        frm.add_custom_button(__('Submit to AT'), function() {
-            submit_to_at(frm);
-        }, __('Actions'));
-    }
+    // Botão "Submit to AT" removido (Fase 5): a submissão de SAF-T
+    // à AT nunca foi implementada (sem WSDL/protocolo disponível -
+    // ver Fase 2) e o botão levava a um erro de "method not found".
 
     // Botão para regenerar export
     if (frm.doc.status === 'Failed' || frm.doc.status === 'Cancelled') {
@@ -340,53 +336,6 @@ function validate_xml(frm) {
     });
 }
 
-function submit_to_at(frm) {
-    frappe.prompt([
-        {
-            label: __('AT Username'),
-            fieldname: 'username',
-            fieldtype: 'Data',
-            reqd: 1,
-            description: __('Portal das Finanças username')
-        },
-        {
-            label: __('AT Password'),
-            fieldname: 'password',
-            fieldtype: 'Password',
-            reqd: 1,
-            description: __('Portal das Finanças password')
-        }
-    ], function(values) {
-        frappe.show_alert({
-            message: __('Submitting to AT...'),
-            indicator: 'blue'
-        });
-
-        frappe.call({
-            method: 'submit_to_at',
-            doc: frm.doc,
-            args: {
-                username: values.username,
-                password: values.password
-            },
-            callback: function(r) {
-                if (r.message && r.message.status === 'success') {
-                    frappe.show_alert({
-                        message: __('Successfully submitted to AT'),
-                        indicator: 'green'
-                    });
-                } else {
-                    frappe.msgprint({
-                        title: __('AT Submission Failed'),
-                        message: r.message ? r.message.message : __('Unknown error'),
-                        indicator: 'red'
-                    });
-                }
-                frm.reload_doc();
-            }
-        });
-    }, __('Submit SAF-T to AT'));
-}
 
 function regenerate_export(frm) {
     frappe.confirm(

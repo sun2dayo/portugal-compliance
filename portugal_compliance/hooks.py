@@ -322,11 +322,12 @@ default_mail_footer = """
 # ✅ NOTIFICATION CONFIG
 #notification_config = "portugal_compliance.notifications.get_notification_config"
 
-# ✅ WEBSITE CONTEXT
-website_context = {
-	"favicon": "/assets/portugal_compliance/images/favicon.ico",
-	"splash_image": "/assets/portugal_compliance/images/portugal_compliance_logo.png"
-}
+# website_context removido (Fase 5): favicon.ico e
+# portugal_compliance_logo.png nunca existiram no disco (referencias
+# partidas desde sempre). O unico ficheiro de imagem real disponivel
+# no repositorio (at_logo.png.tmp) e o logotipo oficial da Autoridade
+# Tributaria - nao deve ser reutilizado aqui, pois sugeriria afiliacao
+# oficial do governo com este software de terceiros.
 
 # ✅ CALENDARS
 calendars = ["ATCUD Log"]

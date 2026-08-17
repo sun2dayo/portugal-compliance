@@ -16,7 +16,6 @@ import frappe
 from frappe import _
 from frappe.rate_limiter import rate_limit
 import requests
-import ssl
 import os
 import base64
 import re
@@ -25,8 +24,6 @@ from Crypto.Cipher import AES, PKCS1_v1_5
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad
-from requests.adapters import HTTPAdapter
-from urllib3.util.ssl_ import create_urllib3_context
 import json
 import time
 from frappe.utils import now, today, get_datetime
@@ -188,7 +185,6 @@ class ATWebserviceClient:
 		self.timeout = 60
 		self.max_retries = 3
 		self.retry_delay = 2
-		self.cert_config = self._get_certificate_config()
 		self.session = None
 		self.last_request_time = None
 		self.rate_limit_delay = 1
@@ -205,126 +201,17 @@ class ATWebserviceClient:
 			f"🇵🇹 ATWebserviceClient inicializado - Ambiente: {environment.upper()}")
 
 	def _get_dynamic_endpoints(self):
-		"""Obter endpoints dinamicamente das configurações"""
-		try:
-			# ✅ BUSCAR ENDPOINTS DAS CONFIGURAÇÕES DO SISTEMA
-			test_endpoint = frappe.db.get_single_value("Portugal Compliance Settings",
-													   "at_test_endpoint")
-			prod_endpoint = frappe.db.get_single_value("Portugal Compliance Settings",
-													   "at_production_endpoint")
-
-			# ✅ CORREÇÃO: AMBOS AMBIENTES USAM ENDPOINT DE TESTE (conforme acordo)
-			return {
-				"test": test_endpoint or "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService",
-				"production": test_endpoint or "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
-			}
-		except Exception:
-			# ✅ FALLBACK SEGURO - AMBOS PARA TESTE
-			return {
-				"test": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService",
-				"production": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
-			}
-
-	def _get_certificate_config(self):
-		"""Configuração dinâmica de certificados baseada em configurações"""
-		try:
-			# ✅ BUSCAR CAMINHO DOS CERTIFICADOS DAS CONFIGURAÇÕES
-			base_path = frappe.db.get_single_value("Portugal Compliance Settings",
-												   "certificates_path")
-
-			if not base_path:
-				# ✅ FALLBACK PARA CAMINHO PADRÃO
-				base_path = "/home/frappe/frappe-bench/config/certificates/portugal_compliance/at_certificates"
-
-			# ✅ AMBIENTE DINÂMICO
-			environment_folder = "production" if self.environment == "production" else "test"
-
-			return {
-				'client_cert': os.path.join(base_path,
-											f"{environment_folder}/testeWebservices_cert.pem"),
-				'client_key': os.path.join(base_path,
-										   f"{environment_folder}/testeWebservices_key.pem"),
-				'ca_bundle': os.path.join(base_path,
-										  f"{environment_folder}/at_ca_bundle_complete.pem"),
-				'at_public_key': os.path.join(base_path,
-											  f"{environment_folder}/ChaveCifraPublicaAT2027.pem"),
-				'environment': self.environment,
-				'environment_folder': environment_folder
-			}
-		except Exception as e:
-			frappe.log_error(f"Erro ao obter configuração de certificados: {str(e)}")
-			# ✅ FALLBACK SEGURO
-			return self._get_fallback_cert_config()
-
-	def _get_fallback_cert_config(self):
-		"""Configuração de fallback para certificados"""
-		base_path = "/home/frappe/frappe-bench/config/certificates/portugal_compliance/at_certificates"
-		environment_folder = "test"  # Sempre usar test como fallback
-
+		"""
+		Endpoints do webservice de series. Simplificado (Fase 5): a
+		versao anterior tentava primeiro consultar uma doctype
+		"Portugal Compliance Settings" que nunca existiu - a consulta
+		falhava sempre e caia neste mesmo valor por omissao, por isso
+		a tentativa foi removida (nao muda o comportamento).
+		"""
 		return {
-			'client_cert': os.path.join(base_path,
-										f"{environment_folder}/testeWebservices_cert.pem"),
-			'client_key': os.path.join(base_path,
-									   f"{environment_folder}/testeWebservices_key.pem"),
-			'ca_bundle': os.path.join(base_path,
-									  f"{environment_folder}/at_ca_bundle_complete.pem"),
-			'at_public_key': os.path.join(base_path,
-										  f"{environment_folder}/ChaveCifraPublicaAT2027.pem"),
-			'environment': self.environment,
-			'environment_folder': environment_folder
+			"test": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService",
+			"production": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
 		}
-
-	def get_authenticated_session(self):
-		"""Criar sessão SSL dinâmica com validação de certificados"""
-		if self.session:
-			return self.session
-
-		class ATSSLAdapter(HTTPAdapter):
-			def init_poolmanager(self, *args, **kwargs):
-				ctx = create_urllib3_context()
-				ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-				ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-				ctx.set_ciphers(
-					'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:'
-					'ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:'
-					'AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256'
-				)
-				ctx.check_hostname = True
-				ctx.verify_mode = ssl.CERT_REQUIRED
-				kwargs['ssl_context'] = ctx
-				return super().init_poolmanager(*args, **kwargs)
-
-		session = requests.Session()
-		session.mount('https://', ATSSLAdapter())
-
-		# ✅ VERIFICAR CERTIFICADOS COM VALIDAÇÃO ROBUSTA
-		cert_files = [
-			('client_cert', self.cert_config['client_cert']),
-			('client_key', self.cert_config['client_key']),
-			('ca_bundle', self.cert_config['ca_bundle']),
-			('at_public_key', self.cert_config['at_public_key'])
-		]
-
-		for cert_name, cert_path in cert_files:
-			if not os.path.exists(cert_path):
-				error_msg = f"Certificado {cert_name} não encontrado: {cert_path}"
-				frappe.log_error(error_msg, "AT Webservice Certificate Error")
-				raise FileNotFoundError(error_msg)
-			else:
-				# ✅ VERIFICAR PERMISSÕES DO ARQUIVO
-				if not os.access(cert_path, os.R_OK):
-					error_msg = f"Sem permissão de leitura para {cert_name}: {cert_path}"
-					frappe.log_error(error_msg, "AT Webservice Certificate Permission Error")
-					raise PermissionError(error_msg)
-
-				frappe.logger().info(f"✅ Certificado {cert_name} validado")
-
-		# Configurar certificados
-		session.cert = (self.cert_config['client_cert'], self.cert_config['client_key'])
-		session.verify = self.cert_config['ca_bundle']
-
-		self.session = session
-		return session
 
 	def validate_naming_series_format(self, naming_series):
 		"""
@@ -856,12 +743,29 @@ def generate_atcud_with_real_code(validation_code, sequence):
 
 @frappe.whitelist()
 def test_connection(environment="test"):
-	"""Testar conexão com AT"""
+	"""
+	Testar conexão com AT - usada pelo botão "Test Connection" em
+	Portugal Auth Settings e no dashboard. Corrigido para usar o
+	mecanismo real (get_series_webservice_client, Fase 2): a versão
+	anterior passava por ATWebserviceClient.get_authenticated_session,
+	que dependia de uma doctype "Portugal Compliance Settings" que
+	nunca existiu e de caminhos de certificado hardcoded
+	(/home/frappe/frappe-bench/config/certificates/...) que nunca
+	corresponderam aos certificados reais configurados em Portugal Auth
+	Settings - o botão falhava sempre.
+	"""
 	try:
-		client = ATWebserviceClient(environment=environment)
-		return client.test_connection()
+		client = get_series_webservice_client()
+		return {
+			"connected": True,
+			"environment": environment,
+			"message": "Configuração válida (mTLS + credenciais AT presentes)",
+			"timestamp": now(),
+		}
+	except ATWebserviceError as e:
+		return {"connected": False, "error": str(e), "environment": environment, "timestamp": now()}
 	except Exception as e:
-		return {"connected": False, "error": str(e)}
+		return {"connected": False, "error": str(e), "environment": environment, "timestamp": now()}
 
 
 @frappe.whitelist()

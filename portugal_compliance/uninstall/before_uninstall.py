@@ -337,17 +337,9 @@ def cleanup_custom_configurations():
 			except Exception as e:
 				print(f"⚠️ Erro ao limpar empresa {company.name}: {str(e)}")
 
-		# Remover configurações globais se existirem
-		if frappe.db.exists("DocType", "Portugal Compliance Settings"):
-			try:
-				if frappe.db.exists("Portugal Compliance Settings",
-									"Portugal Compliance Settings"):
-					frappe.delete_doc("Portugal Compliance Settings",
-									  "Portugal Compliance Settings",
-									  ignore_permissions=True)
-					print("🗑️ Configurações globais removidas")
-			except Exception as e:
-				print(f"⚠️ Erro ao remover configurações globais: {str(e)}")
+		# Bloco de remoção de "Portugal Compliance Settings" removido (Fase
+		# 5) - essa doctype nunca existiu neste app (o guard
+		# frappe.db.exists("DocType", ...) já garantia que nunca executava).
 
 		# Remover Property Setters relacionados
 		property_setters = frappe.get_all("Property Setter",
