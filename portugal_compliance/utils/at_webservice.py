@@ -33,18 +33,19 @@ from frappe.utils import now, today, get_datetime
 
 import zeep
 from zeep.transports import Transport
-from zeep.wsse.username import UsernameToken
+from lxml import etree
 import requests
 from datetime import date as _date
+
+NS_WSS_LEGACY = "http://schemas.xmlsoap.org/ws/2002/12/secext"
 
 
 def _build_mtls_session(cert_path, key_path):
 	"""
 	Sessao requests com o certificado cliente da empresa anexado para
 	mTLS - a AT exige isto na camada de transporte, nao so credenciais
-	no corpo SOAP (confirmado pela documentacao tecnica do modulo
-	Dolibarr de referencia). Zeep usa esta sessao para todos os
-	pedidos HTTP subjacentes.
+	no corpo SOAP. Zeep usa esta sessao para todos os pedidos HTTP
+	subjacentes.
 	"""
 	session = requests.Session()
 	if cert_path and key_path:
@@ -52,14 +53,63 @@ def _build_mtls_session(cert_path, key_path):
 	return session
 
 
+def _build_wsse_security_header(username, password, at_public_cert_path):
+	"""
+	Constroi o cabecalho WS-Security proprietario exigido pela AT (NAO
+	e o UsernameToken WSSE standard). Esquema (confirmado por chamada
+	real bem-sucedida ao webservice de series):
+	  1. Gera uma chave simetrica AES-128 aleatoria ("nonce").
+	  2. Cifra a password com essa chave (AES-128-ECB + PKCS7 padding).
+	  3. Cifra a propria chave simetrica com RSA (PKCS1v1.5), usando o
+	     certificado publico da AT - o resultado vai no campo <Nonce>.
+	  4. Cifra o timestamp UTC atual com a mesma chave AES.
+	  5. Tudo em base64, sob o namespace legado 2002/12/secext (a AT
+	     nao aceita o namespace OASIS 2004 standard para este esquema).
+	"""
+	if not os.path.exists(at_public_cert_path):
+		raise ATWebserviceError(
+			_("Certificado publico da AT nao encontrado: {0}").format(at_public_cert_path)
+		)
+
+	with open(at_public_cert_path, "rb") as f:
+		at_public_key = RSA.import_key(f.read())
+
+	nonce = get_random_bytes(16)
+	cipher_aes = AES.new(nonce, AES.MODE_ECB)
+
+	password_padded = pad(password.encode("utf-8"), 16)
+	encrypted_password_b64 = base64.b64encode(cipher_aes.encrypt(password_padded)).decode()
+
+	created = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+	created_padded = pad(created.encode("utf-8"), 16)
+	encrypted_created_b64 = base64.b64encode(cipher_aes.encrypt(created_padded)).decode()
+
+	cipher_rsa = PKCS1_v1_5.new(at_public_key)
+	encrypted_nonce_b64 = base64.b64encode(cipher_rsa.encrypt(nonce)).decode()
+
+	nsmap = {"wsse": NS_WSS_LEGACY}
+	security = etree.Element(f"{{{NS_WSS_LEGACY}}}Security", nsmap=nsmap)
+	token = etree.SubElement(security, f"{{{NS_WSS_LEGACY}}}UsernameToken")
+	etree.SubElement(token, f"{{{NS_WSS_LEGACY}}}Username").text = username
+	etree.SubElement(token, f"{{{NS_WSS_LEGACY}}}Password").text = encrypted_password_b64
+	etree.SubElement(token, f"{{{NS_WSS_LEGACY}}}Nonce").text = encrypted_nonce_b64
+	etree.SubElement(token, f"{{{NS_WSS_LEGACY}}}Created").text = encrypted_created_b64
+	return security
+
+
 def get_series_webservice_client(username=None, password=None):
 	"""
 	Cliente zeep para o webservice de comunicacao de series
 	(registarSerie/consultarSeries/finalizarSerie/anularSerie),
-	carregado a partir do WSDL real da AT incluido no repositorio.
-	Configura mTLS (certificado cliente) e WS-Security UsernameToken
-	(zeep aplica automaticamente o namespace OASIS 2004 correto - ver
-	zeep.wsse.username.UsernameToken).
+	carregado a partir do WSDL real da AT incluido no repositorio, com
+	mTLS (certificado cliente) configurado no transporte. O cabecalho
+	WS-Security e construido a parte (ver _build_wsse_security_header)
+	e passado em cada chamada via _soapheaders, porque a AT exige um
+	esquema proprietario que o zeep nao suporta nativamente.
+
+	Devolve (service, wsse_header_element) - o header tem de ser
+	reconstruido a cada chamada (o nonce/timestamp sao de utilizacao
+	unica).
 	"""
 	settings = frappe.get_single("Portugal Auth Settings")
 
@@ -73,6 +123,15 @@ def get_series_webservice_client(username=None, password=None):
 			)
 		)
 
+	at_public_cert_path = settings.get("at_public_certificate_path")
+	if not at_public_cert_path:
+		raise ATWebserviceError(
+			_(
+				"Certificado publico da AT nao configurado. Defina 'Certificado Publico da AT "
+				"(cifra WS-Security)' em Portugal Auth Settings."
+			)
+		)
+
 	at_username = username or settings.get("at_username")
 	at_password = password or settings.get_password("at_password", raise_exception=False)
 	if not at_username or not at_password:
@@ -83,12 +142,31 @@ def get_series_webservice_client(username=None, password=None):
 			)
 		)
 
+	# A AT usa portas diferentes para o mesmo servico consoante o
+	# ambiente - 722 para testes, 422 para producao (nao e apenas o
+	# dominio/caminho que muda). Confirmado por teste real: ligar com
+	# um certificado de teste a porta 422 (producao) faz a AT aceitar
+	# o handshake TLS e depois corromper a ligacao assim que dados
+	# reais sao enviados.
+	sandbox_mode = settings.get("sandbox_mode")
+	if sandbox_mode is None:
+		sandbox_mode = 1
+	endpoint = (
+		"https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
+		if int(sandbox_mode)
+		else "https://servicos.portaldasfinancas.gov.pt:422/SeriesWSService"
+	)
+
 	wsdl_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wsdl", "Comunicacao_Series.wsdl")
 	session = _build_mtls_session(cert_path, key_path)
 	transport = Transport(session=session, timeout=60)
-	wsse = UsernameToken(at_username, at_password)
+	client = zeep.Client(wsdl=wsdl_path, transport=transport)
 
-	return zeep.Client(wsdl=wsdl_path, transport=transport, wsse=wsse)
+	binding_name = list(client.wsdl.bindings.keys())[0]
+	service = client.create_service(binding_name, endpoint)
+
+	header = _build_wsse_security_header(at_username, at_password, at_public_cert_path)
+	return service, header
 
 
 class ATWebserviceError(Exception):
@@ -637,7 +715,7 @@ class ATWebserviceClient:
 		at_series_format = f"{doc_code}-{year}-{company_abbr}"
 
 		try:
-			client = get_series_webservice_client(username, password)
+			service, wsse_header = get_series_webservice_client(username, password)
 		except ATWebserviceError as e:
 			return {"success": False, "error": str(e), "naming_series": naming_series, "request_id": request_id}
 
@@ -646,16 +724,60 @@ class ATWebserviceClient:
 		) or "0"
 
 		try:
-			response = client.service.registarSerie(
+			response = service.consultarSeries(
+				classeDoc=self._map_doc_code_to_class(doc_code),
+				tipoDoc=doc_code,
+				meioProcessamento="PI",
+				_soapheaders=[wsse_header],
+			)
+		except Exception as e:
+			frappe.log_error(f"Erro ao consultar séries existentes na AT: {str(e)}", "ATWebserviceClient")
+			response = None
+
+		existing = None
+		if response is not None:
+			resp_body = getattr(response, "consultarSeriesResp", response)
+			for info in getattr(resp_body, "InfoSerie", None) or getattr(resp_body, "infoSerie", None) or []:
+				if getattr(info, "serie", None) == at_series_format:
+					existing = info
+					break
+
+		if existing is not None:
+			validation_code = getattr(existing, "codValidacaoSerie", None)
+			frappe.logger().info(f"[{request_id}] Série já registada na AT: {validation_code}")
+			return {
+				"success": True,
+				"naming_series": naming_series,
+				"series_at_format": at_series_format,
+				"validation_code": validation_code,
+				"request_id": request_id,
+				"note": "Série já existia na AT",
+				"raw_response": zeep.helpers.serialize_object(existing),
+			}
+
+		try:
+			# Nova chamada: a AT exige um cabecalho WS-Security fresco por
+			# pedido (nonce/timestamp de utilizacao unica).
+			service, wsse_header = get_series_webservice_client(username, password)
+			response = service.registarSerie(
 				serie=at_series_format,
 				tipoSerie="N",
 				classeDoc=self._map_doc_code_to_class(doc_code),
 				tipoDoc=doc_code,
-				numPrimDocSerie=1,
+				numInicialSeq=1,
 				dataInicioPrevUtiliz=_date.today() + timedelta(days=1),
-				numCertSWFatur=str(certificate_number),
+				numCertSWFatur=int(certificate_number),
 				meioProcessamento="PI",
+				_soapheaders=[wsse_header],
 			)
+		except zeep.exceptions.Fault as e:
+			frappe.log_error(f"AT rejeitou o registo da série (SOAP Fault): {str(e)}", "ATWebserviceClient")
+			return {
+				"success": False,
+				"error": f"AT rejeitou o pedido: {str(e)}",
+				"naming_series": naming_series,
+				"request_id": request_id,
+			}
 		except Exception as e:
 			frappe.log_error(f"Erro ao comunicar com o webservice de séries da AT: {str(e)}", "ATWebserviceClient")
 			return {
@@ -665,20 +787,23 @@ class ATWebserviceClient:
 				"request_id": request_id,
 			}
 
-		erros = getattr(response, "listaErros", None)
-		if erros and getattr(erros, "erro", None):
-			mensagens = [
-				f"{getattr(erro, 'codigo', '?')}: {getattr(erro, 'mensagem', '')}"
-				for erro in erros.erro
-			]
+		resp_body = getattr(response, "registarSerieResp", response)
+		oper_info = getattr(resp_body, "infoResultOper", None)
+		cod_result = getattr(oper_info, "codResultOper", None) if oper_info else None
+		msg_result = getattr(oper_info, "msgResultOper", None) if oper_info else ""
+
+		# 2001 = sucesso (registarSerie); ver getAtErrorMessage no módulo
+		# Dolibarr de referência para o mapeamento completo de códigos.
+		if str(cod_result) not in ("2001",):
+			frappe.log_error(f"AT recusou o registo da série [{cod_result}]: {msg_result}", "ATWebserviceClient")
 			return {
 				"success": False,
-				"error": "; ".join(mensagens),
+				"error": f"AT [{cod_result}]: {msg_result}",
 				"naming_series": naming_series,
 				"request_id": request_id,
 			}
 
-		info = getattr(response, "InfoSerie", None)
+		info = getattr(resp_body, "infoSerie", None)
 		validation_code = getattr(info, "codValidacaoSerie", None) if info else None
 
 		frappe.logger().info(f"[{request_id}] Série registada com sucesso: {validation_code}")

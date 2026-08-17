@@ -94,6 +94,12 @@
             "label": "Chave Privada mTLS (PEM)",
             "fieldtype": "Data",
             "description": "Chave privada extraida do mesmo .pfx - NUNCA a mesma chave usada para assinar documentos (ver Chave de Assinatura acima)"
+        },
+        {
+            "fieldname": "at_public_certificate_path",
+            "label": "Certificado Público da AT (cifra WS-Security)",
+            "fieldtype": "Data",
+            "description": "Certificado público da AT (.cer/.pem) usado para cifrar a password no cabeçalho WS-Security proprietário exigido pelo webservice de séries - distinto do certificado mTLS acima."
         }
     ]
 }
