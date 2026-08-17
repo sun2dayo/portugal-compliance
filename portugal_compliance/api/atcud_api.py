@@ -88,7 +88,7 @@ def validate_atcud_format(atcud_code):
 
 		# ✅ PADRÕES ATCUD REAIS (não 0.sequência)
 		patterns = [
-			r"^[A-Z0-9]{8,12}-\d{8}$",  # Formato AT: AAJFJMVNTN-00000001
+			r"^[A-Z0-9]{8,12}-\d{1,12}$",  # Formato AT: AAJFJMVNTN-0001 (largura real do documento)
 			r"^AT\d{14}$"  # Formato fallback: AT20250608003854
 		]
 
@@ -562,15 +562,18 @@ def get_series_next_atcud(series_name):
 				"error": "Série não encontrada ou inativa"
 			}
 
-		# ✅ CALCULAR PRÓXIMO ATCUD (formato real)
+		# ✅ CALCULAR PRÓXIMO ATCUD (formato real, preview)
 		sequence = series_info.current_sequence or 1
+		# Largura da sequência de preview segue o padrão real da
+		# naming_series (nº de '#'), não um número fixo.
+		pad_width = (series_info.naming_series or "").count('#') or 4
 
 		if series_info.validation_code:
 			# ✅ FORMATO REAL AT: VALIDATION_CODE-SEQUENCE
-			next_atcud = f"{series_info.validation_code}-{sequence:08d}"
+			next_atcud = f"{series_info.validation_code}-{sequence:0{pad_width}d}"
 		else:
 			# ✅ FALLBACK: Série não comunicada
-			next_atcud = f"PENDING-{sequence:08d}"
+			next_atcud = f"PENDING-{sequence:0{pad_width}d}"
 
 		return {
 			"success": True,

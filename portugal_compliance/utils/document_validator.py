@@ -114,7 +114,7 @@ class DocumentValidationUtilities:
 		try:
 			# ✅ FORMATOS ACEITOS
 			patterns = [
-				r'^[A-Z0-9]{8,12}-\d{8}$',  # Formato AT: VALIDATION_CODE-SEQUENCE
+				r'^[A-Z0-9]{8,12}-\d{1,12}$',  # Formato AT: VALIDATION_CODE-SEQUENCE (largura real do documento)
 				r'^0\.\d+$',  # Formato alternativo: 0.SEQUENCE
 				r'^[A-Z0-9]{8,12}$',  # Apenas validation_code
 				r'^AT\d{14}$'  # Formato fallback

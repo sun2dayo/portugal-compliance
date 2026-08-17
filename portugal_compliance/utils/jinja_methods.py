@@ -83,8 +83,9 @@ def validate_atcud_format(atcud_code):
 		if not validation_code.isalnum() or not validation_code.isupper():
 			return False
 
-		# ✅ VALIDAR SEQUÊNCIA (8 dígitos)
-		if not (len(sequence) == 8 and sequence.isdigit()):
+		# ✅ VALIDAR SEQUÊNCIA (largura variável - espelha o número real
+		# do documento, sem mínimo/máximo fixo imposto pela AT)
+		if not (1 <= len(sequence) <= 12 and sequence.isdigit()):
 			return False
 
 		return True
@@ -328,26 +329,24 @@ def get_document_sequence_info(doc):
 
 		# ✅ EXTRAIR SEQUENCIAL DO NOME (COMPATÍVEL COM FORMATOS COM E SEM HÍFENS)
 		sequence = 0
+		sequence_str = None
 		if doc_name:
-			# Padrões para extrair sequência
-			patterns = [
-				r'(\d{8})$',  # 8 dígitos no final: FT2025NDX00000001
-				r'-(\d{8})$',  # 8 dígitos após hífen: FT-2025-NDX-00000001
-				r'\.(\d{8})$',  # 8 dígitos após ponto: FT2025NDX.00000001
-				r'(\d{6,})$',  # 6+ dígitos no final
-				r'(\d+)$'  # Qualquer número no final
-			]
+			# Padrões para extrair sequência (largura variável - o valor
+			# extraído preserva os dígitos originais do nome do documento,
+			# nunca reformatado para uma largura fixa)
+			patterns = [r'\.(\d+)$', r'-(\d+)$', r'(\d+)$']
 
 			for pattern in patterns:
 				match = re.search(pattern, doc_name)
 				if match:
-					sequence = int(match.group(1))
+					sequence_str = match.group(1)
+					sequence = int(sequence_str)
 					break
 
 		return {
 			"document_name": doc_name,
 			"sequence_number": sequence,
-			"sequence_formatted": f"{sequence:08d}" if sequence > 0 else "00000000",
+			"sequence_formatted": sequence_str or "0",
 			"series_current": series_info.get('current_sequence', 0) if series_info else 0,
 			"series_prefix": get_series_prefix(doc)
 		}

@@ -550,7 +550,7 @@ class ATWebserviceClient:
 						"validation_code": atcud_code,
 						"is_communicated": 1,
 						"communication_date": frappe.utils.now(),
-						"atcud_pattern": f"{atcud_code}-{{sequence:08d}}",
+						"atcud_pattern": f"{atcud_code}-<sequencial do documento>",  # informativo - largura real varia por serie, nao e sempre 8 digitos
 						"communication_response": f"ATCUD fallback: {atcud_code}",
 						"is_fallback": 1
 					})
@@ -562,7 +562,7 @@ class ATWebserviceClient:
 						"validation_code": atcud_code,
 						"is_communicated": 1,
 						"communication_date": frappe.utils.now(),
-						"atcud_pattern": f"{atcud_code}-{{sequence:08d}}",
+						"atcud_pattern": f"{atcud_code}-<sequencial do documento>",  # informativo - largura real varia por serie, nao e sempre 8 digitos
 						"communication_response": f"ATCUD real recebido: {atcud_code}",
 						"is_fallback": 0
 					})

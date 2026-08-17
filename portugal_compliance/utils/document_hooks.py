@@ -614,7 +614,11 @@ class PortugalComplianceDocumentHooks:
 				doc.naming_pattern = f"{doc.prefix}.####"
 				preview_seq = int(doc.current_sequence or 1)
 				preview_validation = doc.validation_code or "PENDENTE"
-				doc.sample_atcud = f"{preview_validation}-{preview_seq:08d}"
+				# Largura da sequência de preview segue sempre o padrão real
+				# de naming_pattern (nº de '#'), nunca um número fixo -
+				# se o padrão de naming mudar, o preview acompanha sozinho.
+				pad_width = doc.naming_pattern.count('#') or 4
+				doc.sample_atcud = f"{preview_validation}-{preview_seq:0{pad_width}d}"
 				doc.next_sequence_preview = preview_seq
 		except Exception as e:
 			frappe.log_error(f"Erro em update_series_pattern: {str(e)}")
@@ -659,7 +663,19 @@ class PortugalComplianceDocumentHooks:
 			frappe.log_error(f"Erro em auto_select_communicated_series: {str(e)}")
 
 	def _generate_atcud_with_real_validation_code(self, doc):
-		"""✅ OTIMIZADO: Gerar ATCUD com código real da AT"""
+		"""
+		✅ CORRIGIDO: Gerar ATCUD com código real da AT
+
+		A sequência vem sempre de doc.name (número real e já atribuído
+		do documento), nunca de um contador próprio como
+		current_sequence+1 - manter um contador paralelo permite
+		dessincronização entre o número do ATCUD e o número real do
+		documento (mesmo bug já corrigido no caminho automático, ver
+		ATCUDGenerator._get_next_sequence_thread_safe). A sequência
+		também deixa de ser forçada a 8 dígitos - é a largura real do
+		número do documento (ex: "0001"), tal como softwares
+		certificados reais (Cegid Vendus, InvoiceXpress) fazem.
+		"""
 		try:
 			series_config = frappe.db.get_value("Portugal Series Configuration", {
 				"naming_series": doc.naming_series,
@@ -670,11 +686,15 @@ class PortugalComplianceDocumentHooks:
 			if not series_config or not series_config.validation_code:
 				return None
 
-			next_seq = (series_config.current_sequence or 0) + 1
-			atcud_code = f"{series_config.validation_code}-{str(next_seq).zfill(8)}"
+			seq_match = re.search(r'(\d+)$', doc.name or "")
+			sequence_display = seq_match.group(1) if seq_match else "1"
+			atcud_code = f"{series_config.validation_code}-{sequence_display}"
 
+			# current_sequence mantido só como valor informativo para a UI
+			# (ex: "próxima sequência prevista"), nunca lido de volta para
+			# calcular um ATCUD.
 			frappe.db.set_value("Portugal Series Configuration",
-								series_config.name, "current_sequence", next_seq)
+								series_config.name, "current_sequence", int(sequence_display) + 1)
 
 			return atcud_code
 

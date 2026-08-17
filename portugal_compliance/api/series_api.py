@@ -695,7 +695,9 @@ def test_series_generation(series_name):
 			"next_document": f"{series_doc.prefix}.{series_doc.current_sequence:04d}",
 			"is_communicated": series_doc.is_communicated,
 			"validation_code": series_doc.validation_code,
-			"test_atcud": f"{series_doc.validation_code}-{series_doc.current_sequence:08d}" if series_doc.validation_code else None
+			# Mesma largura que "next_document" acima - eram inconsistentes
+			# entre si na mesma resposta (0001 vs 00000001).
+			"test_atcud": f"{series_doc.validation_code}-{series_doc.current_sequence:04d}" if series_doc.validation_code else None
 		}
 
 		return test_result

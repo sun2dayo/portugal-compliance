@@ -34,7 +34,7 @@ class ATCUDGenerator:
 		self.module = "Portugal Compliance"
 
 		# ✅ FORMATOS OFICIAIS CONFORME LEGISLAÇÃO (ATUALIZADOS)
-		self.atcud_format = r'^[A-Z0-9]{8,12}-\d{8}$'  # CODIGO-SEQUENCIA
+		self.atcud_format = r'^[A-Z0-9]{8,12}-\d{1,12}$'  # CODIGO-SEQUENCIA (sequencia = largura real do documento, sem minimo de digitos fixo pela AT)
 		self.validation_code_format = r'^[A-Z0-9]{8,12}$'  # 8-12 caracteres alfanuméricos
 
 		# ✅ TIPOS DE DOCUMENTOS SUPORTADOS CONFORME SAF-T PT (CORRIGIDOS)
@@ -165,9 +165,14 @@ class ATCUDGenerator:
 
 			# ✅ OBTER PRÓXIMO NÚMERO SEQUENCIAL (THREAD-SAFE)
 			sequence_number = self._get_next_sequence_thread_safe(series_info, doc)
+			# String que preserva a largura original do numero do documento
+			# (ex: "0001") - usada no ATCUD em vez do inteiro reformatado.
+			sequence_display = self._extract_sequence_string_from_document_name(doc.name)
 
-			# ✅ GERAR ATCUD CONFORME FORMATO OFICIAL
-			atcud_code = f"{validation_code}-{sequence_number:08d}"
+			# ✅ GERAR ATCUD CONFORME FORMATO OFICIAL (sequencia = numero real
+			# do documento, sem padding artificial - ver exemplos reais de
+			# mercado no commit que introduziu esta correcao)
+			atcud_code = f"{validation_code}-{sequence_display}"
 
 			# ✅ VALIDAR ATCUD GERADO
 			is_valid, validation_msg = self._validate_atcud_format_enhanced(atcud_code)
@@ -445,6 +450,25 @@ class ATCUDGenerator:
 			frappe.log_error(f"Erro ao gerar código temporário: {str(e)}")
 			return "TEMP0000"
 
+	def _extract_sequence_string_from_document_name(self, document_name):
+		"""
+		Extrai a sequencia do nome do documento como STRING, preservando
+		a largura/padding original (ex: "0001", nao o inteiro 1) - o
+		ATCUD deve mostrar exatamente os mesmos digitos que o proprio
+		numero do documento, sem reformatar para uma largura fixa
+		(confirmado contra exemplos reais de mercado: Cegid Vendus usa
+		5 digitos, InvoiceXpress usa 7 - nao existe uma largura fixa
+		exigida pela AT, o ATCUD so espelha o numero real do documento).
+		"""
+		if not document_name:
+			return "1"
+		patterns = [r'\.(\d+)$', r'-(\d+)$', r'(\d+)$']
+		for pattern in patterns:
+			match = re.search(pattern, document_name)
+			if match:
+				return match.group(1)
+		return "1"
+
 	def _get_next_sequence_thread_safe(self, series_info, doc):
 		"""
 		A sequência do ATCUD é sempre extraída de doc.name, nunca de um
@@ -554,9 +578,10 @@ class ATCUDGenerator:
 			if not is_valid_code:
 				return False, f"Código de validação inválido: {code_msg}"
 
-			# ✅ VALIDAR SEQUÊNCIA
-			if not sequence.isdigit() or len(sequence) != 8:
-				return False, "Sequência deve ter exatamente 8 dígitos"
+			# ✅ VALIDAR SEQUÊNCIA (largura variável - espelha o número real
+			# do documento, não uma largura fixa imposta pela AT)
+			if not sequence.isdigit() or not (1 <= len(sequence) <= 12):
+				return False, "Sequência deve ter entre 1 e 12 dígitos"
 
 			if int(sequence) < 1:
 				return False, "Sequência deve ser maior que zero"
@@ -978,7 +1003,7 @@ class ATCUDGenerator:
 				"ATCUD gerado automaticamente",
 				f"Codigo ATCUD: {atcud_code}",
 				f"Codigo Validacao: {validation_code}",
-				f"Sequencia: {sequence_number:08d}",
+				f"Sequencia: {sequence_display}",
 				f"Empresa: {doc.company}",
 				f"Data/Hora: {now()}",
 			]
