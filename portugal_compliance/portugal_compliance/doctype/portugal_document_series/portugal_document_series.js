@@ -651,24 +651,38 @@ function show_series_statistics(frm) {
 
 function communicate_series_to_at(frm) {
     /**
-     * ✅ NOVO: Comunicar série à AT
+     * Comunicar série à AT - usa o endpoint real (series_api), com o
+     * registo Portugal Series Configuration ligado a esta série
+     * operacional (frm.doc.series_configuration), não o nome desta
+     * doctype (que é uma entidade diferente).
      */
+    if (!frm.doc.series_configuration) {
+        frappe.msgprint({
+            title: __('Sem configuração AT associada'),
+            message: __('Esta série ainda não tem uma Portugal Series Configuration associada (campo "series_configuration").'),
+            indicator: 'orange'
+        });
+        return;
+    }
+
     frappe.confirm(__('Comunicar esta série à AT?'), function() {
         frappe.call({
-            method: 'portugal_compliance.api.at_communication.communicate_series_to_at',
+            method: 'portugal_compliance.api.series_api.communicate_series_to_at',
             args: {
-                series_name: frm.doc.name
+                series_names: JSON.stringify([frm.doc.series_configuration])
             },
             freeze: true,
             freeze_message: __('Comunicando à AT...'),
             callback: function(r) {
-                if (r.message && r.message.success) {
-                    frappe.show_alert(__('Série comunicada com sucesso'));
+                let result = r.message && r.message.results && r.message.results[0]
+                    ? r.message.results[0].result : null;
+                if (result && result.success) {
+                    frappe.show_alert(__('Série comunicada com sucesso: {0}', [result.validation_code]));
                     frm.reload_doc();
                 } else {
                     frappe.msgprint({
                         title: __('Erro na Comunicação'),
-                        message: r.message ? r.message.error : __('Erro desconhecido'),
+                        message: (result && result.error) || (r.message && r.message.error) || __('Erro desconhecido'),
                         indicator: 'red'
                     });
                 }

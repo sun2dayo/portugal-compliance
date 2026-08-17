@@ -268,23 +268,16 @@ jinja = {
 # ✅ BACKGROUND JOBS
 background_jobs = {
 	"portugal_compliance.utils.at_webservice.batch_register_naming_series": {"timeout": 1800},
-	"portugal_compliance.utils.atcud_generator.batch_generate_atcud": {"timeout": 1200}
+	"portugal_compliance.utils.atcud_generator.batch_generate_atcud_optimized": {"timeout": 1200}
 }
 
-# ✅ REGIONAL SETTINGS
-regional_overrides = {
-	"Portugal": {
-		"get_series": "portugal_compliance.regional.portugal.get_series",
-		"validate_tax_id": "portugal_compliance.utils.validation.validate_portuguese_nif",
-		"get_tax_template": "portugal_compliance.regional.portugal.get_tax_template_for_transaction",
-		#"format_currency": "portugal_compliance.utils.formatting.format_portuguese_currency",
-		"currency": "EUR",
-		"date_format": "dd/MM/yyyy",
-		"time_format": "HH:mm:ss",
-		"number_format": "#.###,##",
-		"first_day_of_the_week": "Monday"
-	}
-}
+# regional_overrides removido (Fase 3): a estrutura de chaves nao
+# correspondia ao mecanismo real do ERPNext (erpnext.allow_regional
+# exige que a chave seja o caminho completo de uma funcao do core
+# decorada com esse decorator - aqui eram nomes soltos como
+# "get_series"/"currency", que nunca correspondem a nada). Nunca
+# esteve funcional. Reimplementar a serio requer identificar quais
+# funcoes do core ERPNext precisam mesmo de override para Portugal.
 
 # ✅ WEBSITE SETTINGS
 website_route_rules = [

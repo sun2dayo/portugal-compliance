@@ -761,21 +761,25 @@ function communicate_series_to_at(frm) {
         __('Comunicar série {0} à Autoridade Tributária?', [frm.doc.series_name]),
         function() {
             frappe.call({
-                method: 'portugal_compliance.utils.at_communication.communicate_series',
+                method: 'portugal_compliance.api.series_api.communicate_series_to_at',
                 args: {
-                    series_config: frm.doc.name
+                    series_names: JSON.stringify([frm.doc.name])
                 },
+                freeze: true,
+                freeze_message: __('Comunicando à AT...'),
                 callback: function(r) {
-                    if (r.message && r.message.success) {
+                    let result = r.message && r.message.results && r.message.results[0]
+                        ? r.message.results[0].result : null;
+                    if (result && result.success) {
                         frm.reload_doc();
                         frappe.show_alert({
-                            message: __('Série comunicada com sucesso: {0}', [r.message.validation_code]),
+                            message: __('Série comunicada com sucesso: {0}', [result.validation_code]),
                             indicator: 'green'
                         });
                     } else {
                         frappe.msgprint({
                             title: __('Erro na Comunicação'),
-                            message: r.message ? r.message.error : __('Erro ao comunicar série'),
+                            message: (result && result.error) || (r.message && r.message.error) || __('Erro ao comunicar série'),
                             indicator: 'red'
                         });
                     }

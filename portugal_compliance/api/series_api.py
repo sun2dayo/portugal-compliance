@@ -34,13 +34,6 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 	Baseado na sua experiência com programação.autenticação[2]
 	"""
 	try:
-		# ✅ VALIDAR PARÂMETROS
-		if not username or not password:
-			return {
-				"success": False,
-				"error": "Username e password são obrigatórios para comunicação com AT"
-			}
-
 		# ✅ OBTER SÉRIES PARA COMUNICAR
 		if series_names:
 			if isinstance(series_names, str):
@@ -87,6 +80,20 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 
 				if result.get("success"):
 					successful += 1
+					series_doc_name = frappe.db.get_value(
+						"Portugal Series Configuration", {"naming_series": naming_series}, "name"
+					)
+					if series_doc_name:
+						frappe.db.set_value(
+							"Portugal Series Configuration",
+							series_doc_name,
+							{
+								"is_communicated": 1,
+								"validation_code": result.get("validation_code"),
+								"communication_date": frappe.utils.now(),
+								"communication_response": json.dumps(result.get("raw_response"), ensure_ascii=False),
+							},
+						)
 				else:
 					failed += 1
 
