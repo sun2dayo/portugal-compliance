@@ -42,6 +42,8 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 			if isinstance(series_names, str):
 				series_names = json.loads(series_names)
 
+			from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
+
 			series_to_communicate = []
 			for name in series_names:
 				try:
@@ -50,10 +52,16 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 					continue
 				if not frappe.has_permission("Portugal Series Configuration", "write", series_doc):
 					continue
-				if not series_doc.is_communicated:
+				if not series_doc.is_communicated and PORTUGAL_DOCUMENT_TYPES.get(
+					series_doc.document_type, {}
+				).get("communication_required", False):
 					series_to_communicate.append(series_doc.naming_series)
 		else:
-			# ✅ BUSCAR SÉRIES NÃO COMUNICADAS
+			# ✅ BUSCAR SÉRIES NÃO COMUNICADAS (só tipos que a AT realmente
+			# aceita pré-comunicar - ver PORTUGAL_DOCUMENT_TYPES.communication_required;
+			# tentar comunicar os restantes causa sempre rejeição AT [4046])
+			from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
+
 			if company:
 				if not frappe.has_permission("Company", "write", company):
 					frappe.throw(_("Sem permissão para comunicar séries desta empresa"), frappe.PermissionError)
@@ -67,10 +75,13 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 			series_list = frappe.get_list(
 				"Portugal Series Configuration",
 				filters=filters,
-				fields=["naming_series", "company"]
+				fields=["naming_series", "company", "document_type"]
 			)
 
-			series_to_communicate = [s.naming_series for s in series_list]
+			series_to_communicate = [
+				s.naming_series for s in series_list
+				if PORTUGAL_DOCUMENT_TYPES.get(s.document_type, {}).get("communication_required", False)
+			]
 
 		if not series_to_communicate:
 			return {
@@ -102,7 +113,7 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 								"is_communicated": 1,
 								"validation_code": result.get("validation_code"),
 								"communication_date": frappe.utils.now(),
-								"communication_response": json.dumps(result.get("raw_response"), ensure_ascii=False),
+								"communication_response": json.dumps(result.get("raw_response"), ensure_ascii=False, default=str),
 							},
 						)
 				else:
@@ -289,7 +300,7 @@ def validate_series_format_internal(series_prefix):
 		return {"valid": False, "message": "Prefixo não fornecido"}
 
 	# ✅ PADRÃO SEM HÍFENS: XXYYYY + EMPRESA (ex: FT2025NDX)
-	pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$"
+	pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$"
 
 	if not re.match(pattern, series_prefix):
 		return {

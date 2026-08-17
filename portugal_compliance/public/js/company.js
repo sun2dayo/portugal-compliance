@@ -230,7 +230,7 @@ if (typeof frappe === 'undefined' || !frappe.ui || !frappe.ui.form) {
                     } else {
                         console.warn('validate_company_abbreviation não está definida');
                         // Validação básica local
-                        const pattern = /^[A-Z0-9]{2,4}$/;
+                        const pattern = /^[A-Z0-9]{1,4}$/;
                         if (pattern.test(frm.doc.abbr)) {
                             frappe.show_alert({
                                 message: __('Abreviatura válida: {0}', [frm.doc.abbr]),
@@ -238,7 +238,7 @@ if (typeof frappe === 'undefined' || !frappe.ui || !frappe.ui.form) {
                             });
                         } else {
                             frappe.show_alert({
-                                message: __('Abreviatura deve ter 2-4 caracteres maiúsculos: {0}', [frm.doc.abbr]),
+                                message: __('Abreviatura deve ter 1-4 caracteres maiúsculos: {0}', [frm.doc.abbr]),
                                 indicator: 'orange'
                             });
                         }
@@ -421,7 +421,7 @@ function setup_custom_fields(frm) {
     // ✅ CONFIGURAR CAMPO ABREVIATURA
     if (frm.fields_dict.abbr) {
         frm.fields_dict.abbr.df.description =
-            "Abreviatura da empresa (2-4 caracteres) - usada nas séries portuguesas";
+            "Abreviatura da empresa (1-4 caracteres) - usada nas séries portuguesas";
     }
 }
 
@@ -1478,7 +1478,7 @@ function validate_portuguese_company(frm) {
     if (!frm.doc.abbr) {
         errors.push(__('Abreviatura é obrigatória'));
     } else if (!validate_abbreviation_format(frm.doc.abbr)) {
-        errors.push(__('Abreviatura deve ter 2-4 caracteres alfanuméricos'));
+        errors.push(__('Abreviatura deve ter 1-4 caracteres alfanuméricos'));
     }
 
     // ✅ MOSTRAR ERROS
@@ -1543,7 +1543,7 @@ function validate_company_abbreviation(frm) {
 
     if (!validate_abbreviation_format(frm.doc.abbr)) {
         frappe.show_alert({
-            message: __('Abreviatura deve ter 2-4 caracteres alfanuméricos maiúsculos'),
+            message: __('Abreviatura deve ter 1-4 caracteres alfanuméricos maiúsculos'),
             indicator: 'orange'
         });
     } else {
@@ -1560,8 +1560,8 @@ function validate_abbreviation_format(abbr) {
      */
     if (!abbr) return false;
 
-    // ✅ FORMATO: 2-4 caracteres alfanuméricos maiúsculos
-    const pattern = /^[A-Z0-9]{2,4}$/;
+    // ✅ FORMATO: 1-4 caracteres alfanuméricos maiúsculos (abbr nativo do ERPNext pode ter só 1)
+    const pattern = /^[A-Z0-9]{1,4}$/;
     return pattern.test(abbr);
 }
 

@@ -351,7 +351,7 @@ class ATCUDGenerator:
 				return None
 
 			# ✅ PADRÃO NAMING SERIES PORTUGUESA SEM HÍFENS (DINÂMICO)
-			pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})\.####$'
+			pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})\.####$'
 			match = re.match(pattern, naming_series)
 
 			if not match:
@@ -672,7 +672,7 @@ class ATCUDGenerator:
 
 			if cached_result is None:
 				# ✅ PADRÃO PORTUGUÊS SEM HÍFENS: XXYYYY + COMPANY.####
-				pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'
+				pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$'
 				cached_result = bool(re.match(pattern, naming_series))
 
 				# Cache por 30 minutos

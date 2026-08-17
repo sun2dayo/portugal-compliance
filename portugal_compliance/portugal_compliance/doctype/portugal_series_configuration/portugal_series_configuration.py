@@ -79,7 +79,7 @@ class PortugalSeriesConfiguration(Document):
 				return False
 
 			# ✅ FORMATO OFICIAL SEM HÍFENS: XXYYYY + COMPANY
-			pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})$'
+			pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})$'
 			match = re.match(pattern, self.prefix)
 
 			if not match:
@@ -95,8 +95,8 @@ class PortugalSeriesConfiguration(Document):
 			if not (len(year) == 4 and year.isdigit()):
 				return False
 
-			# Validar empresa (2-4 caracteres alfanuméricos maiúsculos)
-			if not (2 <= len(company) <= 4) or not company.isalnum() or not company.isupper():
+			# Validar empresa (1-4 caracteres alfanuméricos maiúsculos - abbr do ERPNext pode ter só 1)
+			if not (1 <= len(company) <= 4) or not company.isalnum() or not company.isupper():
 				return False
 
 			return True
@@ -129,7 +129,7 @@ class PortugalSeriesConfiguration(Document):
 			return
 
 		# ✅ EXTRAIR CÓDIGO DO PREFIXO (primeiros 2-4 caracteres)
-		pattern = r'^([A-Z]{2,4})\d{4}[A-Z0-9]{2,4}$'
+		pattern = r'^([A-Z]{2,4})\d{4}[A-Z0-9]{1,4}$'
 		match = re.match(pattern, self.prefix)
 
 		if not match:
@@ -167,7 +167,7 @@ class PortugalSeriesConfiguration(Document):
 
 		try:
 			# ✅ EXTRAIR ANO DO FORMATO SEM HÍFENS: XXYYYY + COMPANY
-			pattern = r'^[A-Z]{2,4}(\d{4})[A-Z0-9]{2,4}$'
+			pattern = r'^[A-Z]{2,4}(\d{4})[A-Z0-9]{1,4}$'
 			match = re.match(pattern, self.prefix)
 
 			if not match:
@@ -784,7 +784,7 @@ def validate_series_format(prefix):
 	"""
 	try:
 		# Padrão SEM HÍFENS: XXYYYY + COMPANY
-		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})$'
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})$'
 		match = re.match(pattern, prefix)
 
 		if not match:

@@ -32,7 +32,7 @@ window.ATCUDValidator = {
     // ✅ PADRÕES DE VALIDAÇÃO (SEM HÍFENS)
     PATTERNS: {
         // Padrão geral: XXYYYY + COMPANY.####
-        NAMING_SERIES: /^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$/,
+        NAMING_SERIES: /^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$/,
 
         // Padrão ATCUD: 0 + sequência
         ATCUD: /^0\.\d+$/,

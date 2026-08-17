@@ -276,11 +276,6 @@ function setup_portuguese_interface(frm) {
         );
     }
 
-    // ✅ CONFIGURAR TÍTULO DINÂMICO
-    if (frm.doc.atcud_code) {
-        frm.set_title_field('name');
-        frm.set_subtitle_field('atcud_code');
-    }
 
     // ✅ CONFIGURAR LAYOUT PORTUGUÊS
     setup_portuguese_layout(frm);
@@ -1098,7 +1093,7 @@ function generate_qr_code_for_payment(frm) {
 
     frappe.call({
         method: 'portugal_compliance.utils.jinja_methods.get_qr_code_data',
-        args: {doc: frm.doc},
+        args: {doctype: frm.doc.doctype, docname: frm.doc.name},
         callback: function(r) {
             if (r.message) {
                 show_qr_code_dialog(frm, r.message);
@@ -1188,7 +1183,7 @@ function is_portuguese_naming_series(naming_series) {
     if (!naming_series) return false;
 
     // ✅ PADRÃO PORTUGUÊS SEM HÍFENS: XXYYYY + COMPANY.####
-    const pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$/;
+    const pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$/;
     return pattern.test(naming_series);
 }
 

@@ -206,7 +206,7 @@ def is_portuguese_series(doc):
 			return False
 
 		# ✅ PADRÃO PORTUGUÊS SEM HÍFENS: XXYYYY + COMPANY.####
-		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'
+		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$'
 		return bool(re.match(pattern, naming_series))
 	except Exception:
 		return False
@@ -223,7 +223,7 @@ def extract_series_components(doc):
 			return {}
 
 		# ✅ PADRÃO NAMING SERIES PORTUGUESA SEM HÍFENS
-		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})\.####$'
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})\.####$'
 		match = re.match(pattern, naming_series)
 
 		if not match:
@@ -880,11 +880,24 @@ def get_company_info_complete(company):
 
 # ========== MÉTODOS QR CODE E SAFT CORRIGIDOS ==========
 
-def get_qr_code_data(doc):
+@frappe.whitelist()
+def get_qr_code_data(doctype=None, docname=None, doc=None):
 	"""
 	✅ CORRIGIDO: Obter dados do QR Code conforme especificações AT atualizadas
+
+	Aceita `doc` já carregado para uso interno (ex: print formats/Jinja,
+	onde o documento já vem do próprio servidor). Quando chamada via API
+	(doctype+docname), busca sempre o documento autoritativo do servidor
+	e verifica permissão - nunca confia num "doc" vindo do cliente, para
+	evitar o mesmo IDOR já corrigido em regenerate_atcud (um QR Code
+	contém NIF e totais, e é um artefacto legal).
 	"""
 	try:
+		if doctype and docname:
+			if not frappe.has_permission(doctype, "read", docname):
+				frappe.throw(_("Sem permissão para gerar o QR Code deste documento"), frappe.PermissionError)
+			doc = frappe.get_doc(doctype, docname)
+
 		if not doc:
 			return ""
 
@@ -1144,7 +1157,7 @@ def get_compliance_summary_for_print(doc):
 			"environment": get_at_environment_display(doc),
 			"is_compliant": is_compliant_document(doc),
 			"compliance_level": status.get("compliance_level", "none"),
-			"qr_code_data": get_qr_code_data(doc),
+			"qr_code_data": get_qr_code_data(doc=doc),
 			"saft_data": format_saft_data(doc)
 		}
 	except Exception:

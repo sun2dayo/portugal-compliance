@@ -372,7 +372,7 @@ class TestATCUDGenerator(FrappeTestCase):
 				prefix = series.split(".")[0]
 
 				# ✅ VALIDAR FORMATO
-				pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$"
+				pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$"
 				self.assertRegex(prefix, pattern, f"Série {series} deveria ser válida")
 
 	def test_series_communication_status(self):

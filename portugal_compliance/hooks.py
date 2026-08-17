@@ -232,6 +232,15 @@ fixtures = [
 		"filters": [
 			["module", "in", ["Portugal Compliance"]]
 		]
+	},
+	{
+		# Print Format Factura PT (Fase 6) precisa de ficar aqui para
+		# sobreviver a uma reinstalacao limpa da app - sem isto, o
+		# QR Code na fatura impressa desaparecia em qualquer site novo.
+		"dt": "Print Format",
+		"filters": [
+			["module", "in", ["Portugal Compliance"]]
+		]
 	}
 ]
 

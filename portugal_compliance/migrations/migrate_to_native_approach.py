@@ -486,7 +486,7 @@ def convert_prefix_format(old_prefix):
 		new_prefix = old_prefix.replace('-', '')
 
 		# ✅ VALIDAR FORMATO RESULTANTE
-		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$'
+		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$'
 		if not re.match(pattern, new_prefix):
 			raise ValueError(f"Formato inválido após conversão: {new_prefix}")
 

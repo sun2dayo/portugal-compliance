@@ -370,7 +370,7 @@ class SeriesAdapter:
 
 			# ✅ PADRÕES ACEITOS (FLEXÍVEIS, NÃO RESTRITIVOS)
 			patterns = [
-				r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$',  # Formato português: FT2025NDX.####
+				r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$',  # Formato português: FT2025NDX.####
 				r'^[A-Z]{2,10}\.####$',  # Formato simples: FT.####
 				r'^[A-Z0-9-]+\.####$',  # Formato com hífens (compatibilidade)
 				r'^[A-Z0-9-]+\.YYYY\.-$',  # Formato ERPNext padrão
@@ -623,6 +623,7 @@ def sync_all_doctypes(company_abbr, year=None, include_non_fiscal=True, force_up
 	return series_adapter.sync_all_doctypes(company_abbr, year, include_non_fiscal, force_update)
 
 
+@frappe.whitelist()
 def get_doctype_statistics(doctype):
 	"""✅ ALINHADO: Obter estatísticas de um DocType"""
 	return series_adapter.get_doctype_statistics(doctype)

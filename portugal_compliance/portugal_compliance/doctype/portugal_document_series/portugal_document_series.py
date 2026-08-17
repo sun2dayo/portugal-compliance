@@ -91,7 +91,7 @@ class PortugalDocumentSeries(Document):
 		# Novo: XXYYYY + COMPANY (ex: FT2025DSY)
 		# Antigo: XX-YYYY-COMPANY (ex: FT-2025-DSY)
 
-		new_pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$"  # FT2025DSY
+		new_pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$"  # FT2025DSY
 		old_pattern = r"^[A-Z]{2,4}-\d{4}-[A-Z0-9]+$"  # FT-2025-DSY
 
 		if not (re.match(new_pattern, self.prefix) or re.match(old_pattern, self.prefix)):

@@ -45,7 +45,7 @@ window.portugal_compliance = {
     config: {
         atcud_pattern: /^[A-Z0-9]{8,12}$/,
         nif_pattern: /^\d{9}$/,
-        series_pattern: /^[A-Z]{2,4}-\d{4}-[A-Z0-9]{2,4}$/,
+        series_pattern: /^[A-Z]{2,4}-\d{4}-[A-Z0-9]{1,4}$/,
         supported_doctypes: [
             'Sales Invoice', 'Purchase Invoice', 'Payment Entry',
             'Delivery Note', 'Purchase Receipt', 'Journal Entry', 'Stock Entry',
@@ -465,7 +465,7 @@ window.portugal_compliance = {
     showQRCode: function(frm) {
         frappe.call({
             method: 'portugal_compliance.utils.jinja_methods.get_qr_code_data',
-            args: { doc: frm.doc },
+            args: { doctype: frm.doc.doctype, docname: frm.doc.name },
             callback: function(r) {
                 if (r.message) {
                     const qr_dialog = new frappe.ui.Dialog({
@@ -587,8 +587,15 @@ window.portugal_compliance = {
 
     company: {
         init: function() {
-            console.log('🏢 Initializing Company module');
-            this.setupCompanyEvents();
+            // setupCompanyEvents() desativado (Fase 6): registava um
+            // segundo conjunto de handlers frappe.ui.form.on('Company', ...)
+            // em paralelo com portugal_compliance/public/js/company.js
+            // (doctype_js, so carregado no formulario de Company, com as
+            // versoes "_fixed" mais recentes) - os dois em simultaneo
+            // causavam dialogos de erro empilhados e estado inconsistente
+            // (guardar num sitio, verificar noutro). company.js e agora o
+            // unico responsavel pelo formulario de Company.
+            console.log('🏢 Company module init (form handling delegado a company.js)');
         },
 
         setupCompanyEvents: function() {

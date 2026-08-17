@@ -686,7 +686,7 @@ class PortugalComplianceDocumentHooks:
 		"""✅ OTIMIZADO: Verificar se naming_series é portuguesa"""
 		if not naming_series:
 			return False
-		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'
+		pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$'
 		return bool(re.match(pattern, naming_series))
 
 	def _validate_atcud_uniqueness_certified(self, doc):

@@ -223,7 +223,7 @@ class ATWebserviceClient:
 				return False, "Naming series é obrigatória"
 
 			# ✅ FORMATO CORRETO ERPNext: XXYYYY+COMPANY.#### (SEM HÍFENS)
-			pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})\.####$'
+			pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})\.####$'
 			match = re.match(pattern, naming_series)
 
 			if not match:
@@ -253,9 +253,9 @@ class ATWebserviceClient:
 			except ValueError:
 				return False, "Ano deve ser numérico"
 
-			# Validar empresa (2-4 caracteres alfanuméricos)
-			if not (2 <= len(company) <= 4) or not company.isalnum():
-				return False, "Código da empresa deve ter 2-4 caracteres alfanuméricos"
+			# Validar empresa (1-4 caracteres alfanuméricos - abbr do ERPNext pode ter só 1)
+			if not (1 <= len(company) <= 4) or not company.isalnum():
+				return False, "Código da empresa deve ter 1-4 caracteres alfanuméricos"
 
 			return True, "Naming series válida"
 
@@ -352,14 +352,21 @@ class ATWebserviceClient:
 			return None
 
 	def _map_doc_code_to_class(self, doc_code):
-		"""Mapear código do documento para classe AT"""
+		"""
+		Mapear código do documento para classe AT. Confirmado ao vivo
+		(AT [4045]) que a AT só aceita um conjunto fixo de classes -
+		os valores antigos aqui (PI/RC/GT/SE/JE/QT/SO/PO) eram
+		inventados e foram sempre rejeitados. Corrigido para os 3
+		valores reais usados pelo módulo Dolibarr de referência (já em
+		produção): SI (faturas de venda), MG (guias de transporte/
+		movimento de mercadorias), PY (recibos/pagamentos). Tipos sem
+		equivalente confirmado (compras, lançamentos, encomendas...)
+		usam SI como fallback - mesmo comportamento do Dolibarr.
+		"""
 		mapping = {
-			"FT": "SI", "FS": "SI", "FR": "SI", "NC": "SI", "ND": "SI",  # Sales Invoice
-			"FC": "PI",  # Purchase Invoice
-			"RC": "RC", "RB": "RC",  # Recibos
-			"GT": "GT", "GR": "GR", "GM": "SE",  # Guias
-			"JE": "JE", "LC": "JE",  # Lançamentos
-			"OR": "QT", "EC": "SO", "EF": "PO", "MR": "MR"  # Outros
+			"FT": "SI", "FS": "SI", "FR": "SI", "NC": "SI", "ND": "SI", "VD": "SI", "TV": "SI",  # Faturas
+			"GT": "MG", "GR": "MG", "GD": "MG", "GC": "MG", "GM": "MG",  # Guias / movimento de mercadorias
+			"RC": "PY", "RB": "PY", "RG": "PY",  # Recibos / pagamentos
 		}
 		return mapping.get(doc_code, "SI")
 
@@ -394,7 +401,7 @@ class ATWebserviceClient:
 				"request_id": request_id,
 			}
 
-		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})$'
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})$'
 		match = re.match(pattern, prefix)
 		if not match:
 			return {

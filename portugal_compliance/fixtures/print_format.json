@@ -1,1 +1,36 @@
-[]
+[
+ {
+  "absolute_value": 0,
+  "align_labels_right": 0,
+  "css": null,
+  "custom_format": 1,
+  "default_print_language": null,
+  "disabled": 0,
+  "doc_type": "Sales Invoice",
+  "docstatus": 0,
+  "doctype": "Print Format",
+  "font": null,
+  "font_size": 14,
+  "format_data": null,
+  "html": "\n<div style=\"font-family: Arial, sans-serif; font-size: 11px; color: #222;\">\n\n    <div style=\"display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 12px;\">\n        <div>\n            <h2 style=\"margin: 0 0 4px 0;\">{{ doc.company }}</h2>\n            <div>NIF: {{ get_company_nif(doc.company) }}</div>\n            {% if doc.company_address %}<div>{{ frappe.get_doc(\"Address\", doc.company_address).get_display() if doc.company_address else \"\" }}</div>{% endif %}\n        </div>\n        <div style=\"text-align: right;\">\n            <h2 style=\"margin: 0 0 4px 0;\">{{ get_document_type_description(doc.doctype) or doc.doctype }}</h2>\n            <div style=\"font-size: 14px; font-weight: bold;\">{{ doc.name }}</div>\n            <div>Data: {{ format_portuguese_date(doc.posting_date) }}</div>\n            {% if doc.due_date %}<div>Vencimento: {{ format_portuguese_date(doc.due_date) }}</div>{% endif %}\n        </div>\n    </div>\n\n    <div style=\"display: flex; justify-content: space-between; margin-bottom: 14px;\">\n        <div>\n            <strong>Cliente:</strong> {{ doc.customer_name or doc.customer }}<br>\n            NIF: {{ doc.tax_id or \"Consumidor final\" }}\n            {% if doc.address_display %}<br>{{ doc.address_display }}{% endif %}\n        </div>\n    </div>\n\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 14px;\">\n        <thead>\n            <tr style=\"border-bottom: 1px solid #333; text-align: left;\">\n                <th style=\"padding: 4px;\">Artigo</th>\n                <th style=\"padding: 4px; text-align: right;\">Qtd</th>\n                <th style=\"padding: 4px; text-align: right;\">Preço Unit.</th>\n                <th style=\"padding: 4px; text-align: right;\">IVA</th>\n                <th style=\"padding: 4px; text-align: right;\">Total</th>\n            </tr>\n        </thead>\n        <tbody>\n            {% for item in doc.items %}\n            <tr style=\"border-bottom: 1px solid #eee;\">\n                <td style=\"padding: 4px;\">{{ item.item_name or item.item_code }}</td>\n                <td style=\"padding: 4px; text-align: right;\">{{ item.qty }} {{ item.uom or \"\" }}</td>\n                <td style=\"padding: 4px; text-align: right;\">{{ format_portuguese_currency(item.rate) }}</td>\n                <td style=\"padding: 4px; text-align: right;\">\n                    {%- set item_tax_rate = namespace(v=none) -%}\n                    {%- for t in doc.taxes -%}\n                        {%- if item_tax_rate.v is none -%}{%- set item_tax_rate.v = t.rate -%}{%- endif -%}\n                    {%- endfor -%}\n                    {{ item_tax_rate.v ~ \"%\" if item_tax_rate.v is not none else \"-\" }}\n                </td>\n                <td style=\"padding: 4px; text-align: right;\">{{ format_portuguese_currency(item.amount) }}</td>\n            </tr>\n            {% endfor %}\n        </tbody>\n    </table>\n\n    <div style=\"display: flex; justify-content: flex-end; margin-bottom: 14px;\">\n        <table style=\"width: 260px;\">\n            <tr><td style=\"padding: 2px 8px 2px 0;\">Total s/ IVA:</td><td style=\"text-align: right;\">{{ format_portuguese_currency(doc.net_total) }}</td></tr>\n            {% for tax in doc.taxes %}\n            <tr><td style=\"padding: 2px 8px 2px 0;\">{{ tax.description }}:</td><td style=\"text-align: right;\">{{ format_portuguese_currency(tax.tax_amount) }}</td></tr>\n            {% endfor %}\n            <tr style=\"font-weight: bold; border-top: 1px solid #333;\"><td style=\"padding: 4px 8px 2px 0;\">Total:</td><td style=\"text-align: right; padding-top: 4px;\">{{ format_portuguese_currency(doc.grand_total) }}</td></tr>\n        </table>\n    </div>\n\n    <div style=\"display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #333; padding-top: 10px;\">\n        <div style=\"font-size: 9px; color: #555; max-width: 60%;\">\n            <div><strong>ATCUD:</strong> {{ get_atcud_code(doc) or \"-\" }}</div>\n            <div>Código Único de Documento, gerado automaticamente conforme Portaria n.º 195/2020.</div>\n            <div style=\"margin-top: 6px;\">Processado por programa informático certificado n.º {{ frappe.db.get_single_value(\"Portugal Auth Settings\", \"software_certificate_number\") or \"0\" }}/AT{% if frappe.db.get_single_value(\"Portugal Auth Settings\", \"sandbox_mode\") %} — AMBIENTE DE TESTES, sem valor fiscal{% endif %}.</div>\n        </div>\n        <div style=\"text-align: center;\">\n            {% set qr_data = get_qr_code_data(doc=doc) %}\n            {% if qr_data %}\n            <img src=\"{{ generate_qr_code_image(qr_data) }}\" style=\"width: 120px; height: 120px;\">\n            {% endif %}\n        </div>\n    </div>\n\n</div>\n",
+  "line_breaks": 0,
+  "margin_bottom": 10.0,
+  "margin_left": 10.0,
+  "margin_right": 10.0,
+  "margin_top": 10.0,
+  "modified": "2026-08-17 21:53:31.060083",
+  "module": "Portugal Compliance",
+  "name": "Factura PT",
+  "page_number": "Hide",
+  "pdf_generator": "wkhtmltopdf",
+  "print_format_builder": 0,
+  "print_format_builder_beta": 0,
+  "print_format_for": "DocType",
+  "print_format_type": "Jinja",
+  "raw_commands": null,
+  "raw_printing": 0,
+  "report": null,
+  "show_section_headings": 0,
+  "standard": "No"
+ }
+]

@@ -309,7 +309,7 @@ class PortugueseNamingSeriesCustomizer:
 			return False
 
 		# ✅ PADRÃO: XX-YYYY-COMPANY.####
-		pattern = r'^[A-Z]{2,4}-\d{4}-[A-Z0-9]{2,4}\.####$'
+		pattern = r'^[A-Z]{2,4}-\d{4}-[A-Z0-9]{1,4}\.####$'
 		return bool(re.match(pattern, naming_series))
 
 	def get_portuguese_companies(self):

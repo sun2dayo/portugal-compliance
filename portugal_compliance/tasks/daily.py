@@ -128,7 +128,7 @@ def count_series_with_new_format():
 	"""
 	try:
 		# ✅ ADAPTADO: Padrão do formato correto (sem hífens)
-		new_format_pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$'
+		new_format_pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$'
 
 		all_series = frappe.db.get_all("Portugal Series Configuration",
 									   fields=["name", "prefix"])
@@ -333,7 +333,7 @@ def validate_naming_series_formats():
 	"""
 	try:
 		import re
-		correct_pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'
+		correct_pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$'
 
 		all_series = frappe.db.get_all("Portugal Series Configuration",
 									   fields=["name", "prefix", "naming_series", "company"])

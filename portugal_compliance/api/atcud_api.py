@@ -447,7 +447,7 @@ def validate_document_for_atcud(doctype, docname):
 			issues.append("Naming series não definida")
 		else:
 			# ✅ VERIFICAR FORMATO DA SÉRIE (SEM HÍFENS)
-			pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$"
+			pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$"
 			if not re.match(pattern, doc.naming_series):
 				warnings.append("Formato de naming series não padrão")
 

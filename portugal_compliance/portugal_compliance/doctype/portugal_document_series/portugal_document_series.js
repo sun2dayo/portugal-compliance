@@ -255,7 +255,7 @@ function validate_prefix_format_realtime(frm) {
     if (!frm.doc.prefix) return;
 
     // Padrões aceitos (novo e antigo)
-    const new_pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$/;  // FT2025DSY
+    const new_pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$/;  // FT2025DSY
     const old_pattern = /^[A-Z]{2,4}-\d{4}-[A-Z0-9]+$/;    // FT-2025-DSY
 
     const is_valid = new_pattern.test(frm.doc.prefix) || old_pattern.test(frm.doc.prefix);
@@ -275,7 +275,7 @@ function validate_prefix_format_sync(prefix) {
      */
     if (!prefix) return false;
 
-    const new_pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$/;
+    const new_pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$/;
     const old_pattern = /^[A-Z]{2,4}-\d{4}-[A-Z0-9]+$/;
 
     return new_pattern.test(prefix) || old_pattern.test(prefix);

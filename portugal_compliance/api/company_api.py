@@ -17,123 +17,35 @@ import json
 import traceback
 from datetime import datetime
 
-# ✅ IMPORTAR FUNÇÕES EXISTENTES SEM PRINTS
-try:
-	from portugal_compliance.regional.portugal import (
-		setup_all_series_for_company,
-		is_portuguese_company,
-		PORTUGAL_DOCUMENT_TYPES
-	)
-
-	# ✅ USAR LOGGER EM VEZ DE PRINT
-	frappe.logger().info("Company API: Importação bem-sucedida do regional.portugal")
-except ImportError as e:
-	frappe.log_error(f"Erro ao importar módulos: {str(e)}", "Company API Import Error")
-	frappe.logger().warning(f"Company API: Usando fallback devido a erro de importação: {str(e)}")
-
-	# ✅ FALLBACK PARA EVITAR CRASH
-	PORTUGAL_DOCUMENT_TYPES = {
-		'Sales Invoice': {
-			'code': 'FT',
-			'name': 'Fatura',
-			'description': 'Fatura de venda para clientes',
-			'communication_required': True,
-			'atcud_required': True,
-			'qr_code_required': True
-		},
-		'POS Invoice': {
-			'code': 'FS',
-			'name': 'Fatura Simplificada',
-			'description': 'Fatura simplificada para POS/Retail',
-			'communication_required': True,
-			'atcud_required': True,
-			'qr_code_required': True,
-			'nif_limit': 1000
-		},
-		'Sales Order': {
-			'code': 'FO',
-			'name': 'Fatura-Orçamento',
-			'description': 'Ordem de venda/Fatura-Orçamento',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Quotation': {
-			'code': 'OR',
-			'name': 'Orçamento',
-			'description': 'Orçamento para clientes',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Delivery Note': {
-			'code': 'GR',
-			'name': 'Guia de Remessa',
-			'description': 'Guia de remessa para entregas',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Purchase Invoice': {
-			'code': 'FC',
-			'name': 'Fatura de Compra',
-			'description': 'Fatura de compra de fornecedores',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Purchase Order': {
-			'code': 'OC',
-			'name': 'Ordem de Compra',
-			'description': 'Ordem de compra para fornecedores',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Purchase Receipt': {
-			'code': 'GR',
-			'name': 'Guia de Receção',
-			'description': 'Guia de receção de mercadorias',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Stock Entry': {
-			'code': 'GM',
-			'name': 'Guia de Movimentação',
-			'description': 'Guia de movimentação de stock',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Payment Entry': {
-			'code': 'RC',
-			'name': 'Recibo',
-			'description': 'Recibo de pagamento/recebimento',
-			'communication_required': True,
-			'atcud_required': True
-		},
-		'Journal Entry': {
-			'code': 'JE',
-			'name': 'Lançamento Contábil',
-			'description': 'Lançamento contábil manual',
-			'communication_required': False,
-			'atcud_required': False
-		},
-		'Material Request': {
-			'code': 'MR',
-			'name': 'Requisição de Material',
-			'description': 'Requisição de material interno',
-			'communication_required': False,
-			'atcud_required': False
-		}
-	}
+# ✅ IMPORTAR FUNÇÕES REAIS (Fase 6: setup_all_series_for_company e
+# is_portuguese_company NUNCA existiram em regional/portugal.py sob
+# esses nomes - o ImportError disparava sempre, silenciosamente, e o
+# fallback de setup_all_series_for_company devolvia sempre um erro
+# "Função não disponível" ao utilizador, confirmado ao vivo no GUI).
+from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
+from portugal_compliance.utils.document_hooks import portugal_document_hooks
 
 
-	# ✅ DEFINIR FUNÇÕES FALLBACK
-	def setup_all_series_for_company(company):
-		return {'success': False, 'error': 'Função não disponível - erro de importação'}
+def is_portuguese_company(company):
+	try:
+		company_doc = frappe.get_doc('Company', company)
+		return company_doc.country == 'Portugal'
+	except Exception:
+		return False
 
 
-	def is_portuguese_company(company):
-		try:
-			company_doc = frappe.get_doc('Company', company)
-			return company_doc.country == 'Portugal'
-		except:
-			return False
+def setup_all_series_for_company(company):
+	"""
+	Cria todas as séries portuguesas para uma empresa - usa a mesma
+	implementação real já usada com sucesso por
+	series_api.create_series_for_company.
+	"""
+	try:
+		company_doc = frappe.get_doc("Company", company)
+		return portugal_document_hooks._create_dynamic_portugal_series_certified(company_doc)
+	except Exception as e:
+		frappe.log_error(f"Erro ao criar séries para {company}: {str(e)}", "Company API Series Setup")
+		return {"success": False, "error": str(e)}
 
 @frappe.whitelist()
 def save_company_settings(company_settings):
@@ -208,6 +120,11 @@ def save_at_credentials_safe(company_input, settings):
 			company_doc.at_certificate_number = settings['at_certificate_number']
 
 		company_doc.portugal_compliance_enabled = 1
+		# ERPNext core (Company.on_update) le self.update_default_account,
+		# que só é definido em Company.validate() - com ignore_validate=True
+		# esse validate() não corre, por isso definimos aqui para evitar
+		# AttributeError em on_update().
+		company_doc.update_default_account = False
 		company_doc.flags.ignore_validate = True
 		company_doc.save(ignore_permissions=True)
 		frappe.db.commit()
@@ -243,8 +160,12 @@ def communicate_series_safe(company_doc, settings):
 				'error': 'Credenciais AT não configuradas. Configure primeiro as credenciais.'
 			}
 
-		# ✅ BUSCAR SÉRIES NÃO COMUNICADAS
-		series_to_communicate = frappe.get_all(
+		# ✅ BUSCAR SÉRIES NÃO COMUNICADAS (só tipos que a AT realmente aceita
+		# pré-comunicar - ver PORTUGAL_DOCUMENT_TYPES.communication_required;
+		# tentar comunicar os restantes causa sempre rejeição AT [4046])
+		from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
+
+		all_pending_series = frappe.get_all(
 			"Portugal Series Configuration",
 			filters={
 				"company": company_doc.name,
@@ -253,6 +174,10 @@ def communicate_series_safe(company_doc, settings):
 			},
 			fields=["name", "prefix", "document_type"]
 		)
+		series_to_communicate = [
+			s for s in all_pending_series
+			if PORTUGAL_DOCUMENT_TYPES.get(s.document_type, {}).get("communication_required", False)
+		]
 
 		if not series_to_communicate:
 			return {
@@ -280,7 +205,7 @@ def communicate_series_safe(company_doc, settings):
 					series_doc.is_communicated = 1
 					series_doc.communication_date = frappe.utils.now()
 					series_doc.validation_code = result.get("validation_code")
-					series_doc.communication_response = json.dumps(result.get("raw_response"), ensure_ascii=False)
+					series_doc.communication_response = json.dumps(result.get("raw_response"), ensure_ascii=False, default=str)
 					series_doc.flags.ignore_validate = True
 					series_doc.save(ignore_permissions=True)
 					communicated_count += 1
@@ -325,6 +250,11 @@ def save_general_settings_safe(company_doc, settings, original_compliance):
 		company_doc.portugal_compliance_enabled = original_compliance
 
 		# ✅ SALVAR COM MÁXIMO BYPASS
+		# ERPNext core (Company.on_update) le self.update_default_account,
+		# que só é definido em Company.validate() - com ignore_validate=True
+		# esse validate() não corre, por isso definimos aqui para evitar
+		# AttributeError em on_update().
+		company_doc.update_default_account = False
 		company_doc.flags.ignore_validate = True
 		company_doc.flags.ignore_permissions = True
 		company_doc.flags.ignore_mandatory = True
@@ -382,6 +312,8 @@ def test_at_connection_safe(company_doc, settings):
 		# ✅ GARANTIR QUE COMPLIANCE PERMANECE ATIVO
 		if original_compliance:
 			company_doc.portugal_compliance_enabled = 1
+			# Ver nota nas outras 2 gravações com ignore_validate neste ficheiro
+			company_doc.update_default_account = False
 			company_doc.flags.ignore_validate = True
 			company_doc.save()
 
@@ -716,8 +648,8 @@ def validate_company_for_compliance_internal(company_doc):
 		# ✅ VERIFICAR ABREVIATURA
 		if not company_doc.abbr:
 			issues.append('Abreviatura da empresa é obrigatória')
-		elif len(company_doc.abbr) < 2 or len(company_doc.abbr) > 4:
-			issues.append('Abreviatura deve ter entre 2 e 4 caracteres')
+		elif len(company_doc.abbr) < 1 or len(company_doc.abbr) > 4:
+			issues.append('Abreviatura deve ter entre 1 e 4 caracteres')
 
 		# ✅ VERIFICAR MOEDA (WARNING)
 		if company_doc.default_currency and company_doc.default_currency != 'EUR':

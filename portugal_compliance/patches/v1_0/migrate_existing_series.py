@@ -127,7 +127,7 @@ def is_portuguese_series_new_approach(naming_series):
 
 		# ✅ PADRÕES PORTUGUESES (NOVO E ANTIGO)
 		# Novo: FT2025DSY.####
-		new_pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'
+		new_pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$'
 		# Antigo: FT-.YYYY.-.####, FT-####, FT.####
 		old_patterns = [
 			r'^(FT|FS|FC|RC|GR|GT|JE|NC|ND|OR|EC|EF|MR)-',
@@ -278,7 +278,7 @@ def extract_code_from_naming_series(naming_series):
 	try:
 		# ✅ PADRÕES PARA EXTRAIR CÓDIGO
 		patterns = [
-			r'^([A-Z]{2,4})\d{4}[A-Z0-9]{2,4}\.####$',  # FT2025DSY.####
+			r'^([A-Z]{2,4})\d{4}[A-Z0-9]{1,4}\.####$',  # FT2025DSY.####
 			r'^([A-Z]{2,4})-',  # FT-YYYY-####
 			r'^([A-Z]{2,4})\.',  # FT.####
 			r'^([A-Z]{2,4})$',  # FT

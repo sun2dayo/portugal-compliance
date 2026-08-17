@@ -148,7 +148,7 @@ class SalesInvoicePortugalCompliance:
 				return None
 
 			# ✅ PADRÃO SEM HÍFENS: XXYYYY + COMPANY.####
-			pattern = r'^([A-Z]{2,4})\d{4}[A-Z0-9]{2,4}\.####$'
+			pattern = r'^([A-Z]{2,4})\d{4}[A-Z0-9]{1,4}\.####$'
 			match = re.match(pattern, naming_series)
 
 			if match:
@@ -565,7 +565,7 @@ class SalesInvoicePortugalCompliance:
 				return False
 
 			# ✅ PADRÃO PORTUGUÊS SEM HÍFENS: XXYYYY + COMPANY.####
-			pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}\.####$'
+			pattern = r'^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}\.####$'
 			return bool(re.match(pattern, naming_series))
 
 		except Exception:

@@ -595,7 +595,7 @@ function validate_prefix_format_check(prefix) {
     if (!prefix) return false;
 
     // ✅ PADRÃO: XXYYYY + EMPRESA (ex: FT2025NDX)
-    const pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$/;
+    const pattern = /^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$/;
     return pattern.test(prefix);
 }
 

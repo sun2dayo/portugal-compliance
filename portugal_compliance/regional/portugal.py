@@ -70,8 +70,12 @@ PORTUGAL_DOCUMENT_TYPES = {
 		'code': 'FC',
 		'name': 'Fatura de Compra',
 		'description': 'Fatura de compra de fornecedores',
-		'communication_required': True,
-		'atcud_required': True,
+		# Documento recebido de fornecedores, não emitido pela empresa -
+		# não existe classe AT (SI/MG/PY) para pré-comunicação deste tipo
+		# (confirmado ao vivo: AT [4046] rejeita sempre). Igual às outras
+		# séries de compra (Purchase Order) que já eram False.
+		'communication_required': False,
+		'atcud_required': False,
 		'saft_type': 'FC'
 	},
 	'Purchase Order': {
@@ -351,8 +355,8 @@ def validate_portugal_settings_non_blocking(doc):
 			# ✅ VERIFICAR ABREVIATURA
 			if not getattr(doc, 'abbr', None):
 				warnings.append("• Abreviatura da empresa é necessária para séries portuguesas")
-			elif len(doc.abbr) < 2 or len(doc.abbr) > 4:
-				warnings.append("• Abreviatura deve ter entre 2 e 4 caracteres")
+			elif len(doc.abbr) < 1 or len(doc.abbr) > 4:
+				warnings.append("• Abreviatura deve ter entre 1 e 4 caracteres")
 
 		# ✅ VERIFICAR CONFIGURAÇÕES REGIONAIS
 		if doc.default_currency and doc.default_currency != 'EUR':
@@ -716,7 +720,7 @@ def validate_naming_series_format_regional(naming_series):
 
 	try:
 		# ✅ PADRÃO REGIONAL: XXYYYY + EMPRESA.#### (ex: FT2025NDX.####)
-		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{2,4})\.####$'
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})\.####$'
 		match = re.match(pattern, naming_series)
 
 		if not match:

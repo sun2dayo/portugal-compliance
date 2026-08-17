@@ -280,8 +280,8 @@ class SeriesManager:
 
 			# ✅ PADRÕES ACEITOS (FLEXÍVEIS)
 			patterns = [
-				r"^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$",  # Português SEM HÍFENS: FT2025NDX
-				r"^[A-Z]{2,4}-\d{4}-[A-Z0-9]{2,4}$",
+				r"^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$",  # Português SEM HÍFENS: FT2025NDX
+				r"^[A-Z]{2,4}-\d{4}-[A-Z0-9]{1,4}$",
 				# Português COM HÍFENS: FT-2025-NDX (compatibilidade)
 				r"^[A-Z]{2,10}$",  # Simples: FT
 				r"^[A-Z]{2,10}-\d{4}$"  # Com ano: FT-2025

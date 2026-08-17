@@ -248,7 +248,7 @@ class TestATWebservice(unittest.TestCase):
 		✅ CORRIGIDO: Validar formato de prefixo (SEM HÍFENS)
 		"""
 		import re
-		pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{2,4}$"
+		pattern = r"^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$"
 		return bool(re.match(pattern, prefix))
 
 	# ========== TESTES DE INTEGRAÇÃO ==========
