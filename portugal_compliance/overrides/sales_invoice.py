@@ -681,6 +681,8 @@ def on_submit_sales_invoice_portugal(doc, method=None):
 def get_sales_invoice_portugal_summary_api(docname):
 	"""✅ API para obter resumo de Sales Invoice português"""
 	try:
+		if not frappe.has_permission("Sales Invoice", "read", docname):
+			return {"error": "Sem permissão para consultar esta fatura"}
 		doc = frappe.get_doc("Sales Invoice", docname)
 		return sales_invoice_portugal_compliance.get_sales_invoice_portugal_summary(doc)
 	except Exception as e:
@@ -693,6 +695,9 @@ def validate_customer_for_invoice_api(customer, invoice_value):
 	try:
 		if not customer:
 			return {"valid": True, "message": "Cliente opcional até €1000"}
+
+		if not frappe.has_permission("Customer", "read", customer):
+			return {"valid": False, "message": "Sem permissão para consultar este cliente"}
 
 		customer_nif = frappe.db.get_value("Customer", customer, "tax_id")
 		invoice_value = flt(invoice_value)

@@ -197,6 +197,12 @@ class ATCUDLog(Document):
 	def retry_generation(self):
 		"""Tenta regenerar ATCUD manualmente"""
 		try:
+			# O dispacho de metodos whitelisted do Frappe so exige permissao
+			# de LEITURA no documento antes de invocar este metodo - como
+			# isto escreve no log e no documento original, exige-se
+			# explicitamente permissao de escrita.
+			self.check_permission("write")
+
 			from portugal_compliance.utils.atcud_generator import ATCUDGenerator
 
 			# Obter documento original

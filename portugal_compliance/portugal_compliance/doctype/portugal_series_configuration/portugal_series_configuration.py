@@ -592,6 +592,9 @@ def create_series_programmatically(prefix, document_type, company, series_name):
 	✅ CORRIGIDO: Criar série programaticamente (formato SEM HÍFENS)
 	"""
 	try:
+		if not frappe.has_permission("Company", "write", company):
+			return {"success": False, "error": "Sem permissão para criar séries para esta empresa"}
+
 		# Verificar se já existe
 		existing = frappe.db.exists("Portugal Series Configuration", {
 			"prefix": prefix,
@@ -653,8 +656,15 @@ def sync_all_naming_series():
 def migrate_series_to_no_hyphens():
 	"""
 	✅ NOVA: Migrar séries existentes de formato com hífens para sem hífens
+
+	Migração em massa sobre todas as empresas do site - restrita a
+	System Manager (nao ha "empresa" para verificar permissao contra,
+	dado que corre sobre tudo de uma vez).
 	"""
 	try:
+		if "System Manager" not in frappe.get_roles():
+			return {"success": False, "error": "Apenas System Manager pode correr esta migração"}
+
 		frappe.logger().info("🔄 Migrando séries para formato sem hífens...")
 
 		# Buscar todas as séries com hífens

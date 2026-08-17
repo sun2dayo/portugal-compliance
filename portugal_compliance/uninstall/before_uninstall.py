@@ -638,7 +638,11 @@ def manual_cleanup_all():
 @frappe.whitelist()
 def emergency_cleanup():
 	"""API para limpeza de emergência (apenas System Manager)"""
-	if not frappe.has_permission("System Manager"):
+	# frappe.has_permission() espera um nome de DOCTYPE como primeiro
+	# argumento, nao uma role - "System Manager" nao e uma doctype, por
+	# isso esta chamada devolvia sempre True (confirmado em runtime),
+	# ou seja, qualquer utilizador autenticado passava este "controlo".
+	if "System Manager" not in frappe.get_roles():
 		frappe.throw("Acesso negado")
 
 	try:

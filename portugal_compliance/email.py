@@ -9,6 +9,7 @@ Baseado na experiência com programação.conformidade_portugal
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 from frappe.utils import today, now, add_days, get_datetime, cint, flt
 from frappe.core.doctype.communication.email import make
 import json
@@ -803,11 +804,19 @@ def send_daily_report(report_data):
 # ========== APIS WHITELISTED ==========
 
 @frappe.whitelist()
+@rate_limit(limit=5, seconds=3600)
 def test_email_notification(template_key, recipient_email):
 	"""
 	✅ API para testar notificações de email
+
+	Envia um email real a partir da conta de correio do site - restrito
+	a System Manager para nao ser usado para abusar da reputacao de
+	envio do site (spam/teste de infraestrutura de phishing).
 	"""
 	try:
+		if "System Manager" not in frappe.get_roles():
+			return {"success": False, "error": "Apenas System Manager pode enviar emails de teste"}
+
 		test_data = {
 			"series_name": "FT2025DSY",
 			"company": "Empresa Teste",
@@ -832,8 +841,14 @@ def test_email_notification(template_key, recipient_email):
 def update_notification_settings(settings):
 	"""
 	✅ API para atualizar configurações de notificação
+
+	Muta um objeto de configuracao partilhado por todo o site -
+	restrito a System Manager.
 	"""
 	try:
+		if "System Manager" not in frappe.get_roles():
+			return {"success": False, "error": "Apenas System Manager pode alterar estas configurações"}
+
 		if isinstance(settings, str):
 			settings = json.loads(settings)
 

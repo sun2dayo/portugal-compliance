@@ -14,6 +14,7 @@ Handles communication with Portuguese Tax Authority (AT) webservices
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 import requests
 import ssl
 import os
@@ -810,13 +811,18 @@ class ATWebserviceClient:
 # ========== FUNÇÕES GLOBAIS PARA NOVA ABORDAGEM ==========
 
 @frappe.whitelist()
+@rate_limit(limit=10, seconds=3600)
 def batch_register_naming_series(naming_series_list, company, username=None, password=None,
 								 environment="test"):
 	"""
-	✅ FUNÇÃO PRINCIPAL: Registar múltiplas naming_series na AT
-	✅ 100% compatível com testes da console
+	Registar múltiplas naming_series na AT - chama o webservice real do
+	governo, por isso exige permissão de escrita na empresa e está
+	limitada a 10 pedidos/hora.
 	"""
 	try:
+		if not frappe.has_permission("Company", "write", company):
+			return {"success": False, "error": "Sem permissão para comunicar séries desta empresa"}
+
 		client = ATWebserviceClient(environment=environment)
 		result = client.batch_register_naming_series(naming_series_list, company, username,
 													 password)

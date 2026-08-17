@@ -652,6 +652,8 @@ def get_purchase_invoice_dashboard_data(purchase_invoice):
 	Endpoint para obter dados do dashboard da fatura de compra
 	"""
 	try:
+		if not frappe.has_permission("Purchase Invoice", "read", purchase_invoice):
+			frappe.throw(_("Sem permissão para consultar esta fatura"), frappe.PermissionError)
 		dashboard = PurchaseInvoiceDashboard(purchase_invoice)
 		return dashboard.get_context()
 	except Exception as e:
@@ -702,6 +704,8 @@ def validate_supplier_compliance(purchase_invoice):
 	Valida compliance do fornecedor
 	"""
 	try:
+		if not frappe.has_permission("Purchase Invoice", "read", purchase_invoice):
+			frappe.throw(_("Sem permissão para consultar esta fatura"), frappe.PermissionError)
 		dashboard = PurchaseInvoiceDashboard(purchase_invoice)
 		supplier_info = dashboard.get_supplier_compliance_info()
 
@@ -733,6 +737,8 @@ def get_compliance_summary(purchase_invoice):
 	Endpoint para obter resumo de compliance
 	"""
 	try:
+		if not frappe.has_permission("Purchase Invoice", "read", purchase_invoice):
+			frappe.throw(_("Sem permissão para consultar esta fatura"), frappe.PermissionError)
 		dashboard = PurchaseInvoiceDashboard(purchase_invoice)
 		return {
 			'compliance_status': dashboard.get_compliance_status(),

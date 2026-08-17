@@ -13,6 +13,7 @@ API para gestão de séries portuguesas
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 from frappe.utils import nowdate, get_datetime, flt, cint
 import json
 import re
@@ -28,10 +29,12 @@ from portugal_compliance.utils.document_hooks import portugal_document_hooks
 # ========== APIs DE COMUNICAÇÃO COM AT CORRIGIDAS ==========
 
 @frappe.whitelist()
+@rate_limit(limit=10, seconds=3600)
 def communicate_series_to_at(username=None, password=None, series_names=None, company=None):
 	"""
-	✅ CORRIGIDO: API para comunicar séries à AT (usando métodos reais)
-	Baseado na sua experiência com programação.autenticação[2]
+	API para comunicar séries à AT (usando métodos reais). Chama o
+	webservice real do governo - limitado a 10 pedidos/hora e exige
+	permissão de escrita na(s) empresa(s) envolvida(s).
 	"""
 	try:
 		# ✅ OBTER SÉRIES PARA COMUNICAR
@@ -43,17 +46,25 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 			for name in series_names:
 				try:
 					series_doc = frappe.get_doc("Portugal Series Configuration", name)
-					if not series_doc.is_communicated:
-						series_to_communicate.append(series_doc.naming_series)
 				except frappe.DoesNotExistError:
 					continue
+				if not frappe.has_permission("Portugal Series Configuration", "write", series_doc):
+					continue
+				if not series_doc.is_communicated:
+					series_to_communicate.append(series_doc.naming_series)
 		else:
 			# ✅ BUSCAR SÉRIES NÃO COMUNICADAS
+			if company:
+				if not frappe.has_permission("Company", "write", company):
+					frappe.throw(_("Sem permissão para comunicar séries desta empresa"), frappe.PermissionError)
+			elif "System Manager" not in frappe.get_roles():
+				frappe.throw(_("Indique uma empresa, ou seja System Manager para comunicar séries de todas"), frappe.PermissionError)
+
 			filters = {"is_communicated": 0, "is_active": 1}
 			if company:
 				filters["company"] = company
 
-			series_list = frappe.get_all(
+			series_list = frappe.get_list(
 				"Portugal Series Configuration",
 				filters=filters,
 				fields=["naming_series", "company"]
@@ -318,6 +329,9 @@ def create_series_for_company(company, document_types=None):
 				"success": False,
 				"error": "Empresa é obrigatória"
 			}
+
+		if not frappe.has_permission("Company", "write", company):
+			return {"success": False, "error": "Sem permissão para criar séries para esta empresa"}
 
 		# ✅ VERIFICAR SE É EMPRESA PORTUGUESA
 		company_doc = frappe.get_doc("Company", company)
@@ -684,10 +698,12 @@ def test_series_generation(series_name):
 
 
 @frappe.whitelist()
+@rate_limit(limit=10, seconds=3600)
 def communicate_series_batch(username=None, password=None, company=None, environment="test"):
 	"""
-	✅ NOVA FUNÇÃO: Comunicar múltiplas séries em lote (eficiente)
-	Baseado na sua experiência com programação.conformidade_portugal[2]
+	Comunicar múltiplas séries em lote. Chama o webservice real do
+	governo - limitado a 10 pedidos/hora e exige permissão de escrita
+	na(s) empresa(s) envolvida(s).
 	"""
 	try:
 		# ✅ VALIDAR CREDENCIAIS
@@ -697,6 +713,12 @@ def communicate_series_batch(username=None, password=None, company=None, environ
 				"error": "Username e password são obrigatórios"
 			}
 
+		if company:
+			if not frappe.has_permission("Company", "write", company):
+				frappe.throw(_("Sem permissão para comunicar séries desta empresa"), frappe.PermissionError)
+		elif "System Manager" not in frappe.get_roles():
+			frappe.throw(_("Indique uma empresa, ou seja System Manager para comunicar séries de todas"), frappe.PermissionError)
+
 		# ✅ BUSCAR TODAS AS SÉRIES NÃO COMUNICADAS
 		filters = {
 			"is_communicated": 0,
@@ -705,7 +727,7 @@ def communicate_series_batch(username=None, password=None, company=None, environ
 		if company:
 			filters["company"] = company
 
-		series_to_communicate = frappe.get_all(
+		series_to_communicate = frappe.get_list(
 			"Portugal Series Configuration",
 			filters=filters,
 			fields=["name", "naming_series", "company", "document_type", "prefix"],
@@ -800,12 +822,17 @@ def communicate_series_batch(username=None, password=None, company=None, environ
 
 
 @frappe.whitelist()
+@rate_limit(limit=10, seconds=3600)
 def communicate_all_company_series(company, username=None, password=None, environment="test"):
 	"""
-	✅ NOVA FUNÇÃO: Comunicar todas as séries de uma empresa específica
-	Ideal para quando se ativa Portugal Compliance
+	Comunicar todas as séries de uma empresa específica. Chama o
+	webservice real do governo - limitado a 10 pedidos/hora e exige
+	permissão de escrita na empresa.
 	"""
 	try:
+		if not frappe.has_permission("Company", "write", company):
+			frappe.throw(_("Sem permissão para comunicar séries desta empresa"), frappe.PermissionError)
+
 		# ✅ VERIFICAR SE EMPRESA TEM COMPLIANCE ATIVO
 		company_doc = frappe.get_doc("Company", company)
 		if not getattr(company_doc, 'portugal_compliance_enabled', 0):

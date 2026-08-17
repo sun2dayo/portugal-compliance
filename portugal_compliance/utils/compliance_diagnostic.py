@@ -7,7 +7,13 @@ from frappe.utils import now_datetime
 def run_compliance_diagnostic():
 	"""
 	Executar diagnóstico completo do Portugal Compliance
+
+	Devolve o NIF, ambiente AT e estado de compliance de TODAS as
+	empresas portuguesas do site (nao aceita um parametro de empresa
+	para restringir) - restrito a System Manager.
 	"""
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw("Apenas System Manager pode correr o diagnóstico completo", frappe.PermissionError)
 
 	diagnostic = {
 		'timestamp': now_datetime(),

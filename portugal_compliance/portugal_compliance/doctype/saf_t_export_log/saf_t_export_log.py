@@ -262,6 +262,12 @@ class SAFTExportLog(Document):
 	def regenerate_export(self):
 		"""Regenera exportação SAF-T"""
 		try:
+			# O dispacho de metodos whitelisted do Frappe so exige permissao
+			# de LEITURA no documento antes de invocar este metodo - como
+			# isto dispara uma regeneracao (job de background ate 1800s) e
+			# grava o documento, exige-se explicitamente permissao de escrita.
+			self.check_permission("write")
+
 			if self.status == "In Progress":
 				frappe.throw(_("Export is already in progress"))
 

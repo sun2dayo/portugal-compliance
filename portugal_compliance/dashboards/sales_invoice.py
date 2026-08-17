@@ -536,6 +536,8 @@ def get_sales_invoice_dashboard_data(sales_invoice):
 	Endpoint para obter dados do dashboard da fatura
 	"""
 	try:
+		if not frappe.has_permission("Sales Invoice", "read", sales_invoice):
+			frappe.throw(_("Sem permissão para consultar esta fatura"), frappe.PermissionError)
 		dashboard = SalesInvoiceDashboard(sales_invoice)
 		return dashboard.get_context()
 	except Exception as e:
@@ -586,6 +588,8 @@ def get_compliance_summary(sales_invoice):
 	Endpoint para obter resumo de compliance
 	"""
 	try:
+		if not frappe.has_permission("Sales Invoice", "read", sales_invoice):
+			frappe.throw(_("Sem permissão para consultar esta fatura"), frappe.PermissionError)
 		dashboard = SalesInvoiceDashboard(sales_invoice)
 		return {
 			'compliance_status': dashboard.get_compliance_status(),

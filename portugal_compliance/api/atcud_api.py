@@ -115,12 +115,27 @@ def regenerate_atcud(doctype, docname, force=False):
 	✅ CORRIGIDO: Regenera ATCUD para um documento
 	"""
 	try:
+		# ✅ ALLOWLIST: nao aceitar qualquer doctype/docname - so os que
+		# realmente suportam ATCUD (mesma lista de bulk_generate_atcud)
+		supported_doctypes = [
+			"Sales Invoice", "POS Invoice", "Purchase Invoice", "Payment Entry",
+			"Delivery Note", "Purchase Receipt", "Stock Entry", "Journal Entry",
+			"Quotation", "Sales Order", "Purchase Order", "Material Request"
+		]
+		if doctype not in supported_doctypes:
+			return {"success": False, "error": f"DocType {doctype} não suportado para ATCUD"}
+
 		# ✅ VERIFICAR SE DOCUMENTO EXISTE
 		if not frappe.db.exists(doctype, docname):
 			return {
 				"success": False,
 				"error": f"Documento {doctype} {docname} não encontrado"
 			}
+
+		# ✅ CONTROLO DE ACESSO: sem isto, qualquer utilizador autenticado
+		# conseguia apagar o ATCUD de um documento de outra empresa
+		if not frappe.has_permission(doctype, "write", docname):
+			return {"success": False, "error": "Sem permissão para regenerar o ATCUD deste documento"}
 
 		# ✅ OBTER DOCUMENTO
 		doc = frappe.get_doc(doctype, docname)
@@ -211,8 +226,9 @@ def bulk_generate_atcud(doctype, filters=None, limit=50):
 			"docstatus": 1  # Apenas documentos submetidos
 		})
 
-		# ✅ BUSCAR DOCUMENTOS
-		documents = frappe.get_all(
+		# ✅ BUSCAR DOCUMENTOS - get_list (nao get_all) para respeitar as
+		# permissoes reais do utilizador que chamou o endpoint
+		documents = frappe.get_list(
 			doctype,
 			filters=filters,
 			fields=["name", "naming_series"],

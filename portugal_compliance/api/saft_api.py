@@ -12,6 +12,9 @@ def generate_saft_export(company, from_date, to_date, export_type="full"):
 	Gera exportação SAF-T para período específico
 	"""
 	try:
+		if not frappe.has_permission("Company", "read", company):
+			frappe.throw(_("Sem permissão para gerar SAF-T desta empresa"), frappe.PermissionError)
+
 		generator = SAFTGenerator()
 
 		# Validar datas
@@ -119,12 +122,15 @@ def get_saft_export_logs(filters=None):
 	else:
 		filters = {}
 
-	logs = frappe.get_all("SAF-T Export Log",
-						  filters=filters,
-						  fields=["name", "company", "from_date", "to_date",
-								  "export_type", "status", "creation", "file_size"],
-						  order_by="creation desc",
-						  limit=50)
+	# get_list (nao get_all) para que as permissoes do utilizador sejam
+	# aplicadas - antes qualquer utilizador via logs (e nomes de export,
+	# usaveis em download_saft_file) de qualquer empresa
+	logs = frappe.get_list("SAF-T Export Log",
+						   filters=filters,
+						   fields=["name", "company", "from_date", "to_date",
+								   "export_type", "status", "creation", "file_size"],
+						   order_by="creation desc",
+						   limit=50)
 
 	return logs
 
@@ -135,6 +141,9 @@ def download_saft_file(export_log_name):
 	Prepara arquivo SAF-T para download
 	"""
 	try:
+		if not frappe.has_permission("SAF-T Export Log", "read", export_log_name):
+			frappe.throw(_("Sem permissão para descarregar este ficheiro SAF-T"), frappe.PermissionError)
+
 		export_log = frappe.get_doc("SAF-T Export Log", export_log_name)
 
 		if export_log.status != "Completed":
@@ -176,6 +185,9 @@ def get_saft_statistics(company, from_date, to_date):
 	Retorna estatísticas para período SAF-T
 	"""
 	try:
+		if not frappe.has_permission("Company", "read", company):
+			frappe.throw(_("Sem permissão para consultar estatísticas desta empresa"), frappe.PermissionError)
+
 		from_date = frappe.utils.getdate(from_date)
 		to_date = frappe.utils.getdate(to_date)
 

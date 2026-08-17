@@ -150,6 +150,11 @@ def save_company_settings(company_settings):
 		if not company_name:
 			return {'success': False, 'error': 'Nome da empresa é obrigatório'}
 
+		# ✅ CONTROLO DE ACESSO: sem isto, qualquer utilizador autenticado
+		# conseguia reescrever credenciais AT de qualquer empresa
+		if not frappe.has_permission("Company", "write", company_name):
+			frappe.throw(_("Sem permissão para alterar configurações desta empresa"), frappe.PermissionError)
+
 		# ✅ OBTER EMPRESA SEM TRIGGERAR VALIDAÇÕES
 		company_doc = frappe.get_doc("Company", company_name)
 
@@ -174,10 +179,13 @@ def save_company_settings(company_settings):
 
 def save_at_credentials_safe(company_input, settings):
 	"""
-	✅ CORRIGIDO: Sintaxe correta
+	Grava as credenciais AT via ORM (nao SQL bruto), para que a cifra
+	automatica do Frappe para campos Password (at_password) seja
+	aplicada - gravar por SQL direto punha a password em texto simples
+	na tabela tabCompany. O controlo de permissao ja foi feito em
+	save_company_settings antes de chegar aqui.
 	"""
 	try:
-		# ✅ EXTRAIR NOME DA EMPRESA
 		if isinstance(company_input, str):
 			company_name = company_input
 		elif hasattr(company_input, 'name'):
@@ -185,130 +193,38 @@ def save_at_credentials_safe(company_input, settings):
 		else:
 			company_name = str(company_input)
 
-		# ✅ VERIFICAR SE EMPRESA EXISTE
 		if not frappe.db.exists("Company", company_name):
 			return {'success': False, 'error': f'Empresa {company_name} não encontrada'}
 
-		# ✅ CONSTRUIR UPDATE SQL DIRETO
-		updates = []
-		values = []
+		company_doc = frappe.get_doc("Company", company_name)
 
 		if settings.get('at_username'):
-			updates.append("at_username = %s")
-			values.append(settings['at_username'])
-
+			company_doc.at_username = settings['at_username']
 		if settings.get('at_password'):
-			updates.append("at_password = %s")
-			values.append(settings['at_password'])
-
+			company_doc.at_password = settings['at_password']
 		if settings.get('at_environment'):
-			updates.append("at_environment = %s")
-			values.append(settings['at_environment'])
-
+			company_doc.at_environment = settings['at_environment']
 		if settings.get('at_certificate_number'):
-			updates.append("at_certificate_number = %s")
-			values.append(settings['at_certificate_number'])
+			company_doc.at_certificate_number = settings['at_certificate_number']
 
-		# ✅ SEMPRE PRESERVAR COMPLIANCE
-		updates.append("portugal_compliance_enabled = 1")
-		updates.append("modified = NOW()")
+		company_doc.portugal_compliance_enabled = 1
+		company_doc.flags.ignore_validate = True
+		company_doc.save(ignore_permissions=True)
+		frappe.db.commit()
 
-		# ✅ EXECUTAR SQL DIRETO SEM HOOKS
-		if updates:
-			sql = f"UPDATE `tabCompany` SET {', '.join(updates)} WHERE name = %s"
-			values.append(company_name)
-
-			frappe.db.sql(sql, values)
-			frappe.db.commit()
-
-		frappe.logger().info(f"✅ Credenciais AT salvas via SQL para {company_name}")
+		frappe.logger().info(f"Credenciais AT salvas para {company_name}")
 
 		return {
 			'success': True,
 			'message': 'Credenciais AT salvas com sucesso',
 			'company': company_name,
-			'method': 'sql_direct'
 		}
 
 	except Exception as e:
 		frappe.db.rollback()
 		error_msg = str(e)
-		frappe.log_error(f"Erro SQL ao salvar credenciais: {error_msg}")
+		frappe.log_error(f"Erro ao salvar credenciais: {error_msg}")
 		return {'success': False, 'error': error_msg}
-
-
-def debug_save_at_credentials():
-	"""
-	Debug para identificar onde está o problema
-	"""
-	print("🔍 DEBUG: Testando save de credenciais")
-
-	try:
-		# ✅ TESTAR SQL DIRETO
-		frappe.db.sql("""
-					  UPDATE `tabCompany`
-					  SET at_username                 = 'debug_test',
-						  portugal_compliance_enabled = 1
-					  WHERE name = 'DOLISYS'
-					  """)
-		frappe.db.commit()
-
-		print("✅ SQL direto funcionou")
-
-		# ✅ VERIFICAR SE FOI SALVO
-		result = frappe.db.get_value("Company", "DOLISYS",
-									 ["at_username", "portugal_compliance_enabled"], as_dict=True)
-		print(f"✅ Valores salvos: {result}")
-
-		return True
-
-	except Exception as e:
-		print(f"❌ Erro no SQL direto: {str(e)}")
-		return False
-
-
-# Executar debug
-if __name__ == "__main__":
-    debug_save_at_credentials()
-
-
-def save_company_with_hooks_disabled(company_name, field_updates):
-	"""
-	✅ NOVO: Salvar empresa com hooks desabilitados
-	"""
-	try:
-		# ✅ DESABILITAR TODOS OS HOOKS TEMPORARIAMENTE
-		original_hooks = frappe.flags.in_migrate
-		frappe.flags.in_migrate = True
-
-		# ✅ OBTER DOCUMENTO SEM TRIGGERAR HOOKS
-		company_doc = frappe.get_doc("Company", company_name)
-
-		# ✅ APLICAR UPDATES
-		for field, value in field_updates.items():
-			setattr(company_doc, field, value)
-
-		# ✅ SALVAR COM TODOS OS FLAGS DE BYPASS
-		company_doc.flags.ignore_validate = True
-		company_doc.flags.ignore_permissions = True
-		company_doc.flags.ignore_mandatory = True
-		company_doc.flags.ignore_links = True
-		company_doc.flags.ignore_if_duplicate = True
-
-		company_doc.save()
-
-		# ✅ RESTAURAR HOOKS
-		frappe.flags.in_migrate = original_hooks
-
-		frappe.db.commit()
-		return True
-
-	except Exception as e:
-		# ✅ RESTAURAR HOOKS EM CASO DE ERRO
-		frappe.flags.in_migrate = original_hooks
-		frappe.db.rollback()
-		frappe.log_error(f"Erro no save com hooks disabled: {str(e)}")
-		return False
 
 
 def communicate_series_safe(company_doc, settings):
@@ -345,18 +261,31 @@ def communicate_series_safe(company_doc, settings):
 				'communicated_count': 0
 			}
 
-		# ✅ SIMULAR COMUNICAÇÃO SEM TOCAR NA COMPANY
+		# ✅ COMUNICAÇÃO REAL COM A AT (ATWebserviceClient.register_naming_series
+		# - a mesma usada pelo resto da app desde a Fase 2)
+		from portugal_compliance.utils.at_webservice import ATWebserviceClient
+		client = ATWebserviceClient()
+
 		communicated_count = 0
 		for series in series_to_communicate:
 			try:
-				# ✅ ATUALIZAR APENAS A SÉRIE, NÃO A COMPANY
 				series_doc = frappe.get_doc("Portugal Series Configuration", series.name)
-				series_doc.is_communicated = 1
-				series_doc.communication_date = frappe.utils.now()
-				series_doc.at_response = f"Simulação: Série {series.prefix} comunicada com sucesso"
-				series_doc.flags.ignore_validate = True
-				series_doc.save(ignore_permissions=True)
-				communicated_count += 1
+				if not series_doc.naming_series:
+					frappe.log_error(f"Série {series.name} sem naming_series associada")
+					continue
+
+				result = client.register_naming_series(series_doc.naming_series, company_doc.name)
+
+				if result.get("success"):
+					series_doc.is_communicated = 1
+					series_doc.communication_date = frappe.utils.now()
+					series_doc.validation_code = result.get("validation_code")
+					series_doc.communication_response = json.dumps(result.get("raw_response"), ensure_ascii=False)
+					series_doc.flags.ignore_validate = True
+					series_doc.save(ignore_permissions=True)
+					communicated_count += 1
+				else:
+					frappe.log_error(f"AT recusou a série {series.name}: {result.get('error')}")
 
 			except Exception as e:
 				frappe.log_error(f"Erro ao comunicar série {series.name}: {str(e)}")
@@ -430,11 +359,23 @@ def test_at_connection_safe(company_doc, settings):
 				'error': 'Credenciais AT incompletas'
 			}
 
-		# ✅ SIMULAR TESTE DE CONEXÃO
+		# ✅ TESTE REAL: tenta construir o cliente do webservice (valida
+		# mTLS + credenciais configuradas em Portugal Auth Settings, sem
+		# fazer necessariamente um pedido de rede a AT)
+		from portugal_compliance.utils.at_webservice import get_series_webservice_client, ATWebserviceError
+		try:
+			get_series_webservice_client()
+			connection_status = 'Configuração válida (mTLS + credenciais AT presentes)'
+			connection_ok = True
+		except ATWebserviceError as e:
+			connection_status = str(e)
+			connection_ok = False
+
 		test_result = {
 			'username': company_doc.at_username,
 			'environment': company_doc.at_environment,
-			'status': 'Simulação: Conexão testada com sucesso',
+			'status': connection_status,
+			'ok': connection_ok,
 			'timestamp': frappe.utils.now()
 		}
 
@@ -471,6 +412,9 @@ def get_company_compliance_status(company):
 		# ✅ VERIFICAR SE EMPRESA EXISTE
 		if not frappe.db.exists('Company', company):
 			return {'success': False, 'error': f'Empresa "{company}" não encontrada'}
+
+		if not frappe.has_permission("Company", "read", company):
+			frappe.throw(_("Sem permissão para consultar esta empresa"), frappe.PermissionError)
 
 		# ✅ OBTER DOCUMENTO DA EMPRESA COM TRATAMENTO DE ERRO
 		try:
@@ -725,6 +669,9 @@ def validate_company_for_compliance(company):
 		# ✅ VERIFICAR SE EMPRESA EXISTE
 		if not frappe.db.exists('Company', company):
 			return {'valid': False, 'error': f'Empresa "{company}" não encontrada'}
+
+		if not frappe.has_permission("Company", "read", company):
+			frappe.throw(_("Sem permissão para consultar esta empresa"), frappe.PermissionError)
 
 		# ✅ OBTER DOCUMENTO DA EMPRESA
 		try:

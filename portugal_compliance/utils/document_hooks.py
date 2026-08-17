@@ -1022,8 +1022,16 @@ def update_series_pattern(doc, method=None):
 
 @frappe.whitelist()
 def generate_manual_atcud_certified(doctype, docname):
-	"""API para gerar ATCUD manualmente"""
+	"""
+	API para gerar ATCUD manualmente. Ponto de escrita partilhado por
+	varios endpoints (generate_atcud_for_document, regenerate_atcud,
+	bulk_generate_atcud) e tambem diretamente alcancavel - por isso o
+	controlo de permissao tem de estar aqui, nao so nos chamadores.
+	"""
 	try:
+		if not frappe.has_permission(doctype, "write", docname):
+			return {"success": False, "error": "Sem permissão para gerar ATCUD neste documento"}
+
 		doc = frappe.get_doc(doctype, docname)
 
 		if not portugal_document_hooks._is_portuguese_company(doc.company):
