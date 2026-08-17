@@ -4,6 +4,15 @@
 
 """
 Tarefas que executam anualmente
+
+Nota: as seguintes tarefas planeadas nunca chegaram a ser
+implementadas e foram removidas de execute() (chamavam funcoes
+inexistentes, o que fazia a tarefa anual rebentar com NameError todos
+os anos, silenciosamente, a meio da execucao): revisao de desempenho
+anual, atualizacao de requisitos regulatorios, planeamento do proximo
+ano, resumo executivo anual, otimizacao anual do sistema, revisao de
+politicas, avaliacao anual de risco, preparacao de submissoes
+regulatorias. Ficam como trabalho futuro caso venham a ser precisas.
 """
 
 import frappe
@@ -27,19 +36,12 @@ def execute():
 			frappe.logger().info("Portugal Compliance not enabled, skipping yearly tasks")
 			return
 
-		# Executar tarefas anuais
+		# Executar tarefas anuais (apenas as realmente implementadas -
+		# ver docstring do modulo para as que ficaram por fazer)
 		generate_annual_compliance_report()
 		generate_annual_saft()
 		perform_annual_data_archival()
 		conduct_annual_compliance_audit()
-		review_annual_performance()
-		update_regulatory_requirements()
-		plan_next_year_compliance()
-		generate_executive_annual_summary()
-		perform_annual_system_optimization()
-		review_and_update_policies()
-		conduct_annual_risk_assessment()
-		prepare_regulatory_submissions()
 
 		frappe.logger().info("Portugal Compliance: Yearly tasks completed successfully")
 
@@ -229,9 +231,14 @@ def get_annual_achievements(start_date, end_date):
 		return []
 
 
-def calculate_annual_compliance_score(start_date, end_date):
+def _calculate_annual_compliance_score_core(start_date, end_date):
 	"""
-	Calcula score de compliance anual
+	Calcula score de compliance anual - versao "core", sem
+	year_over_year_change (que precisaria de chamar esta funcao outra
+	vez para o ano anterior). Usada tanto por
+	calculate_annual_compliance_score() como por
+	calculate_year_over_year_change(), para nao haver recursao entre
+	as duas.
 	"""
 	try:
 		# Componentes do score
@@ -262,12 +269,21 @@ def calculate_annual_compliance_score(start_date, end_date):
 			"overall_score": round(overall_score, 2),
 			"components": components,
 			"grade": get_compliance_grade(overall_score),
-			"year_over_year_change": calculate_year_over_year_change(start_date, end_date)
 		}
 
 	except Exception as e:
 		frappe.log_error(f"Error calculating annual compliance score: {str(e)}")
 		return {"overall_score": 0, "components": {}, "grade": "F"}
+
+
+def calculate_annual_compliance_score(start_date, end_date):
+	"""
+	Calcula score de compliance anual, incluindo a comparacao com o
+	ano anterior (year_over_year_change).
+	"""
+	result = _calculate_annual_compliance_score_core(start_date, end_date)
+	result["year_over_year_change"] = calculate_year_over_year_change(start_date, end_date)
+	return result
 
 
 def calculate_document_compliance_annual(start_date, end_date):
@@ -366,11 +382,11 @@ def calculate_data_integrity_annual(start_date, end_date):
 		duplicates = frappe.db.sql("""
 								   SELECT COUNT(*) as count
 								   FROM (
-									   SELECT atcud_code
+									   SELECT atcud_code, COUNT(*) as dup_count
 									   FROM `tabATCUD Log`
 									   WHERE creation BETWEEN %s AND %s
 									   GROUP BY atcud_code
-									   HAVING COUNT (*) > 1
+									   HAVING dup_count > 1
 									   ) as dup
 								   """, (start_date, end_date))[0][0]
 
@@ -486,11 +502,13 @@ def calculate_year_over_year_change(start_date, end_date):
 		prev_year_start = date(start_date.year - 1, 1, 1)
 		prev_year_end = date(start_date.year - 1, 12, 31)
 
-		# Score do ano atual
-		current_score = calculate_annual_compliance_score(start_date, end_date)["overall_score"]
+		# Score do ano atual (versao core, sem year_over_year_change -
+		# evita a recursao calculate_annual_compliance_score <->
+		# calculate_year_over_year_change)
+		current_score = _calculate_annual_compliance_score_core(start_date, end_date)["overall_score"]
 
 		# Score do ano anterior
-		prev_score = calculate_annual_compliance_score(prev_year_start, prev_year_end)[
+		prev_score = _calculate_annual_compliance_score_core(prev_year_start, prev_year_end)[
 			"overall_score"]
 
 		if prev_score > 0:
@@ -561,7 +579,11 @@ def generate_company_annual_saft(company, start_date, end_date, year):
 			end_date=end_date
 		)
 
-		# Criar registo de export
+		# Guardar ficheiro em armazenamento privado e duradouro do Frappe
+		# (nao /tmp - contem dados fiscais e pessoais reais)
+		file_path = saft_generator.save_saft_file(saft_xml, company, start_date, end_date)
+
+		# Criar registo de export, ja com o caminho e hash do ficheiro
 		export_log = frappe.get_doc({
 			"doctype": "SAF-T Export Log",
 			"company": company,
@@ -571,18 +593,13 @@ def generate_company_annual_saft(company, start_date, end_date, year):
 			"year": year,
 			"status": "Completed",
 			"file_size": len(saft_xml.encode('utf-8')),
+			"file_path": file_path,
+			"file_hash": saft_generator.generate_file_hash(saft_xml),
 			"export_date": now()
 		})
 		export_log.insert(ignore_permissions=True)
 
-		# Guardar ficheiro
-		filename = f"SAF-T_{company}_{year}_Annual.xml"
-		file_path = f"/tmp/{filename}"
-
-		with open(file_path, 'w', encoding='utf-8') as f:
-			f.write(saft_xml)
-
-		frappe.logger().info(f"Annual SAF-T generated for {company}: {filename}")
+		frappe.logger().info(f"Annual SAF-T generated for {company}: {file_path}")
 
 	except Exception as e:
 		frappe.log_error(f"Error generating company annual SAF-T for {company}: {str(e)}")
@@ -829,11 +846,11 @@ def audit_atcud_compliance(start_date, end_date):
 		duplicates = frappe.db.sql("""
 								   SELECT COUNT(*) as count
 								   FROM (
-									   SELECT atcud_code
+									   SELECT atcud_code, COUNT(*) as dup_count
 									   FROM `tabATCUD Log`
 									   WHERE creation BETWEEN %s AND %s
 									   GROUP BY atcud_code
-									   HAVING COUNT (*) > 1
+									   HAVING dup_count > 1
 									   ) as dup
 								   """, (start_date, end_date))[0][0]
 

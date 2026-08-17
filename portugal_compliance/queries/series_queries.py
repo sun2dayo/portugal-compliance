@@ -453,7 +453,7 @@ def get_duplicate_prefixes():
 				FROM `tabPortugal Series Configuration`
 				WHERE is_active = 1
 				GROUP BY prefix
-				HAVING COUNT (*) > 1
+				HAVING count > 1
 				ORDER BY count DESC, prefix ASC \
 				"""
 

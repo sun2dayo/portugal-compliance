@@ -212,18 +212,18 @@ override_whitelisted_methods = {
 }
 
 # ✅ SCHEDULED TASKS
-#scheduler_events = {
-#	"daily": [
-#		"portugal_compliance.utils.maintenance.daily_compliance_check",
-#		"portugal_compliance.utils.maintenance.validate_atcud_integrity"
-#	],
-#	"weekly": [
-#		"portugal_compliance.utils.maintenance.weekly_series_sync"
-#	],
-#	"monthly": [
-#		"portugal_compliance.utils.maintenance.monthly_compliance_audit"
-#	]
-#}
+# Liga o subsistema tasks/ (Fase 3) - estava construido mas nunca
+# tinha sido ativado. O bloco anterior (comentado) apontava para
+# portugal_compliance.utils.maintenance, um modulo que nunca existiu
+# neste repositorio; substituido pelos modulos reais em tasks/.
+scheduler_events = {
+	"all": ["portugal_compliance.tasks.all.execute"],
+	"hourly": ["portugal_compliance.tasks.hourly.execute"],
+	"daily": ["portugal_compliance.tasks.daily.execute"],
+	"weekly": ["portugal_compliance.tasks.weekly.execute"],
+	"monthly": ["portugal_compliance.tasks.monthly.execute"],
+	"yearly": ["portugal_compliance.tasks.yearly.execute"]
+}
 
 #  FIXTURES - SIMPLIFICADO
 fixtures = [

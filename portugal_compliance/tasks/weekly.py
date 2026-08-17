@@ -453,10 +453,10 @@ def analyze_atcud_patterns():
 	try:
 		# Análise por hora do dia
 		hourly_pattern = frappe.db.sql("""
-									   SELECT HOUR (creation) as hour, COUNT (*) as count
+									   SELECT HOUR(creation) as hour, COUNT(*) as count
 									   FROM `tabATCUD Log`
 									   WHERE creation >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-									   GROUP BY HOUR (creation)
+									   GROUP BY HOUR(creation)
 									   ORDER BY hour
 									   """, as_dict=True)
 
@@ -491,12 +491,12 @@ def analyze_communication_patterns():
 	try:
 		# Análise de horários de comunicação bem-sucedida
 		success_patterns = frappe.db.sql("""
-										 SELECT HOUR (communication_date) as hour, COUNT (*) as count
+										 SELECT HOUR(communication_date) as hour, COUNT(*) as count
 										 FROM `tabPortugal Series Configuration`
 										 WHERE communication_date >= DATE_SUB(NOW()
 											 , INTERVAL 30 DAY)
 										   AND communication_status = 'Success'
-										 GROUP BY HOUR (communication_date)
+										 GROUP BY HOUR(communication_date)
 										 ORDER BY count DESC
 										 """, as_dict=True)
 

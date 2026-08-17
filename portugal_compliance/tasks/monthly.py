@@ -292,7 +292,7 @@ def calculate_regulatory_compliance_score(start_date, end_date):
 		duplicate_atcud = frappe.db.sql("""
 										SELECT COUNT(*) as count
 										FROM (
-											SELECT atcud_code, COUNT (*) as dup_count
+											SELECT atcud_code, COUNT(*) as dup_count
 											FROM `tabATCUD Log`
 											WHERE creation BETWEEN %s AND %s
 											GROUP BY atcud_code
@@ -466,11 +466,11 @@ def get_critical_issues(start_date, end_date):
 		duplicate_atcud = frappe.db.sql("""
 										SELECT COUNT(*) as count
 										FROM (
-											SELECT atcud_code
+											SELECT atcud_code, COUNT(*) as dup_count
 											FROM `tabATCUD Log`
 											WHERE creation BETWEEN %s AND %s
 											GROUP BY atcud_code
-											HAVING COUNT (*) > 1
+											HAVING dup_count > 1
 											) as duplicates
 										""", (start_date, end_date))[0][0]
 

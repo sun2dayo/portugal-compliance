@@ -920,22 +920,17 @@ def find_sequence_gaps(series_prefix):
 
 def cleanup_old_logs():
 	"""
-	Limpa logs antigos - MANTIDA
+	Limpa logs de erro antigos (Error Log, 90 dias). NAO apaga ATCUD Log
+	aqui - e o registo de auditoria fiscal que prova que os codigos
+	ATCUD emitidos sao reais/validos, e exige retencao de varios anos
+	(dados fiscais), nao 90 dias. A retencao/arquivo do ATCUD Log e
+	feita uma vez por ano em tasks/yearly.py (archive_old_atcud_logs),
+	com backup previo e um prazo de 10 anos - corrigido depois de se
+	confirmar que apagar ATCUD Log ao fim de so 90 dias sem nenhum
+	backup era um risco real de perda de dados de compliance.
 	"""
 	try:
-		# Manter logs por 90 dias
 		cutoff_date = add_days(today(), -90)
-
-		# Limpar logs de ATCUD antigos
-		old_atcud_logs = frappe.db.count("ATCUD Log", {
-			"creation": ["<", cutoff_date]
-		})
-
-		if old_atcud_logs > 0:
-			frappe.db.delete("ATCUD Log", {
-				"creation": ["<", cutoff_date]
-			})
-			frappe.logger().info(f"🧹 Cleaned up {old_atcud_logs} old ATCUD logs")
 
 		# Limpar logs de erro antigos relacionados com Portugal Compliance
 		frappe.db.sql("""

@@ -122,7 +122,7 @@ def sync_pending_series():
 											   "communication_attempts": ["<", 3]
 											   # Máximo 3 tentativas
 										   },
-										   fields=["name", "series_name", "company",
+										   fields=["name", "series_name", "naming_series", "company",
 												   "communication_attempts",
 												   "last_communication_attempt"]
 										   )
@@ -159,15 +159,18 @@ def should_retry_communication(series):
 
 def try_series_communication(series):
 	"""
-	Tenta comunicar série com a AT
+	Tenta comunicar série com a AT - chamada real (register_naming_series
+	já verifica primeiro, via consultarSeries, se a série já está
+	registada, por isso é seguro repetir esta tentativa periodicamente).
 	"""
 	try:
-		# Verificar se existem credenciais
-		auth_settings = frappe.db.get_value("Portugal Auth Settings",
-											series.company, ["username", "password"], as_dict=True)
+		settings = frappe.get_single("Portugal Auth Settings")
+		if not settings.get("at_username") or not settings.get_password("at_password", raise_exception=False):
+			frappe.logger().warning("Sem credenciais AT configuradas em Portugal Auth Settings")
+			return
 
-		if not auth_settings or not auth_settings.username:
-			frappe.logger().warning(f"No credentials for company {series.company}")
+		if not series.naming_series:
+			frappe.logger().warning(f"Série {series.name} sem naming_series associada")
 			return
 
 		# Incrementar contador de tentativas
@@ -176,54 +179,28 @@ def try_series_communication(series):
 			"last_communication_attempt": now()
 		})
 
-		# Aqui seria feita a comunicação real com a AT
-		# Por agora, simular sucesso/falha
-		communication_result = simulate_at_communication(series)
+		from portugal_compliance.utils.at_webservice import ATWebserviceClient
+		client = ATWebserviceClient()
+		result = client.register_naming_series(series.naming_series, series.company)
 
-		if communication_result["success"]:
+		if result.get("success"):
 			frappe.db.set_value("Portugal Series Configuration", series.name, {
 				"is_communicated": 1,
 				"communication_date": now(),
-				"validation_code": communication_result.get("validation_code"),
+				"validation_code": result.get("validation_code"),
 				"communication_status": "Success"
 			})
 			frappe.logger().info(f"Successfully communicated series {series.name}")
 		else:
 			frappe.db.set_value("Portugal Series Configuration", series.name, {
 				"communication_status": "Failed",
-				"error_message": communication_result.get("error")
+				"error_message": result.get("error")
 			})
 			frappe.logger().error(
-				f"Failed to communicate series {series.name}: {communication_result.get('error')}")
+				f"Failed to communicate series {series.name}: {result.get('error')}")
 
 	except Exception as e:
 		frappe.log_error(f"Error communicating series {series.name}: {str(e)}")
-
-
-def simulate_at_communication(series):
-	"""
-	Simula comunicação com AT (substituir por implementação real)
-	"""
-	try:
-		# Simulação - na realidade seria chamada ao webservice
-		import random
-
-		if random.random() > 0.2:  # 80% de sucesso
-			return {
-				"success": True,
-				"validation_code": f"ATCUD{random.randint(100000, 999999)}"
-			}
-		else:
-			return {
-				"success": False,
-				"error": "Simulated AT communication error"
-			}
-
-	except Exception as e:
-		return {
-			"success": False,
-			"error": str(e)
-		}
 
 
 def monitor_system_performance():
