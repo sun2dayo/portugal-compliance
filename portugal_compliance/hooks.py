@@ -274,6 +274,7 @@ jinja = {
 		# ✅ MÉTODOS DE DOCUMENTOS
 		"portugal_compliance.utils.jinja_methods.get_document_type_description",
 		"portugal_compliance.utils.jinja_methods.get_item_effective_tax_rate",
+		"portugal_compliance.utils.tax_breakdown.get_tax_breakdown_by_at_code",
 		"portugal_compliance.utils.jinja_methods.format_tax_breakdown",
 
 		# ✅ MÉTODOS QR CODE
