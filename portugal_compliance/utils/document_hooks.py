@@ -268,11 +268,14 @@ class PortugalComplianceDocumentHooks:
 		# 4. Custom fields
 		self._ensure_custom_fields_exist()
 
-		# 5. Templates de impostos
-		self._setup_tax_templates_for_company(doc.name)
-
-		# 6. Contas padrão
-		self._setup_default_accounts(doc.name)
+		# 5. Templates de impostos + contas SNC 2433x por taxa (Fase 7:
+		# taxonomia AT completa, substitui a conta generica "Duties and
+		# Taxes" pela conta real do Plano de Contas SNC português)
+		from portugal_compliance.setup.tax_setup import setup_tax_templates_for_company
+		try:
+			results['tax_templates'] = setup_tax_templates_for_company(doc.name, region="PT")
+		except Exception as e:
+			frappe.log_error(f"Erro ao configurar taxonomia AT de IVA para {doc.name}: {str(e)}")
 
 		return results
 
@@ -432,9 +435,80 @@ class PortugalComplianceDocumentHooks:
 				self._validate_document_sequence_certified(doc)
 				self._validate_portuguese_required_fields(doc)
 
+			self._validate_tax_exemption_soft(doc)
+
 		except Exception as e:
 			frappe.log_error(f"Erro em validate_portugal_compliance: {str(e)}")
 			raise
+
+	def _validate_tax_exemption_soft(self, doc):
+		"""
+		Aviso brando (msgprint, nao bloqueia) se uma linha isenta (0%)
+		nao tem motivo de isencao, ou se uma linha com IVA > 0% tem um
+		motivo de isencao preenchido por engano. Corre em todo o save,
+		incluindo rascunhos - por isso nunca usa frappe.throw aqui (ver
+		_validate_tax_exemption_hard, em before_submit, para o bloqueio
+		rigido).
+		"""
+		if doc.doctype not in ("Sales Invoice", "Delivery Note"):
+			return
+		if not getattr(doc, "items", None):
+			return
+		try:
+			from portugal_compliance.utils.tax_breakdown import get_line_at_tax_codes
+			line_codes = get_line_at_tax_codes(doc)
+		except Exception as e:
+			frappe.log_error(f"Erro ao resolver codigos AT por linha: {str(e)}")
+			return
+
+		missing, conflicting = [], []
+		for item in doc.items:
+			code = line_codes.get(item.name, "NOR")
+			has_reason = bool(getattr(item, "at_exemption_reason", None))
+			if code == "ISE" and not has_reason:
+				missing.append(str(item.item_code or item.idx))
+			elif code != "ISE" and has_reason:
+				conflicting.append(str(item.item_code or item.idx))
+
+		if missing:
+			frappe.msgprint(
+				_("Falta o motivo de isenção de IVA (linhas isentas a 0%): {0}").format(", ".join(missing)),
+				indicator="orange", alert=True,
+			)
+		if conflicting:
+			frappe.msgprint(
+				_("Motivo de isenção preenchido em linha com IVA > 0%: {0}").format(", ".join(conflicting)),
+				indicator="orange", alert=True,
+			)
+
+	def _validate_tax_exemption_hard(self, doc):
+		"""
+		Bloqueio rigido (frappe.throw) em before_submit - um documento
+		fiscal submetido e imutavel e legalmente vinculativo, por isso
+		aqui a falta de motivo de isencao bloqueia mesmo a submissao,
+		ao contrario do aviso brando em validate.
+		"""
+		if doc.doctype not in ("Sales Invoice", "Delivery Note"):
+			return
+		if not getattr(doc, "items", None):
+			return
+
+		from portugal_compliance.utils.tax_breakdown import get_line_at_tax_codes
+		line_codes = get_line_at_tax_codes(doc)
+
+		for item in doc.items:
+			code = line_codes.get(item.name, "NOR")
+			has_reason = bool(getattr(item, "at_exemption_reason", None))
+			if code == "ISE" and not has_reason:
+				frappe.throw(
+					_("Linha {0} ({1}): IVA isento (0%) exige motivo de isenção AT antes de submeter.")
+					.format(item.idx, item.item_code)
+				)
+			if code != "ISE" and has_reason:
+				frappe.throw(
+					_("Linha {0} ({1}): motivo de isenção preenchido mas a taxa de IVA não é 0%.")
+					.format(item.idx, item.item_code)
+				)
 
 	def _validate_critical_fields(self, doc):
 		"""Validar campos críticos"""
@@ -448,6 +522,8 @@ class PortugalComplianceDocumentHooks:
 			if not self._is_portuguese_company(
 				doc.company) or doc.doctype not in self.supported_doctypes:
 				return
+
+			self._validate_tax_exemption_hard(doc)
 
 			config = self.supported_doctypes[doc.doctype]
 

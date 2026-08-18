@@ -614,6 +614,31 @@ def get_nif_info(nif):
 
 # ========== MÉTODOS DE DOCUMENTOS CORRIGIDOS ==========
 
+def get_item_effective_tax_rate(item, doc=None):
+	"""
+	Taxa de IVA real desta linha, para exibição em print formats.
+	Usa a taxa do Item Tax Template do próprio artigo quando definido
+	(faturas com taxas mistas - Fase 7); senão cai na taxa do primeiro
+	template do cabeçalho (comportamento correto para faturas de taxa
+	única, onde os artigos normalmente não têm override próprio).
+	"""
+	try:
+		item_tax_template = getattr(item, "item_tax_template", None)
+		if item_tax_template:
+			rate = frappe.db.get_value(
+				"Item Tax Template Detail", {"parent": item_tax_template}, "tax_rate"
+			)
+			if rate is not None:
+				return rate
+		if doc is not None:
+			for row in getattr(doc, "taxes", None) or []:
+				if row.rate:
+					return row.rate
+		return None
+	except Exception:
+		return None
+
+
 def get_document_type_description(doctype):
 	"""
 	✅ CORRIGIDO: Obter descrição do tipo de documento (prefixos atualizados)
@@ -904,6 +929,15 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 		company_nif = get_company_nif(getattr(doc, 'company', ''))
 		customer_nif = get_customer_nif(doc) or get_supplier_nif(doc)
 
+		# Discriminação real de base/imposto por código AT (NOR/INT/RED/ISE)
+		# - antes I3-I8 estavam hardcoded a "0.00", dando um QR Code errado
+		# em qualquer documento com IVA a 6% ou 13% (Fase 7).
+		from portugal_compliance.utils.tax_breakdown import get_tax_breakdown_by_at_code
+		try:
+			tax_breakdown = get_tax_breakdown_by_at_code(doc)
+		except Exception:
+			tax_breakdown = {code: {"base": 0.0, "tax": 0.0} for code in ("NOR", "INT", "RED", "ISE")}
+
 		qr_data = {
 			"A": company_nif,  # NIF do emitente
 			"B": customer_nif,  # NIF do adquirente
@@ -913,14 +947,14 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 			"F": getdate(getattr(doc, 'posting_date', today())).strftime("%Y%m%d"),  # Data
 			"G": getattr(doc, 'name', ''),  # Número do documento
 			"H": get_atcud_code(doc),  # ATCUD
-			"I1": f"{flt(getattr(doc, 'net_total', 0)):.2f}",  # Base tributável taxa normal
-			"I2": f"{flt(getattr(doc, 'total_taxes_and_charges', 0)):.2f}",  # IVA taxa normal
-			"I3": "0.00",  # Base tributável taxa intermédia
-			"I4": "0.00",  # IVA taxa intermédia
-			"I5": "0.00",  # Base tributável taxa reduzida
-			"I6": "0.00",  # IVA taxa reduzida
-			"I7": "0.00",  # Base tributável taxa zero
-			"I8": "0.00",  # IVA taxa zero
+			"I1": f"{tax_breakdown['NOR']['base']:.2f}",  # Base tributável taxa normal
+			"I2": f"{tax_breakdown['NOR']['tax']:.2f}",  # IVA taxa normal
+			"I3": f"{tax_breakdown['INT']['base']:.2f}",  # Base tributável taxa intermédia
+			"I4": f"{tax_breakdown['INT']['tax']:.2f}",  # IVA taxa intermédia
+			"I5": f"{tax_breakdown['RED']['base']:.2f}",  # Base tributável taxa reduzida
+			"I6": f"{tax_breakdown['RED']['tax']:.2f}",  # IVA taxa reduzida
+			"I7": f"{tax_breakdown['ISE']['base']:.2f}",  # Base tributável taxa isenta
+			"I8": f"{tax_breakdown['ISE']['tax']:.2f}",  # IVA taxa isenta
 			"N": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",  # Total do documento
 			"O": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",  # Total com impostos
 			"P": "0",  # Retenção na fonte

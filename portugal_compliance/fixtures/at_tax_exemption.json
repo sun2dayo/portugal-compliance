@@ -1,0 +1,66 @@
+[
+ {
+  "code": "M01",
+  "description": "Isento Artigo 14.º do RITI",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.633212",
+  "name": "M01"
+ },
+ {
+  "code": "M02",
+  "description": "Isento Artigo 6.º do Decreto-Lei n.º 198/90, de 19 de Junho",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.676551",
+  "name": "M02"
+ },
+ {
+  "code": "M04",
+  "description": "Isento Artigo 13.º do CIVA",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.678765",
+  "name": "M04"
+ },
+ {
+  "code": "M05",
+  "description": "Isento Artigo 14.º do CIVA",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.680587",
+  "name": "M05"
+ },
+ {
+  "code": "M07",
+  "description": "Isento Artigo 9.º do CIVA",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.682408",
+  "name": "M07"
+ },
+ {
+  "code": "M10",
+  "description": "Isento Artigo 53.º do CIVA",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.684220",
+  "name": "M10"
+ },
+ {
+  "code": "M11",
+  "description": "Regime de renúncia à isenção (Artigo 12.º do CIVA)",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.685992",
+  "name": "M11"
+ },
+ {
+  "code": "M99",
+  "description": "Não sujeito ou não tributado / autoliquidação",
+  "docstatus": 0,
+  "doctype": "AT Tax Exemption",
+  "modified": "2026-08-18 19:19:15.687788",
+  "name": "M99"
+ }
+]

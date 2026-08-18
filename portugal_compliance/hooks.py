@@ -74,7 +74,8 @@ doctype_js = {
 # ✅ INSTALAÇÃO E DESINSTALAÇÃO
 after_install = [
     "portugal_compliance.regional.portugal.after_install",
-    "portugal_compliance.utils.startup_fixes.run_all_startup_fixes"
+    "portugal_compliance.utils.startup_fixes.run_all_startup_fixes",
+    "portugal_compliance.setup.tax_setup.create_at_tax_custom_fields"
 ]
 
 before_uninstall = "portugal_compliance.regional.portugal.before_uninstall"
@@ -234,6 +235,12 @@ fixtures = [
 		]
 	},
 	{
+		# Motivos de isenção de IVA (M01, M02...) - taxonomia AT, dados
+		# de referência estáticos, corretamente geridos como fixture em
+		# vez de lógica de instalação (ver blueprint da Fase 7).
+		"dt": "AT Tax Exemption"
+	},
+	{
 		# Print Format Factura PT (Fase 6) precisa de ficar aqui para
 		# sobreviver a uma reinstalacao limpa da app - sem isto, o
 		# QR Code na fatura impressa desaparecia em qualquer site novo.
@@ -266,6 +273,7 @@ jinja = {
 
 		# ✅ MÉTODOS DE DOCUMENTOS
 		"portugal_compliance.utils.jinja_methods.get_document_type_description",
+		"portugal_compliance.utils.jinja_methods.get_item_effective_tax_rate",
 		"portugal_compliance.utils.jinja_methods.format_tax_breakdown",
 
 		# ✅ MÉTODOS QR CODE

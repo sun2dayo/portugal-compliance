@@ -972,6 +972,12 @@ class ATCUDGenerator:
 		para visibilidade rapida.
 		"""
 		try:
+			# String de sequencia com a largura real do documento (ex:
+			# "0001") - sequence_number aqui e so o inteiro, ja sem o padding
+			# original, que so existe na string calculada em
+			# generate_atcud_for_document (fora do ambito desta funcao).
+			sequence_display = self._extract_sequence_string_from_document_name(doc.name)
+
 			log_doc = frappe.get_doc({
 				"doctype": "ATCUD Log",
 				"naming_series": "ATCUD-LOG-.YYYY.-.####",

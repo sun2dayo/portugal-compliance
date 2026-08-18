@@ -1,0 +1,198 @@
+# -*- coding: utf-8 -*-
+"""
+Taxonomia AT de IVA (regiões, taxas, códigos SAF-T) e motivos de
+isenção. Ver blueprint aprovado: contas SNC 2433x por taxa (não a
+conta genérica "Duties and Taxes"), Custom Fields só em Account (não
+duplicados em Item Tax Template), Item Tax Template + Sales Taxes and
+Charges Template gerados por empresa na ativação do compliance.
+"""
+import frappe
+from frappe import _
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+# ========== TAXONOMIA (região, taxa, código AT) ==========
+# Só "Continente" é criado automaticamente na ativação (zero-touch);
+# Madeira/Açores ficam disponíveis para criação a pedido via
+# create_regional_tax_setup_for_company().
+AT_TAX_TAXONOMY = {
+	"PT": [
+		{"rate": 23, "code": "NOR", "label": "Normal", "account_suffix": "1"},
+		{"rate": 13, "code": "INT", "label": "Intermédia", "account_suffix": "2"},
+		{"rate": 6, "code": "RED", "label": "Reduzida", "account_suffix": "3"},
+		{"rate": 0, "code": "ISE", "label": "Isenta", "account_suffix": "4"},
+	],
+	"PT-MA": [
+		{"rate": 22, "code": "NOR", "label": "Normal", "account_suffix": "1"},
+		{"rate": 12, "code": "INT", "label": "Intermédia", "account_suffix": "2"},
+		{"rate": 5, "code": "RED", "label": "Reduzida", "account_suffix": "3"},
+		{"rate": 0, "code": "ISE", "label": "Isenta", "account_suffix": "4"},
+	],
+	"PT-AC": [
+		{"rate": 16, "code": "NOR", "label": "Normal", "account_suffix": "1"},
+		{"rate": 9, "code": "INT", "label": "Intermédia", "account_suffix": "2"},
+		{"rate": 4, "code": "RED", "label": "Reduzida", "account_suffix": "3"},
+		{"rate": 0, "code": "ISE", "label": "Isenta", "account_suffix": "4"},
+	],
+}
+
+# Prefixo da conta SNC 2433 (Iva liquidado) por região - Continente usa
+# o próprio 2433, Madeira/Açores usam blocos seguintes para não colidir.
+REGION_ACCOUNT_PREFIX = {"PT": "2433", "PT-MA": "2434", "PT-AC": "2435"}
+
+ACCOUNT_CUSTOM_FIELDS = [
+	{
+		"fieldname": "at_tax_type",
+		"label": "Tipo de Imposto AT",
+		"fieldtype": "Select",
+		"options": "\nIVA\nIS",
+		"insert_after": "account_type",
+		"module": "Portugal Compliance",
+	},
+	{
+		"fieldname": "at_tax_region",
+		"label": "Região Fiscal AT",
+		"fieldtype": "Select",
+		"options": "\nPT\nPT-AC\nPT-MA",
+		"insert_after": "at_tax_type",
+		"module": "Portugal Compliance",
+	},
+	{
+		"fieldname": "at_tax_code",
+		"label": "Código de Taxa AT",
+		"fieldtype": "Select",
+		"options": "\nNOR\nINT\nRED\nISE",
+		"insert_after": "at_tax_region",
+		"module": "Portugal Compliance",
+	},
+]
+
+EXEMPTION_REASON_FIELD = {
+	"fieldname": "at_exemption_reason",
+	"label": "Motivo de Isenção AT",
+	"fieldtype": "Link",
+	"options": "AT Tax Exemption",
+	"insert_after": "item_tax_template",
+	"description": "Obrigatório quando a taxa de IVA desta linha é 0% (Portaria 302/2016)",
+	"module": "Portugal Compliance",
+}
+
+
+def create_at_tax_custom_fields():
+	"""
+	Custom Fields da taxonomia AT. Idempotente (create_custom_fields
+	só cria o que ainda não existe). Chamado a partir de after_install
+	e disponível para reexecução manual em sites já instalados.
+	"""
+	create_custom_fields({"Account": ACCOUNT_CUSTOM_FIELDS}, ignore_validate=True)
+	create_custom_fields({
+		"Sales Invoice Item": [EXEMPTION_REASON_FIELD],
+		"Delivery Note Item": [EXEMPTION_REASON_FIELD],
+	}, ignore_validate=True)
+
+
+def _get_or_create_snc_tax_account(company, region, spec):
+	"""
+	Devolve (criando se necessário) a sub-conta SNC 2433x para esta
+	região+taxa, convertendo 2433/2434/2435 de conta-folha para
+	conta-grupo na primeira utilização. Ver análise: 2433 já existe
+	no Plano de Contas SNC carregado pelo ERPNext para País=Portugal,
+	mas como conta-folha única e sem tagging - nunca fora usada pelo
+	setup anterior, que caía antes na conta genérica "Duties and Taxes".
+	"""
+	company_abbr = frappe.get_cached_value("Company", company, "abbr")
+	parent_prefix = REGION_ACCOUNT_PREFIX[region]
+	parent_name = None
+
+	# Localizar a conta-pai pelo número de conta (mais fiável que o nome,
+	# que inclui o abbr da empresa e pode variar).
+	parent_candidates = frappe.get_all(
+		"Account",
+		filters={"company": company, "account_number": parent_prefix},
+		fields=["name", "is_group"],
+		limit=1,
+	)
+	if not parent_candidates:
+		frappe.log_error(
+			f"Conta SNC {parent_prefix} não encontrada para {company} - "
+			f"o Plano de Contas SNC pode não estar carregado (verifique "
+			f"Company.chart_of_accounts).",
+			"Portugal Compliance - Tax Setup",
+		)
+		return None
+
+	parent = parent_candidates[0]
+	if not parent.is_group:
+		frappe.db.set_value("Account", parent.name, "is_group", 1)
+		frappe.db.commit()
+	parent_name = parent.name
+
+	account_number = f"{parent_prefix}{spec['account_suffix']}"
+	account_name = f"{account_number} - IVA Liquidado {spec['rate']}% {spec['label']} - {company_abbr}"
+
+	existing = frappe.get_all(
+		"Account",
+		filters={"company": company, "account_number": account_number},
+		fields=["name"],
+		limit=1,
+	)
+	if existing:
+		return existing[0].name
+
+	acc = frappe.get_doc({
+		"doctype": "Account",
+		"account_name": f"IVA Liquidado {spec['rate']}% {spec['label']}",
+		"account_number": account_number,
+		"company": company,
+		"parent_account": parent_name,
+		"account_type": "Tax",
+		"is_group": 0,
+		"at_tax_type": "IVA",
+		"at_tax_region": region,
+		"at_tax_code": spec["code"],
+	})
+	acc.insert(ignore_permissions=True)
+	return acc.name
+
+
+def setup_tax_templates_for_company(company, region="PT"):
+	"""
+	Cria, para uma região, as sub-contas SNC 2433x, os Sales Taxes and
+	Charges Template e os Item Tax Template por taxa - tudo já ligado
+	aos Custom Fields da taxonomia AT. Idempotente.
+	"""
+	if region not in AT_TAX_TAXONOMY:
+		frappe.throw(_("Região fiscal desconhecida: {0}").format(region))
+
+	created = []
+	for spec in AT_TAX_TAXONOMY[region]:
+		account = _get_or_create_snc_tax_account(company, region, spec)
+		if not account:
+			continue
+
+		region_suffix = "" if region == "PT" else f" {region}"
+		template_title = f"IVA {spec['rate']}% {spec['label']}{region_suffix} - {company}"
+
+		if not frappe.db.exists("Sales Taxes and Charges Template", template_title):
+			frappe.get_doc({
+				"doctype": "Sales Taxes and Charges Template",
+				"title": template_title,
+				"company": company,
+				"taxes": [{
+					"charge_type": "On Net Total",
+					"account_head": account,
+					"description": f"IVA {spec['rate']}% ({spec['label']})",
+					"rate": spec["rate"],
+				}],
+			}).insert(ignore_permissions=True)
+			created.append(template_title)
+
+		if not frappe.db.exists("Item Tax Template", template_title):
+			frappe.get_doc({
+				"doctype": "Item Tax Template",
+				"title": template_title,
+				"company": company,
+				"taxes": [{"tax_type": account, "tax_rate": spec["rate"]}],
+			}).insert(ignore_permissions=True)
+
+	frappe.db.commit()
+	return created
