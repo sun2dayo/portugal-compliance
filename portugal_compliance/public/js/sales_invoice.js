@@ -1263,7 +1263,7 @@ function print_portuguese_sales_invoice(frm) {
      */
 
     frappe.route_options = {
-        "format": "Fatura de Venda Portugal"
+        "format": "Factura PT"
     };
 
     frappe.set_route("print", frm.doc.doctype, frm.doc.name);
@@ -1444,7 +1444,7 @@ function setup_print_formats(frm) {
     if (!is_portuguese_company(frm)) return;
 
     // ✅ DEFINIR PRINT FORMAT PADRÃO
-    frm.meta.default_print_format = "Fatura de Venda Portugal";
+    frm.meta.default_print_format = "Factura PT";
 }
 
 function update_atcud_display(frm) {

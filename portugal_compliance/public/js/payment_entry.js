@@ -1008,10 +1008,8 @@ function print_portuguese_receipt(frm) {
      * Imprimir recibo com formato português
      */
 
-    frappe.route_options = {
-        "format": "Recibo Portugal"
-    };
-
+    // Sem format explicito - deixa o Frappe escolher o print format por
+    // defeito (nao existe ainda nenhum print format dedicado para este doctype).
     frappe.set_route("print", frm.doc.doctype, frm.doc.name);
 }
 
@@ -1313,7 +1311,6 @@ function setup_print_formats(frm) {
     if (!is_portuguese_company(frm)) return;
 
     // ✅ DEFINIR PRINT FORMAT PADRÃO
-    frm.meta.default_print_format = "Recibo Portugal";
 }
 
 function update_atcud_display(frm) {
