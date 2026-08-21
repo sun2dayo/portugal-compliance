@@ -157,8 +157,18 @@ class SAFTExportLog(Document):
 		"Submit to AT" no formulario foi removido em conjunto."""
 		frappe.throw(_("Submissão de SAF-T à AT ainda não está implementada."))
 
+	@frappe.whitelist()
 	def increment_download_count(self):
-		"""Incrementa contador de downloads"""
+		"""
+		Incrementa contador de downloads. Faltava @frappe.whitelist() -
+		o dispacho de metodos do Frappe bloqueia qualquer metodo de
+		instancia nao marcado explicitamente, por isso o botao de
+		download na GUI falhava sempre com "Method Not Allowed".
+		"""
+		# O dispacho whitelisted so exige permissao de LEITURA por
+		# omissao - como isto grava o documento (self.save()), exige-se
+		# escrita explicitamente (mesmo padrao de regenerate_export).
+		self.check_permission("write")
 		self.download_count = (self.download_count or 0) + 1
 		self.last_downloaded = frappe.utils.now()
 		self.save()
