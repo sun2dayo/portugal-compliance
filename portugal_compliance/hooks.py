@@ -97,6 +97,7 @@ after_migrate = [
 doc_events = {
 	# ========== DOCUMENTOS FISCAIS CRÍTICOS ==========
 	"Sales Invoice": {
+		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
 		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
@@ -104,12 +105,14 @@ doc_events = {
 		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication"
 	},
 	"Purchase Invoice": {
+		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
 		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 	"POS Invoice": {
+		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
 		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
@@ -124,12 +127,14 @@ doc_events = {
 
 	# ========== DOCUMENTOS DE TRANSPORTE ==========
 	"Delivery Note": {
+		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
 		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
 	},
 	"Purchase Receipt": {
+		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
 		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",

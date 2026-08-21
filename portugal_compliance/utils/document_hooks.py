@@ -1059,6 +1059,31 @@ def _create_single_custom_field(self, doctype, field_config):
 		return False
 
 
+def reset_fiscal_fields_on_return_clone(doc, method=None):
+	"""
+	Hook before_insert. Quando um documento e criado como devolucao
+	(is_return=1) atraves de make_return_doc, o ERPNext CLONA todos os
+	campos do documento original para o rascunho - incluindo
+	atcud_code, um campo real na Sales Invoice/Purchase Invoice/
+	Delivery Note/Purchase Receipt/POS Invoice. Isso quebra a
+	devolucao de duas formas: (1) _should_generate_atcud() ve o campo
+	ja preenchido e nunca gera um codigo novo, (2)
+	_validate_atcud_uniqueness_certified() rejeita a insercao porque
+	esse ATCUD ja pertence ao documento original (ainda nao cancelado).
+	A Nota de Credito/devolucao tem de ter o seu proprio ATCUD e a sua
+	propria cadeia de assinatura RSA-SHA1, nunca herdar a do documento
+	que estorna.
+
+	So ha atcud_code para limpar aqui - a assinatura (hash, hash
+	control, versao da chave) nunca fica guardada como campo nestes
+	doctypes, so em ATCUD Log (decisao de arquitetura para evitar duas
+	fontes de verdade); nao ha nada equivalente para limpar quanto a
+	esse ponto.
+	"""
+	if getattr(doc, "is_return", 0) and doc.is_new():
+		doc.atcud_code = None
+
+
 def generate_atcud_before_save(doc, method=None):
 	"""Hook global para geração de ATCUD"""
 	return portugal_document_hooks.generate_atcud_before_save(doc, method)
