@@ -14,28 +14,34 @@ class SAFTGenerator:
 	def __init__(self):
 		self.template_path = os.path.join(
 			frappe.get_app_path("portugal_compliance"),
-			"templates", "saf_t"
+			"templates", "saft_t"
 		)
 		self.records_count = 0
 
-	def _get_line_tax_rate(self, item_tax_rate_json, tax_rows=None):
+	def _get_line_tax_rate(self, item_tax_template, invoice_tax_rate=None):
 		"""
-		Taxa de IVA efetiva da linha. O SAF-T exige o codigo/taxa REAL
-		de cada linha, nao um valor fixo - a versao anterior gerava
-		sempre TaxCode=NOR / TaxPercentage=23, o que reporta IVA errado
-		para qualquer produto a taxa reduzida, intermedia ou isenta.
+		Taxa de IVA efetiva da linha, com a MESMA logica usada no print
+		format (ver jinja_methods.get_item_effective_tax_rate): taxa do
+		Item Tax Template proprio do artigo quando definido (faturas de
+		taxa mista), senao a taxa do cabecalho da fatura.
+
+		A versao anterior lia o campo `item_tax_rate` (um JSON em cache
+		que o ERPNext mantem por linha) e usava sempre o primeiro valor
+		do dicionario - esse cache fica desatualizado quando o template
+		de imposto do artigo muda (o mesmo problema de "templates antigos"
+		ja identificado no print format), e foi isso que fez a FT2026N0005
+		reportar Isento (0%) no SAF-T para uma linha que a fatura real
+		mostra a 23%. Ir buscar a taxa ao Item Tax Template Detail (fonte
+		primaria) em vez do cache evita repetir o mesmo erro aqui.
 		"""
-		if item_tax_rate_json:
-			try:
-				rates = json.loads(item_tax_rate_json) if isinstance(item_tax_rate_json, str) else item_tax_rate_json
-				if rates:
-					return flt(list(rates.values())[0])
-			except (ValueError, TypeError):
-				pass
-		if tax_rows:
-			for row in tax_rows:
-				if row.get("rate"):
-					return flt(row["rate"])
+		if item_tax_template:
+			rate = frappe.db.get_value(
+				"Item Tax Template Detail", {"parent": item_tax_template}, "tax_rate"
+			)
+			if rate is not None:
+				return flt(rate)
+		if invoice_tax_rate is not None:
+			return flt(invoice_tax_rate)
 		return 23.0
 
 	def _get_line_tax_code(self, rate):
@@ -84,22 +90,56 @@ class SAFTGenerator:
 			frappe.log_error(f"Erro na geração SAF-T: {str(e)}")
 			raise
 
+	def _country_code(self, country_name):
+		"""
+		AddressStructure exige codigo ISO 3166-1 alpha-2, mas o ERPNext
+		guarda o nome completo do pais (ex: "Portugal") no campo
+		`country` da Address. O doctype Country do proprio Frappe ja tem
+		esse mapeamento (campo `code`) - so faltava usa-lo.
+		"""
+		if not country_name:
+			return "PT"
+		code = frappe.db.get_value("Country", country_name, "code")
+		return code.upper() if code else "PT"
+
+	def _get_company_address(self, company):
+		"""
+		Morada principal da empresa. Company nao tem um campo proprio -
+		a ligacao e feita via Dynamic Link (Address->Company), o mesmo
+		mecanismo generico usado para clientes/fornecedores.
+		"""
+		address_name = frappe.db.get_value(
+			"Dynamic Link",
+			{"link_doctype": "Company", "link_name": company, "parenttype": "Address"},
+			"parent",
+		)
+		return frappe.get_doc("Address", address_name) if address_name else None
+
 	def prepare_context(self, company_doc, from_date, to_date, export_type):
 		"""
-		Prepara contexto com todos os dados necessários para o template
+		Prepara contexto com todos os dados necessários para o template.
+
+		V1 (MVP de certificacao): estritamente o que o XSD 1.04_01 exige
+		como obrigatorio - ver auditoria de lacunas. GeneralLedgerAccounts,
+		MovementOfGoods e todos os campos so opcionais foram deixados de
+		fora desta passagem (ver decisoes documentadas nas notas abaixo).
 		"""
+		company_address = self._get_company_address(company_doc.name)
 		context = {
 			# Header information
 			"company": company_doc,
+			"company_address": company_address,
+			"company_address_country_code": self._country_code(company_address.country) if company_address else "PT",
 			"from_date": from_date,
 			"to_date": to_date,
-			"start_date": formatdate(from_date, "yyyy-MM-dd"),
-			"end_date": formatdate(to_date, "yyyy-MM-dd"),
 			"fiscal_year": from_date.year,
-			"generation_date": formatdate(now(), "yyyy-MM-dd"),
-			"generation_time": now(),
-			"certificate_number": company_doc.get("at_certificate_number", ""),
-			"export_type": export_type,
+			"creation_date": frappe.utils.now_datetime(),
+			"erpnext_version": frappe.__version__,
+			"tax_accounting_basis": "F",  # Faturacao (sem contabilidade integrada - ver GeneralLedgerEntries)
+			"tax_entity": "Global",
+			"software_certificate_number": frappe.db.get_single_value(
+				"Portugal Auth Settings", "software_certificate_number"
+			) or "0",
 
 			# Master files
 			"customers": self.get_customers_data(company_doc.name, from_date, to_date),
@@ -109,21 +149,7 @@ class SAFTGenerator:
 
 			# Source documents
 			"sales_invoices": self.get_sales_invoices_data(company_doc.name, from_date, to_date),
-			"purchase_invoices": self.get_purchase_invoices_data(company_doc.name, from_date,
-																 to_date),
 			"payments": self.get_payments_data(company_doc.name, from_date, to_date),
-
-			# Accounting data (if export_type includes accounting)
-			"chart_of_accounts": self.get_chart_of_accounts(company_doc.name) if export_type in [
-				"full", "accounting"] else [],
-			"journal_entries": self.get_journal_entries_data(company_doc.name, from_date,
-															 to_date) if export_type in ["full",
-																						 "accounting"] else [],
-
-			# Movement of goods (if export_type includes movement)
-			"stock_movements": self.get_stock_movements_data(company_doc.name, from_date,
-															 to_date) if export_type in ["full",
-																						 "movement"] else []
 		}
 
 		return context
@@ -137,35 +163,34 @@ class SAFTGenerator:
 												  c.customer_name,
 												  c.tax_id,
 												  c.customer_type,
+												  pa.account AS default_receivable_account,
 												  a.address_line1,
 												  a.address_line2,
 												  a.city,
 												  a.pincode,
-												  a.country,
-												  con.email_id,
-												  con.phone
+												  a.country
 								  FROM `tabCustomer` c
-										   LEFT JOIN `tabDynamic Link` dl
-													 ON dl.link_name = c.name AND dl.link_doctype = 'Customer'
 										   LEFT JOIN `tabAddress` a
-													 ON a.name = dl.parent AND dl.parenttype = 'Address'
-										   LEFT JOIN `tabContact` con ON con.name = (SELECT parent
-																					 FROM `tabDynamic Link`
-																					 WHERE link_name = c.name
-																					   AND link_doctype = 'Customer'
-																					   AND parenttype = 'Contact'
-									  LIMIT 1
-									  )
+													 ON a.name = (
+														 SELECT dl.parent FROM `tabDynamic Link` dl
+														 WHERE dl.link_name = c.name AND dl.link_doctype = 'Customer'
+														   AND dl.parenttype = 'Address'
+														 ORDER BY dl.parent LIMIT 1
+													 )
+									   LEFT JOIN `tabParty Account` pa
+										 ON pa.parent = c.name AND pa.parenttype = 'Customer' AND pa.company = %s
 								  WHERE EXISTS (
 									  SELECT 1 FROM `tabSales Invoice` si
 									  WHERE si.customer = c.name
-									AND si.company = %s
-									AND si.posting_date BETWEEN %s
-									AND %s
-									AND si.docstatus = 1
-									  )
+										AND si.company = %s
+										AND si.posting_date BETWEEN %s AND %s
+										AND si.docstatus = 1
+								  )
 								  ORDER BY c.name
-								  """, (company, from_date, to_date), as_dict=True)
+								  """, (company, company, from_date, to_date), as_dict=True)
+
+		for row in customers:
+			row["country_code"] = self._country_code(row.country)
 
 		return customers
 
@@ -178,35 +203,34 @@ class SAFTGenerator:
 												  s.supplier_name,
 												  s.tax_id,
 												  s.supplier_type,
+												  pa.account AS default_payable_account,
 												  a.address_line1,
 												  a.address_line2,
 												  a.city,
 												  a.pincode,
-												  a.country,
-												  con.email_id,
-												  con.phone
+												  a.country
 								  FROM `tabSupplier` s
-										   LEFT JOIN `tabDynamic Link` dl
-													 ON dl.link_name = s.name AND dl.link_doctype = 'Supplier'
 										   LEFT JOIN `tabAddress` a
-													 ON a.name = dl.parent AND dl.parenttype = 'Address'
-										   LEFT JOIN `tabContact` con ON con.name = (SELECT parent
-																					 FROM `tabDynamic Link`
-																					 WHERE link_name = s.name
-																					   AND link_doctype = 'Supplier'
-																					   AND parenttype = 'Contact'
-									  LIMIT 1
-									  )
+													 ON a.name = (
+														 SELECT dl.parent FROM `tabDynamic Link` dl
+														 WHERE dl.link_name = s.name AND dl.link_doctype = 'Supplier'
+														   AND dl.parenttype = 'Address'
+														 ORDER BY dl.parent LIMIT 1
+													 )
+									   LEFT JOIN `tabParty Account` pa
+										 ON pa.parent = s.name AND pa.parenttype = 'Supplier' AND pa.company = %s
 								  WHERE EXISTS (
 									  SELECT 1 FROM `tabPurchase Invoice` pi
 									  WHERE pi.supplier = s.name
-									AND pi.company = %s
-									AND pi.posting_date BETWEEN %s
-									AND %s
-									AND pi.docstatus = 1
-									  )
+										AND pi.company = %s
+										AND pi.posting_date BETWEEN %s AND %s
+										AND pi.docstatus = 1
+								  )
 								  ORDER BY s.name
-								  """, (company, from_date, to_date), as_dict=True)
+								  """, (company, company, from_date, to_date), as_dict=True)
+
+		for row in suppliers:
+			row["country_code"] = self._country_code(row.country)
 
 		return suppliers
 
@@ -218,11 +242,8 @@ class SAFTGenerator:
 								 SELECT DISTINCT i.name,
 												 i.item_name,
 												 i.item_code,
-												 i.description,
 												 i.item_group,
-												 i.stock_uom,
-												 i.is_stock_item,
-												 i.has_variants
+												 i.is_stock_item
 								 FROM `tabItem` i
 								 WHERE EXISTS (SELECT 1
 											   FROM `tabSales Invoice Item` sii
@@ -231,25 +252,18 @@ class SAFTGenerator:
 												 AND si.company = %s
 												 AND si.posting_date BETWEEN %s AND %s
 												 AND si.docstatus = 1)
-									OR EXISTS (SELECT 1
-											   FROM `tabPurchase Invoice Item` pii
-														INNER JOIN `tabPurchase Invoice` pi ON pi.name = pii.parent
-											   WHERE pii.item_code = i.item_code
-												 AND pi.company = %s
-												 AND pi.posting_date BETWEEN %s AND %s
-												 AND pi.docstatus = 1)
 								 ORDER BY i.item_code
-								 """, (company, from_date, to_date, company, from_date, to_date),
-								 as_dict=True)
+								 """, (company, from_date, to_date), as_dict=True)
 
 		return products
 
 	def get_tax_table_data(self, company):
 		"""
-		Obtém tabela de impostos
+		Obtém tabela de impostos - com TaxCode real (RED/INT/NOR/ISE),
+		nao o nome livre da conta contabilistica.
 		"""
 		tax_rates = frappe.db.sql("""
-								  SELECT DISTINCT at.account_head, at.rate, at.description
+								  SELECT DISTINCT at.rate, at.description
 								  FROM `tabAccount` a
 										   INNER JOIN `tabSales Taxes and Charges` at
 								  ON at.account_head = a.name
@@ -259,244 +273,163 @@ class SAFTGenerator:
 								  ORDER BY at.rate
 								  """, (company,), as_dict=True)
 
+		for row in tax_rates:
+			row["tax_code"] = self._get_line_tax_code(flt(row["rate"]))
+
 		return tax_rates
+
+	def _get_signatures_by_invoice(self, invoice_names):
+		"""
+		Assinaturas RSA-SHA1 reais (ver utils/signature.py), ja geradas
+		no submit de cada fatura e guardadas em ATCUD Log. O SAF-T so
+		liga a este dado - a assinatura em si nao e gerada aqui.
+		"""
+		if not invoice_names:
+			return {}
+		rows = frappe.db.sql("""
+							 SELECT document_name, signature_hash, sequence_number
+							 FROM `tabATCUD Log`
+							 WHERE document_type = 'Sales Invoice'
+							   AND document_name IN %(names)s
+							 """, {"names": invoice_names}, as_dict=True)
+		return {r.document_name: r for r in rows}
+
+	def _format_invoice_no(self, invoice_name, sequence_number):
+		"""
+		Formato "PREFIXO SERIE/NUMERO" (ex: "FT FT2026N/5") exigido pelo
+		XSD para InvoiceNo - confirmado no gerador SAF-T do modulo
+		Dolibarr de referencia (formatSaftDocNumber), ja validado contra
+		rejeicoes reais da AT. sequence_number vem do ATCUD Log (fonte
+		fiavel); se nao existir (fatura sem ATCUD), cai no fallback de
+		extrair os digitos finais do proprio nome do documento.
+		"""
+		import re
+		if sequence_number is None:
+			match = re.match(r"^(.*?)(\d+)$", invoice_name)
+			series_prefix, sequence_number = (match.groups() if match else (invoice_name, 0))
+			sequence_number = int(sequence_number)
+		else:
+			suffix = str(sequence_number).zfill(4)
+			series_prefix = invoice_name[:-len(suffix)] if invoice_name.endswith(suffix) else invoice_name
+		return f"FT {series_prefix}/{sequence_number}"
 
 	def get_sales_invoices_data(self, company, from_date, to_date):
 		"""
-		Obtém dados das faturas de venda
+		Obtém dados das faturas de venda. Devolve uma lista achatada de
+		objetos por fatura (cada um com `.items`), no formato que os
+		templates Jinja esperam diretamente - a versao anterior embrulhava
+		tudo num nivel 'header' que nao corresponde ao que source_documents.xml
+		le (invoice.name, invoice.posting_date, etc. direto no objeto).
 		"""
-		invoices = frappe.db.sql("""
-								 SELECT si.name,
-										si.customer,
-										si.posting_date,
-										si.due_date,
-										si.total,
-										si.grand_total,
-										si.outstanding_amount,
-										si.currency,
-										si.conversion_rate,
-										si.status,
-										si.atcud_code,
-										si.portugal_series,
-										sii.item_code,
-										sii.item_name,
-										sii.qty,
-										sii.rate,
-										sii.amount,
-										sii.base_amount,
-										sii.item_tax_rate
-								 FROM `tabSales Invoice` si
-										  INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
-								 WHERE si.company = %s
-								   AND si.posting_date BETWEEN %s AND %s
-								   AND si.docstatus = 1
-								 ORDER BY si.posting_date, si.name
-								 """, (company, from_date, to_date), as_dict=True)
+		rows = frappe.db.sql("""
+							 SELECT si.name,
+									si.customer,
+									si.posting_date,
+									si.due_date,
+									si.creation,
+									si.net_total,
+									si.total_taxes_and_charges,
+									si.grand_total,
+									si.currency,
+									si.conversion_rate,
+									si.docstatus,
+									si.owner,
+									si.atcud_code,
+									sii.item_code,
+									sii.item_name,
+									sii.description,
+									sii.qty,
+									sii.uom,
+									sii.rate,
+									sii.amount,
+									sii.item_tax_template,
+									sii.at_exemption_reason
+							 FROM `tabSales Invoice` si
+									  INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+							 WHERE si.company = %s
+							   AND si.posting_date BETWEEN %s AND %s
+							   AND si.docstatus = 1
+							 ORDER BY si.posting_date, si.name
+							 """, (company, from_date, to_date), as_dict=True)
 
-		# Agrupar itens por fatura
-		grouped_invoices = {}
-		for invoice in invoices:
-			invoice_id = invoice.name
-			if invoice_id not in grouped_invoices:
-				grouped_invoices[invoice_id] = {
-					'header': {
-						'name': invoice.name,
-						'customer': invoice.customer,
-						'posting_date': invoice.posting_date,
-						'due_date': invoice.due_date,
-						'total': invoice.total,
-						'grand_total': invoice.grand_total,
-						'outstanding_amount': invoice.outstanding_amount,
-						'currency': invoice.currency,
-						'conversion_rate': invoice.conversion_rate,
-						'status': invoice.status,
-						'atcud_code': invoice.atcud_code,
-						'portugal_series': invoice.portugal_series
-					},
-					'items': []
-				}
+		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}))
+		invoice_names = list({r.name for r in rows})
+		fallback_rates = {}
+		if invoice_names:
+			for t in frappe.db.sql("""
+									SELECT parent, rate FROM `tabSales Taxes and Charges`
+									WHERE parent IN %(names)s AND rate > 0
+									ORDER BY idx
+									""", {"names": invoice_names}, as_dict=True):
+				fallback_rates.setdefault(t.parent, t.rate)
 
-			tax_rate = self._get_line_tax_rate(invoice.item_tax_rate)
-			grouped_invoices[invoice_id]['items'].append({
-				'item_code': invoice.item_code,
-				'item_name': invoice.item_name,
-				'qty': invoice.qty,
-				'rate': invoice.rate,
-				'amount': invoice.amount,
-				'base_amount': invoice.base_amount,
-				'tax_percentage': tax_rate,
-				'tax_code': self._get_line_tax_code(tax_rate),
-				'tax_amount': flt(invoice.amount) * tax_rate / 100,
-			})
+		invoices = {}
+		for row in rows:
+			if row.name not in invoices:
+				sig = signatures.get(row.name)
+				invoice = frappe._dict(row.copy())
+				invoice["signature_hash"] = sig.signature_hash if (sig and sig.signature_hash) else "0"
+				invoice["hash_control"] = "1" if (sig and sig.signature_hash) else "0"
+				invoice["invoice_no"] = self._format_invoice_no(
+					row.name, sig.sequence_number if sig else None
+				)
+				invoice["lines"] = []
+				invoices[row.name] = invoice
 
-		self.records_count += len(grouped_invoices)
-		return list(grouped_invoices.values())
+			tax_rate = self._get_line_tax_rate(row.item_tax_template, fallback_rates.get(row.name))
+			exemption_reason = ""
+			if tax_rate <= 0 and row.at_exemption_reason:
+				exemption_reason = frappe.db.get_value(
+					"AT Tax Exemption", row.at_exemption_reason, "description"
+				) or row.at_exemption_reason
+			invoices[row.name]["lines"].append(frappe._dict({
+				"item_code": row.item_code,
+				"item_name": row.item_name,
+				"description": row.description,
+				"qty": row.qty,
+				"uom": row.uom,
+				"rate": row.rate,
+				"amount": row.amount,
+				"tax_percentage": tax_rate,
+				"tax_code": self._get_line_tax_code(tax_rate),
+				"tax_amount": flt(row.amount) * tax_rate / 100,
+				"tax_exemption_code": row.at_exemption_reason or "",
+				"tax_exemption_reason": exemption_reason,
+			}))
 
-	def get_purchase_invoices_data(self, company, from_date, to_date):
-		"""
-		Obtém dados das faturas de compra
-		"""
-		invoices = frappe.db.sql("""
-								 SELECT pi.name,
-										pi.supplier,
-										pi.posting_date,
-										pi.due_date,
-										pi.total,
-										pi.grand_total,
-										pi.outstanding_amount,
-										pi.currency,
-										pi.conversion_rate,
-										pi.status,
-										pi.atcud_code,
-										pi.portugal_series,
-										pii.item_code,
-										pii.item_name,
-										pii.qty,
-										pii.rate,
-										pii.amount,
-										pii.base_amount,
-										pii.item_tax_rate
-								 FROM `tabPurchase Invoice` pi
-										  INNER JOIN `tabPurchase Invoice Item` pii ON pii.parent = pi.name
-								 WHERE pi.company = %s
-								   AND pi.posting_date BETWEEN %s AND %s
-								   AND pi.docstatus = 1
-								 ORDER BY pi.posting_date, pi.name
-								 """, (company, from_date, to_date), as_dict=True)
-
-		# Agrupar itens por fatura
-		grouped_invoices = {}
-		for invoice in invoices:
-			invoice_id = invoice.name
-			if invoice_id not in grouped_invoices:
-				grouped_invoices[invoice_id] = {
-					'header': {
-						'name': invoice.name,
-						'supplier': invoice.supplier,
-						'posting_date': invoice.posting_date,
-						'due_date': invoice.due_date,
-						'total': invoice.total,
-						'grand_total': invoice.grand_total,
-						'outstanding_amount': invoice.outstanding_amount,
-						'currency': invoice.currency,
-						'conversion_rate': invoice.conversion_rate,
-						'status': invoice.status,
-						'atcud_code': invoice.atcud_code,
-						'portugal_series': invoice.portugal_series
-					},
-					'items': []
-				}
-
-			tax_rate = self._get_line_tax_rate(invoice.item_tax_rate)
-			grouped_invoices[invoice_id]['items'].append({
-				'item_code': invoice.item_code,
-				'item_name': invoice.item_name,
-				'qty': invoice.qty,
-				'rate': invoice.rate,
-				'amount': invoice.amount,
-				'base_amount': invoice.base_amount,
-				'tax_percentage': tax_rate,
-				'tax_code': self._get_line_tax_code(tax_rate),
-				'tax_amount': flt(invoice.amount) * tax_rate / 100,
-			})
-
-		self.records_count += len(grouped_invoices)
-		return list(grouped_invoices.values())
+		self.records_count += len(invoices)
+		return list(invoices.values())
 
 	def get_payments_data(self, company, from_date, to_date):
 		"""
-		Obtém dados dos pagamentos
+		Obtém dados dos pagamentos, incluindo as linhas de referencia a
+		documentos de origem (Payment Entry Reference) que o SAF-T exige
+		por linha - a versao anterior so lia o cabecalho do Payment Entry
+		e nunca carregava as referencias.
 		"""
-		payments = frappe.db.sql("""
-								 SELECT pe.name,
-										pe.payment_type,
-										pe.party_type,
-										pe.party,
-										pe.posting_date,
-										pe.paid_amount,
-										pe.received_amount,
-										pe.reference_no,
-										pe.reference_date,
-										pe.mode_of_payment,
-										pe.atcud_code,
-										pe.portugal_series
-								 FROM `tabPayment Entry` pe
-								 WHERE pe.company = %s
-								   AND pe.posting_date BETWEEN %s AND %s
-								   AND pe.docstatus = 1
-								 ORDER BY pe.posting_date, pe.name
-								 """, (company, from_date, to_date), as_dict=True)
+		names = frappe.db.sql_list("""
+								   SELECT name FROM `tabPayment Entry`
+								   WHERE company = %s AND posting_date BETWEEN %s AND %s
+									 AND docstatus = 1
+								   ORDER BY posting_date, name
+								   """, (company, from_date, to_date))
+
+		payments = []
+		for name in names:
+			pe = frappe.get_doc("Payment Entry", name)
+			pe.saft_references = []
+			for ref in pe.references:
+				invoice_date = frappe.db.get_value(ref.reference_doctype, ref.reference_name, "posting_date") \
+					if ref.reference_doctype and ref.reference_name else None
+				pe.saft_references.append(frappe._dict({
+					"reference_name": ref.reference_name,
+					"allocated_amount": ref.allocated_amount,
+					"invoice_date": invoice_date or pe.posting_date,
+				}))
+			payments.append(pe)
 
 		self.records_count += len(payments)
 		return payments
-
-	def get_chart_of_accounts(self, company):
-		"""
-		Obtém plano de contas
-		"""
-		accounts = frappe.db.sql("""
-								 SELECT name,
-										account_name,
-										account_number,
-										account_type,
-										parent_account,
-										is_group,
-										account_currency
-								 FROM `tabAccount`
-								 WHERE company = %s
-								 ORDER BY account_number, name
-								 """, (company,), as_dict=True)
-
-		return accounts
-
-	def get_journal_entries_data(self, company, from_date, to_date):
-		"""
-		Obtém lançamentos contabilísticos
-		"""
-		journal_entries = frappe.db.sql("""
-										SELECT je.name,
-											   je.posting_date,
-											   je.voucher_type,
-											   je.user_remark,
-											   jea.account,
-											   jea.debit_in_account_currency,
-											   jea.credit_in_account_currency,
-											   jea.against_account,
-											   jea.reference_type,
-											   jea.reference_name
-										FROM `tabJournal Entry` je
-												 INNER JOIN `tabJournal Entry Account` jea ON jea.parent = je.name
-										WHERE je.company = %s
-										  AND je.posting_date BETWEEN %s AND %s
-										  AND je.docstatus = 1
-										ORDER BY je.posting_date, je.name
-										""", (company, from_date, to_date), as_dict=True)
-
-		return journal_entries
-
-	def get_stock_movements_data(self, company, from_date, to_date):
-		"""
-		Obtém movimentos de stock
-		"""
-		stock_movements = frappe.db.sql("""
-										SELECT sle.item_code,
-											   sle.warehouse,
-											   sle.posting_date,
-											   sle.posting_time,
-											   sle.voucher_type,
-											   sle.voucher_no,
-											   sle.actual_qty,
-											   sle.qty_after_transaction,
-											   sle.valuation_rate,
-											   sle.stock_value_difference
-										FROM `tabStock Ledger Entry` sle
-										WHERE sle.company = %s
-										  AND sle.posting_date BETWEEN %s AND %s
-										  AND sle.is_cancelled = 0
-										ORDER BY sle.posting_date, sle.posting_time, sle.name
-										""", (company, from_date, to_date), as_dict=True)
-
-		return stock_movements
 
 	def render_template(self, context):
 		"""

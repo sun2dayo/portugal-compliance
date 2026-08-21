@@ -28,8 +28,14 @@ def execute():
 			return
 
 		# Executar tarefas mensais
+		# NOTA: a geracao mensal automatica de SAF-T foi removida daqui (ver
+		# generate_monthly_saft/generate_company_monthly_saft, eliminadas) -
+		# eram uma simulacao que criava um "SAF-T Export Log" com
+		# status=Completed sem gerar nenhum ficheiro real, o que induzia o
+		# administrador em erro. A geracao real (utils/saft_generator.py,
+		# agora funcional) continua disponivel sob pedido via botao/API -
+		# ver portugal_compliance.api.saft_api.generate_saft_export.
 		generate_monthly_compliance_report()
-		generate_monthly_saft()
 		analyze_monthly_trends()
 		perform_monthly_maintenance()
 		review_series_performance()
@@ -907,63 +913,6 @@ def generate_monthly_recommendations(start_date, end_date):
 	except Exception as e:
 		frappe.log_error(f"Error generating monthly recommendations: {str(e)}")
 		return []
-
-
-def generate_monthly_saft():
-	"""
-	Gera SAF-T mensal
-	"""
-	try:
-		frappe.logger().info("Generating monthly SAF-T")
-
-		# Mês anterior
-		today_date = today()
-		last_month_end = get_first_day(today_date) - timedelta(days=1)
-		last_month_start = get_first_day(last_month_end)
-
-		# Obter empresas com compliance ativo
-		companies = frappe.db.get_all("Company",
-									  filters={"portugal_compliance_enabled": 1},
-									  fields=["name", "company_name"]
-									  )
-
-		for company in companies:
-			try:
-				# Gerar SAF-T para cada empresa
-				generate_company_monthly_saft(company.name, last_month_start, last_month_end)
-
-			except Exception as e:
-				frappe.log_error(
-					f"Error generating monthly SAF-T for company {company.name}: {str(e)}")
-
-		frappe.logger().info("Monthly SAF-T generation completed")
-
-	except Exception as e:
-		frappe.log_error(f"Error in monthly SAF-T generation: {str(e)}")
-
-
-def generate_company_monthly_saft(company, start_date, end_date):
-	"""
-	Gera SAF-T mensal para uma empresa específica
-	"""
-	try:
-		# Simular geração de SAF-T (implementar com SAFTGenerator real)
-		frappe.logger().info(f"Generating monthly SAF-T for {company}")
-
-		# Criar registo de export
-		export_log = frappe.get_doc({
-			"doctype": "SAF-T Export Log",
-			"company": company,
-			"export_type": "Monthly",
-			"period_start": start_date,
-			"period_end": end_date,
-			"status": "Completed",
-			"export_date": now()
-		})
-		export_log.insert(ignore_permissions=True)
-
-	except Exception as e:
-		frappe.log_error(f"Error generating company monthly SAF-T for {company}: {str(e)}")
 
 
 def analyze_monthly_trends():
