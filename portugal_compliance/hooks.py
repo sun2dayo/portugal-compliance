@@ -258,6 +258,8 @@ jinja = {
 		# ✅ MÉTODOS ATCUD
 		"portugal_compliance.utils.jinja_methods.get_atcud_code",
 		"portugal_compliance.utils.jinja_methods.format_atcud_display",
+		"portugal_compliance.utils.jinja_methods.get_signature_hash_control",
+		"portugal_compliance.utils.jinja_methods.get_document_title",
 
 		# ✅ MÉTODOS NAMING_SERIES
 		"portugal_compliance.utils.jinja_methods.get_naming_series",

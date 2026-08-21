@@ -35,6 +35,50 @@ def get_atcud_code(doc):
 		return ""
 
 
+def get_signature_hash_control(doc):
+	"""
+	4 caracteres de controlo da assinatura RSA-SHA1 real do documento
+	(posições 1/11/21/31 - ver utils/signature.py), tal como gravados
+	em ATCUD Log no momento do submit. Usar sempre esta função para o
+	campo Q do QR Code e para a impressão da "Assinatura" no rodapé -
+	nunca recalcular um hash ad-hoc aqui, isso desliga o valor impresso
+	da assinatura criptográfica real do documento.
+	"""
+	try:
+		return frappe.db.get_value(
+			"ATCUD Log",
+			{"document_type": doc.doctype, "document_name": doc.name, "generation_status": "Success"},
+			"signature_hash_control",
+		) or ""
+	except Exception:
+		return ""
+
+
+def get_document_title(doc):
+	"""
+	Título legal exato do documento (distinto de
+	get_document_type_description, que só mapeia doctype -> nome
+	genérico). Varia com o estado do documento:
+	  - Sales Invoice com is_return: "Nota de Crédito"
+	  - Sales Invoice já totalmente paga no momento da emissão
+	    (outstanding_amount <= 0): "Fatura-Recibo"
+	  - Sales Invoice normal: "Fatura"
+	  - Delivery Note: "Guia de Transporte"
+	"""
+	try:
+		if doc.doctype == "Sales Invoice":
+			if cint(getattr(doc, "is_return", 0)):
+				return "Nota de Crédito"
+			if flt(getattr(doc, "grand_total", 0)) > 0 and flt(getattr(doc, "outstanding_amount", 0)) <= 0:
+				return "Fatura-Recibo"
+			return "Fatura"
+		if doc.doctype == "Delivery Note":
+			return "Guia de Transporte"
+		return get_document_type_description(doc.doctype)
+	except Exception:
+		return get_document_type_description(doc.doctype)
+
+
 def format_atcud_display(atcud_code):
 	"""
 	✅ CORRIGIDO: Formatar ATCUD para exibição conforme Portaria 195/2020
@@ -958,9 +1002,13 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 			"N": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",  # Total do documento
 			"O": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",  # Total com impostos
 			"P": "0",  # Retenção na fonte
-			"Q": hashlib.sha1(
-				f"{getattr(doc, 'name', '')}{get_atcud_code(doc)}".encode()).hexdigest()[
-				 :4].upper(),  # Hash de validação
+			# Q: 4 caracteres de controlo da assinatura RSA-SHA1 REAL do
+			# documento (ver utils/signature.py / ATCUD Log). A versão
+			# anterior calculava aqui um SHA1 de doc.name+ATCUD sem
+			# qualquer ligação à assinatura criptográfica real - o
+			# valor impresso no QR Code nunca correspondia à
+			# assinatura efetivamente gerada no submit.
+			"Q": get_signature_hash_control(doc) or "0",
 			"R": get_series_prefix(doc)  # Identificador da série
 		}
 
