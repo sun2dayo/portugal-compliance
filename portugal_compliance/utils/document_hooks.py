@@ -364,6 +364,13 @@ class PortugalComplianceDocumentHooks:
 				})
 				property_setter.insert(ignore_permissions=True)
 
+			# Sem isto, processos ja em execucao (workers/gunicorn) mantem
+			# a meta antiga em cache - o Select de naming_series ficaria a
+			# oferecer/defaultar para as opcoes anteriores ate um restart
+			# manual, o que ja causou um problema real (fatura normal
+			# criada na serie NC por engano, com cache desatualizada).
+			frappe.clear_cache(doctype=doctype)
+
 			return True
 		except Exception as e:
 			frappe.log_error(f"Erro ao configurar Property Setter para {doctype}: {str(e)}")
@@ -650,8 +657,17 @@ class PortugalComplianceDocumentHooks:
 		"""
 		Validacao de Portugal Series Configuration: prefixo obrigatorio
 		e sem duplicar outra serie ativa da mesma empresa/tipo de
-		documento (duas series ativas para o mesmo tipo confundem qual
-		usar e arriscam ATCUDs inconsistentes).
+		documento/CODIGO (duas series ativas com o mesmo document_code
+		confundem qual usar e arriscam ATCUDs inconsistentes).
+
+		A restricao original comparava so empresa+document_type, o que
+		impedia estruturalmente a existencia de series dedicadas de
+		devolucao (NC para Sales Invoice, ver
+		api.company_api.RETURN_DOCUMENT_SERIES) - FT e NC sao o MESMO
+		document_type (Sales Invoice) mas tem de poder estar ambas
+		ativas em simultaneo, distinguidas pelo document_code. A
+		unicidade real que importa e (empresa, document_type,
+		document_code) - nao document_type sozinho.
 		"""
 		try:
 			if not getattr(doc, 'prefix', None):
@@ -663,6 +679,7 @@ class PortugalComplianceDocumentHooks:
 					{
 						"company": doc.company,
 						"document_type": doc.document_type,
+						"document_code": getattr(doc, 'document_code', None),
 						"is_active": 1,
 						"name": ("!=", doc.name or ""),
 					},
@@ -670,9 +687,9 @@ class PortugalComplianceDocumentHooks:
 				if duplicate:
 					frappe.throw(
 						_(
-							"Já existe uma série ativa para {0} na empresa {1} ({2}). "
+							"Já existe uma série ativa para {0} ({1}) na empresa {2} ({3}). "
 							"Desative-a antes de ativar esta."
-						).format(doc.document_type, doc.company, duplicate)
+						).format(doc.document_type, getattr(doc, 'document_code', ''), doc.company, duplicate)
 					)
 		except frappe.ValidationError:
 			raise
@@ -714,8 +731,26 @@ class PortugalComplianceDocumentHooks:
 			return False
 
 	def _auto_select_communicated_series(self, doc):
-		"""✅ OTIMIZADO: Auto-selecionar série comunicada"""
+		"""
+		✅ OTIMIZADO: Auto-selecionar série comunicada
+
+		Exclui series dedicadas a devolucoes (ver
+		api.company_api.RETURN_DOCUMENT_SERIES, ex: NC para Sales
+		Invoice) quando o documento NAO e uma devolucao - sem isto, com
+		as series FT e NC ambas ativas/comunicadas para o mesmo
+		document_type, este limit=1 sem ORDER BY podia devolver
+		qualquer uma das duas e atribuir uma fatura normal a serie de
+		Nota de Credito. reset_fiscal_fields_on_return_clone (hook
+		before_insert) ja trata do caso inverso (devolucao -> serie
+		NC), correndo antes desta funcao - para devolucoes,
+		doc.naming_series ja vem preenchido e esta funcao nem chega a
+		ser chamada.
+		"""
 		try:
+			from portugal_compliance.api.company_api import RETURN_DOCUMENT_SERIES
+			return_code = RETURN_DOCUMENT_SERIES.get(doc.doctype, {}).get("code")
+			exclude_return_series = bool(return_code) and not getattr(doc, "is_return", 0)
+
 			# Prioridade: Comunicada > Ativa
 			for filters in [
 				{"is_communicated": 1, "validation_code": ["!=", ""]},
@@ -725,10 +760,13 @@ class PortugalComplianceDocumentHooks:
 					"document_type": doc.doctype,
 					"company": doc.company
 				})
+				if exclude_return_series:
+					filters["document_code"] = ["!=", return_code]
 
 				series = frappe.get_all("Portugal Series Configuration",
 										filters=filters,
 										fields=["prefix"],
+										order_by="creation asc",
 										limit=1)
 
 				if series:
@@ -1082,6 +1120,34 @@ def reset_fiscal_fields_on_return_clone(doc, method=None):
 	"""
 	if getattr(doc, "is_return", 0) and doc.is_new():
 		doc.atcud_code = None
+
+		# Encaminhamento para a serie dedicada de devolucoes (NC), em
+		# vez de continuar a consumir a serie normal (FT/naming_series
+		# clonado do documento original) - exigido pela Ordem dos
+		# Contabilistas, mesmo que a AT tecnicamente aceite series
+		# partilhadas desde que a sequencia nao quebre. A serie tem de
+		# ja estar aprovisionada E comunicada a AT antes disto (ver
+		# api.company_api.ensure_return_series_for_company, chamada no
+		# setup da empresa) - nunca criada/forcada aqui, isso emitiria
+		# um documento numa serie ilegal (nao comunicada).
+		from portugal_compliance.api.company_api import RETURN_DOCUMENT_SERIES
+		if doc.doctype in RETURN_DOCUMENT_SERIES:
+			return_code = RETURN_DOCUMENT_SERIES[doc.doctype]["code"]
+			return_series = frappe.db.get_value(
+				"Portugal Series Configuration",
+				{
+					"company": doc.company,
+					"document_type": doc.doctype,
+					"document_code": return_code,
+					"is_active": 1,
+				},
+				"naming_series",
+			)
+			if not return_series:
+				frappe.throw(_(
+					"Não existe uma série de Nota de Crédito (NC) configurada para {0}. ""Contacte o administrador para aprovisionar e comunicar a série à AT antes de emitir devoluções (ver Portugal Series Configuration)."""
+				).format(doc.company))
+			doc.naming_series = return_series
 
 
 def generate_atcud_before_save(doc, method=None):

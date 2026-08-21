@@ -42,10 +42,114 @@ def setup_all_series_for_company(company):
 	"""
 	try:
 		company_doc = frappe.get_doc("Company", company)
-		return portugal_document_hooks._create_dynamic_portugal_series_certified(company_doc)
+		result = portugal_document_hooks._create_dynamic_portugal_series_certified(company_doc)
+		# Serie(s) dedicada(s) a devolucoes (Nota de Credito, NC) - tem
+		# de ser aprovisionada e comunicada a AT ja aqui, no setup, nunca
+		# criada/forcada na hora de emitir uma devolucao (ver
+		# reset_fiscal_fields_on_return_clone em utils/document_hooks.py,
+		# que so ENCAMINHA para esta serie, nunca a cria).
+		for doctype in RETURN_DOCUMENT_SERIES:
+			ensure_return_series_for_company(company, doctype)
+		return result
 	except Exception as e:
 		frappe.log_error(f"Erro ao criar séries para {company}: {str(e)}", "Company API Series Setup")
 		return {"success": False, "error": str(e)}
+
+
+# Doctypes cujas devolucoes (is_return=1) tem de usar uma serie AT
+# propria, distinta da serie normal - exigencia da Ordem dos
+# Contabilistas (a AT tecnicamente aceita series partilhadas desde
+# que a sequencia nao quebre, mas misturar FT/NC gera entropia na
+# auditoria). Extensivel a Purchase Invoice (ND, Nota de Debito) se
+# vier a ser necessario - nao implementado agora porque nao foi pedido.
+RETURN_DOCUMENT_SERIES = {
+	"Sales Invoice": {"code": "NC", "name": "Nota de Crédito"},
+}
+
+
+def ensure_return_series_for_company(company, doctype="Sales Invoice"):
+	"""
+	Aprovisiona (se ainda nao existir) e comunica a AT a serie dedicada
+	de devolucoes para o doctype indicado - PRE-REQUISITO legal
+	(Portaria 195/2020) antes de qualquer documento poder ser emitido
+	nessa serie: todas as series tem de ser comunicadas e obter o
+	codigo de validacao da AT antes de gerar ATCUDs reais. Idempotente
+	- seguro chamar em cada setup/ativacao de empresa.
+
+	Comunicacao com a AT e best-effort: se falhar aqui (rede em baixo,
+	etc), a serie fica criada mas is_communicated=0 - a tarefa horaria
+	ja existente (tasks.hourly.try_series_communication, via
+	process_failed_communications) reprocessa qualquer serie ativa
+	nao comunicada automaticamente, sem necessidade de logica de
+	retry propria aqui.
+	"""
+	return_info = RETURN_DOCUMENT_SERIES.get(doctype)
+	if not return_info:
+		return None
+
+	company_doc = frappe.get_doc("Company", company)
+	company_abbr = company_doc.abbr or company[:3].upper()
+	current_year = datetime.now().year
+	code = return_info["code"]
+	prefix = f"{code}{current_year}{company_abbr}"
+
+	series_name = frappe.db.get_value(
+		"Portugal Series Configuration",
+		{"company": company, "document_type": doctype, "document_code": code},
+		"name",
+	)
+
+	if not series_name:
+		series_doc = frappe.new_doc("Portugal Series Configuration")
+		series_doc.update({
+			"series_name": f"{return_info['name']} - {prefix}",
+			"company": company,
+			"document_type": doctype,
+			"prefix": prefix,
+			"naming_series": f"{prefix}.####",
+			"current_sequence": 1,
+			"is_active": 1,
+			"is_communicated": 0,
+			"document_code": code,
+			"year_code": str(current_year),
+			"company_code": company_abbr,
+		})
+		series_doc.insert(ignore_permissions=True)
+		frappe.db.commit()
+		series_name = series_doc.name
+		frappe.logger().info(f"Série de devolução criada: {series_name} ({prefix})")
+
+		# Regenerar o Property Setter do dropdown naming_series - sem
+		# isto, a serie NC recem-criada nao aparece nas opcoes ate a
+		# proxima vez que ISSO for regenerado por outro motivo, ou pode
+		# ficar numa ordem que a torna o valor por omissao para
+		# documentos NORMAIS (ja aconteceu: uma fatura de teste foi
+		# criada na serie NC por a ordem das opcoes nao ter sido
+		# recalculada corretamente). _update_property_setter_for_doctype
+		# ordena sempre a serie normal (mais antiga/mais comunicada)
+		# primeiro - ver docstring dessa funcao.
+		portugal_document_hooks._update_property_setter_for_doctype(doctype, company_abbr)
+
+	try:
+		series_doc = frappe.get_doc("Portugal Series Configuration", series_name)
+		if not series_doc.is_communicated:
+			from portugal_compliance.utils.at_webservice import ATWebserviceClient
+			client = ATWebserviceClient()
+			result = client.register_naming_series(series_doc.naming_series, company)
+			if result.get("success"):
+				series_doc.is_communicated = 1
+				series_doc.communication_date = frappe.utils.now()
+				series_doc.validation_code = result.get("validation_code")
+				series_doc.communication_response = json.dumps(result.get("raw_response"), ensure_ascii=False, default=str)
+				series_doc.flags.ignore_validate = True
+				series_doc.save(ignore_permissions=True)
+				frappe.db.commit()
+			else:
+				frappe.log_error(f"AT recusou a série de devolução {series_name}: {result.get('error')}", "PortugalReturnSeries")
+	except Exception as e:
+		frappe.log_error(f"Falha ao comunicar série de devolução {series_name}: {str(e)}", "PortugalReturnSeries")
+
+	return series_name
 
 @frappe.whitelist()
 def save_company_settings(company_settings):
