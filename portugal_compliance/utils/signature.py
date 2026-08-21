@@ -202,12 +202,53 @@ def _extract_hash_control(signature_b64):
 	return "".join(chars)
 
 
+def _lock_series_for_signing(series_configuration):
+	"""
+	Bloqueio pessimista (SELECT ... FOR UPDATE) na linha da serie, para
+	serializar a leitura da hash anterior entre documentos concorrentes
+	da MESMA serie.
+
+	Sem isto ha uma janela de corrida real: o ATCUD Log so e escrito em
+	after_insert (ver document_hooks.generate_atcud_after_insert), nao
+	aqui - se dois documentos da mesma serie forem submetidos quase em
+	simultaneo, o segundo pode ler a "ultima hash" ANTES do primeiro ter
+	terminado o commit da sua propria transacao (pedidos Frappe correm
+	em transacoes separadas, cada um so visivel aos outros apos commit),
+	e os dois ficam com o mesmo HashAnterior - quebra a cadeia sequencial
+	exigida pela Portaria 363/2010.
+
+	A alocacao do proprio numero de sequencia (doc.name) ja e segura -
+	usa o contador atomico nativo do Frappe (ver
+	atcud_generator._get_next_sequence_thread_safe) - o problema e
+	especificamente a leitura da hash anterior, que este lock resolve:
+	ao bloquear a linha da serie logo no inicio da assinatura e so a
+	libertar no commit da transacao (fim do pedido), o segundo pedido
+	fica bloqueado na leitura ate o primeiro terminar por completo,
+	incluindo a escrita do seu proprio ATCUD Log em after_insert.
+	"""
+	if not series_configuration:
+		frappe.logger().warning(
+			"Assinatura sem series_configuration - bloqueio de concorrencia nao aplicado"
+		)
+		return
+	frappe.db.sql(
+		"SELECT name FROM `tabPortugal Series Configuration` WHERE name = %s FOR UPDATE",
+		series_configuration,
+	)
+
+
 def get_previous_signature_hash(series_configuration, before_sequence_number):
 	"""
 	Obtem a hash de assinatura do documento anterior na MESMA serie
 	(o de maior sequence_number ainda inferior ao atual). Vazio se
 	nao existir nenhum (primeiro documento da serie).
+
+	Adquire primeiro o lock de serie (ver _lock_series_for_signing) -
+	tem de ser feito ANTES desta leitura, nao depois, para que o lock
+	esteja mesmo a proteger o valor lido.
 	"""
+	_lock_series_for_signing(series_configuration)
+
 	previous = frappe.db.get_value(
 		"ATCUD Log",
 		{
