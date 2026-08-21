@@ -6,8 +6,8 @@
 <SourceDocuments>
     <SalesInvoices>
         <NumberOfEntries>{{ sales_invoices|length }}</NumberOfEntries>
-        <TotalDebit>{{ '%.2f'|format(sales_invoices|sum(attribute='grand_total') or 0) }}</TotalDebit>
-        <TotalCredit>0.00</TotalCredit>
+        <TotalDebit>{{ '%.2f'|format(sales_invoices_total_debit or 0) }}</TotalDebit>
+        <TotalCredit>{{ '%.2f'|format(sales_invoices_total_credit or 0) }}</TotalCredit>
         {% for invoice in sales_invoices %}
         <Invoice>
             <InvoiceNo>{{ invoice.invoice_no }}</InvoiceNo>
@@ -21,7 +21,7 @@
             <Hash>{{ invoice.signature_hash }}</Hash>
             <HashControl>{{ invoice.hash_control }}</HashControl>
             <InvoiceDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</InvoiceDate>
-            <InvoiceType>FT</InvoiceType>
+            <InvoiceType>{{ invoice.invoice_type }}</InvoiceType>
             <SpecialRegimes>
                 <SelfBillingIndicator>0</SelfBillingIndicator>
                 <CashVATSchemeIndicator>0</CashVATSchemeIndicator>
@@ -40,7 +40,11 @@
                 <UnitPrice>{{ '%.4f'|format(item.rate or 0) }}</UnitPrice>
                 <TaxPointDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</TaxPointDate>
                 <Description>{{ item.description or item.item_name or item.item_code }}</Description>
+                {% if item.debit_credit == "D" %}
+                <DebitAmount>{{ '%.2f'|format(item.amount or 0) }}</DebitAmount>
+                {% else %}
                 <CreditAmount>{{ '%.2f'|format(item.amount or 0) }}</CreditAmount>
+                {% endif %}
                 <Tax>
                     <TaxType>IVA</TaxType>
                     <TaxCountryRegion>PT</TaxCountryRegion>
@@ -54,9 +58,9 @@
             </Line>
             {% endfor %}
             <DocumentTotals>
-                <TaxPayable>{{ '%.2f'|format(invoice.total_taxes_and_charges or 0) }}</TaxPayable>
-                <NetTotal>{{ '%.2f'|format(invoice.net_total or 0) }}</NetTotal>
-                <GrossTotal>{{ '%.2f'|format(invoice.grand_total or 0) }}</GrossTotal>
+                <TaxPayable>{{ '%.2f'|format(invoice.tax_payable or 0) }}</TaxPayable>
+                <NetTotal>{{ '%.2f'|format(invoice.net_total_abs or 0) }}</NetTotal>
+                <GrossTotal>{{ '%.2f'|format(invoice.gross_total_abs or 0) }}</GrossTotal>
             </DocumentTotals>
         </Invoice>
         {% endfor %}

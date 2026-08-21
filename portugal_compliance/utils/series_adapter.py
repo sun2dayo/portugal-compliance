@@ -236,13 +236,28 @@ class SeriesAdapter:
 				}
 
 			# ✅ BUSCAR SÉRIES ATIVAS PARA QUALQUER EMPRESA (ALINHADO)
+			# creation ASC (nao DESC) - a serie mais ANTIGA/principal tem
+			# de ficar primeiro na lista de opcoes, para continuar a ser o
+			# valor por omissao do campo Select naming_series. Com DESC,
+			# qualquer serie adicional mais recente para o mesmo doctype
+			# (ex: NC para devolucoes, ver
+			# api.company_api.RETURN_DOCUMENT_SERIES) passava a ser o
+			# valor por omissao assim que fosse comunicada - confirmado
+			# ao vivo: uma fatura NORMAL foi criada por engano na serie
+			# NC so por esta ter sido comunicada mais recentemente. Esta
+			# funcao corre em Portugal Series Configuration.on_update
+			# (sync_naming_series_with_doctype) - dispara com muito mais
+			# frequencia do que
+			# document_hooks._update_property_setter_for_doctype (que ja
+			# usava a ordem correta), por isso era sempre esta versao,
+			# com a ordem errada, que "ganhava" por ultimo.
 			active_series = frappe.get_all("Portugal Series Configuration",
 										   filters={
 											   "document_type": doctype,
 											   "is_active": 1
 										   },
 										   fields=["prefix"],
-										   order_by="is_communicated desc, creation desc")
+										   order_by="is_communicated desc, creation asc")
 
 			if not active_series:
 				frappe.logger().info(f"⏭️ Nenhuma série portuguesa ativa para {doctype}")

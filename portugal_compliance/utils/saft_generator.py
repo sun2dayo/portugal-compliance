@@ -148,7 +148,18 @@ class SAFTGenerator:
 			"tax_table": self.get_tax_table_data(company_doc.name),
 
 			# Source documents
-			"sales_invoices": self.get_sales_invoices_data(company_doc.name, from_date, to_date),
+			"sales_invoices": (sales_invoices := self.get_sales_invoices_data(company_doc.name, from_date, to_date)),
+			# TotalDebit/TotalCredit do lote (SAFmonetaryType, nunca
+			# negativo) - somados ao nivel da LINHA (debit_credit),
+			# nao do total da fatura, para lidar corretamente com o
+			# caso (hoje teorico no ERPNext, mas nao impossivel) de uma
+			# fatura com linhas de credito e debito misturadas.
+			"sales_invoices_total_debit": sum(
+				line.amount for inv in sales_invoices for line in inv.lines if line.debit_credit == "D"
+			),
+			"sales_invoices_total_credit": sum(
+				line.amount for inv in sales_invoices for line in inv.lines if line.debit_credit == "C"
+			),
 			"payments": self.get_payments_data(company_doc.name, from_date, to_date),
 		}
 
@@ -294,7 +305,7 @@ class SAFTGenerator:
 							 """, {"names": invoice_names}, as_dict=True)
 		return {r.document_name: r for r in rows}
 
-	def _format_invoice_no(self, invoice_name, sequence_number):
+	def _format_invoice_no(self, invoice_name, sequence_number, doc_code="FT"):
 		"""
 		Formato "PREFIXO SERIE/NUMERO" (ex: "FT FT2026N/5") exigido pelo
 		XSD para InvoiceNo - confirmado no gerador SAF-T do modulo
@@ -302,6 +313,12 @@ class SAFTGenerator:
 		rejeicoes reais da AT. sequence_number vem do ATCUD Log (fonte
 		fiavel); se nao existir (fatura sem ATCUD), cai no fallback de
 		extrair os digitos finais do proprio nome do documento.
+
+		doc_code (FT/NC/...) tinha ficado fixo em "FT" - com a serie NC
+		agora real (ver reset_fiscal_fields_on_return_clone), uma Nota
+		de Credito tem de reportar "NC", nao "FT", ou a AT rejeita o
+		documento por inconsistencia entre a serie usada e o tipo
+		declarado.
 		"""
 		import re
 		if sequence_number is None:
@@ -311,7 +328,7 @@ class SAFTGenerator:
 		else:
 			suffix = str(sequence_number).zfill(4)
 			series_prefix = invoice_name[:-len(suffix)] if invoice_name.endswith(suffix) else invoice_name
-		return f"FT {series_prefix}/{sequence_number}"
+		return f"{doc_code} {series_prefix}/{sequence_number}"
 
 	def get_sales_invoices_data(self, company, from_date, to_date):
 		"""
@@ -335,6 +352,8 @@ class SAFTGenerator:
 									si.docstatus,
 									si.owner,
 									si.atcud_code,
+									si.naming_series,
+									si.is_return,
 									sii.item_code,
 									sii.item_name,
 									sii.description,
@@ -363,16 +382,44 @@ class SAFTGenerator:
 									""", {"names": invoice_names}, as_dict=True):
 				fallback_rates.setdefault(t.parent, t.rate)
 
+		series_code_cache = {}
+
+		def _document_code_for(naming_series, is_return):
+			"""
+			Codigo real do tipo de documento (FT/NC) a partir da serie
+			realmente usada (Portugal Series Configuration), nao um
+			literal fixo - agora que existe uma serie NC dedicada e
+			comunicada (ver api.company_api.RETURN_DOCUMENT_SERIES).
+			Fallback para is_return se a serie nao tiver document_code
+			por algum motivo (nunca deveria acontecer para series
+			criadas por este modulo, mas evita um None a espalhar-se).
+			"""
+			if naming_series not in series_code_cache:
+				series_code_cache[naming_series] = frappe.db.get_value(
+					"Portugal Series Configuration", {"naming_series": naming_series}, "document_code"
+				)
+			return series_code_cache[naming_series] or ("NC" if is_return else "FT")
+
 		invoices = {}
 		for row in rows:
 			if row.name not in invoices:
 				sig = signatures.get(row.name)
+				doc_code = _document_code_for(row.naming_series, row.is_return)
 				invoice = frappe._dict(row.copy())
 				invoice["signature_hash"] = sig.signature_hash if (sig and sig.signature_hash) else "0"
 				invoice["hash_control"] = "1" if (sig and sig.signature_hash) else "0"
+				invoice["invoice_type"] = doc_code
 				invoice["invoice_no"] = self._format_invoice_no(
-					row.name, sig.sequence_number if sig else None
+					row.name, sig.sequence_number if sig else None, doc_code
 				)
+				# SAFmonetaryType (XSD) nao permite negativos - uma Nota
+				# de Credito tem estes campos negativos no ERPNext; o
+				# sentido (credito/estorno) e comunicado pelo
+				# InvoiceType=NC e pelo DebitAmount/CreditAmount por
+				# linha (ver abaixo), nunca por um total negativo.
+				invoice["tax_payable"] = abs(flt(row.total_taxes_and_charges))
+				invoice["net_total_abs"] = abs(flt(row.net_total))
+				invoice["gross_total_abs"] = abs(flt(row.grand_total))
 				invoice["lines"] = []
 				invoices[row.name] = invoice
 
@@ -382,17 +429,20 @@ class SAFTGenerator:
 				exemption_reason = frappe.db.get_value(
 					"AT Tax Exemption", row.at_exemption_reason, "description"
 				) or row.at_exemption_reason
+			signed_amount = flt(row.amount)
+			abs_amount = abs(signed_amount)
 			invoices[row.name]["lines"].append(frappe._dict({
 				"item_code": row.item_code,
 				"item_name": row.item_name,
 				"description": row.description,
-				"qty": row.qty,
+				"qty": abs(flt(row.qty)),
 				"uom": row.uom,
 				"rate": row.rate,
-				"amount": row.amount,
+				"amount": abs_amount,
+				"debit_credit": "D" if signed_amount < 0 else "C",
 				"tax_percentage": tax_rate,
 				"tax_code": self._get_line_tax_code(tax_rate),
-				"tax_amount": flt(row.amount) * tax_rate / 100,
+				"tax_amount": abs_amount * tax_rate / 100,
 				"tax_exemption_code": row.at_exemption_reason or "",
 				"tax_exemption_reason": exemption_reason,
 			}))

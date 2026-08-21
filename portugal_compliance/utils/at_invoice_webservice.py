@@ -218,10 +218,17 @@ def build_invoice_payload(document_type, document_name):
 
 	line_summary = []
 	for item in invoice.lines:
+		# item.amount ja vem em valor absoluto e item.debit_credit ja
+		# vem calculado a partir do sinal real (ver
+		# SAFTGenerator.get_sales_invoices_data) - reutilizado aqui tal
+		# como esta, para nao repetir a logica de sinal/isencao numa
+		# segunda vez. Uma Nota de Credito (linhas negativas no
+		# ERPNext) tem de ir como "D" (Debito), nunca "C" fixo - o
+		# proprio WSDL da AT usa a mesma convencao SalesInvoices do SAF-T.
 		line_summary.append({
 			"TaxPointDate": doc.posting_date,
-			"DebitCreditIndicator": "C",
-			"Amount": abs(flt(item.amount)),
+			"DebitCreditIndicator": item.debit_credit,
+			"Amount": flt(item.amount),
 			"Tax": {
 				"TaxType": "IVA",
 				"TaxCountryRegion": "PT",
@@ -234,7 +241,12 @@ def build_invoice_payload(document_type, document_name):
 		"InvoiceNo": invoice.invoice_no,
 		"ATCUD": doc.atcud_code or "",
 		"InvoiceDate": doc.posting_date,
-		"InvoiceType": "FT",
+		# InvoiceType real (FT/NC), ver invoice.invoice_type -
+		# calculado em SAFTGenerator a partir da serie realmente usada
+		# pelo documento (Portugal Series Configuration.document_code),
+		# nao um literal fixo - uma Nota de Credito emitida na serie NC
+		# tinha de ser sempre reportada como "FT" a AT ate esta correcao.
+		"InvoiceType": invoice.invoice_type,
 		"SelfBillingIndicator": 0,
 		"CustomerTaxID": customer_tax_id,
 		"CustomerTaxIDCountry": customer_country,
@@ -248,9 +260,9 @@ def build_invoice_payload(document_type, document_name):
 		"SystemEntryDate": get_datetime(doc.creation),
 		"LineSummary": line_summary,
 		"DocumentTotals": {
-			"TaxPayable": abs(flt(doc.total_taxes_and_charges)),
-			"NetTotal": abs(flt(doc.net_total)),
-			"GrossTotal": abs(flt(doc.grand_total)),
+			"TaxPayable": invoice.tax_payable,
+			"NetTotal": invoice.net_total_abs,
+			"GrossTotal": invoice.gross_total_abs,
 		},
 	}
 
