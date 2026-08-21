@@ -100,7 +100,8 @@ doc_events = {
 		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication"
 	},
 	"Purchase Invoice": {
 		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",

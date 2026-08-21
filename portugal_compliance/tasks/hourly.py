@@ -29,6 +29,7 @@ def execute():
 		sync_pending_series()
 		monitor_system_performance()
 		process_failed_communications()
+		retry_invoice_communications()
 		update_real_time_cache()
 		check_certificate_status()
 		validate_recent_atcud()
@@ -137,6 +138,42 @@ def sync_pending_series():
 
 	except Exception as e:
 		frappe.log_error(f"Error syncing pending series: {str(e)}")
+
+
+def retry_invoice_communications():
+	"""
+	Reenvia faturas cuja comunicacao em tempo real com a AT falhou ou
+	ficou pendente (rede em baixo, timeout, etc) - mesmo padrao de
+	retry com backoff exponencial ja usado para series
+	(process_failed_communications / try_series_communication acima),
+	agora para Portugal Invoice Communication Log.
+	"""
+	try:
+		pending = frappe.db.get_all(
+			"Portugal Invoice Communication Log",
+			filters={
+				"status": ["in", ["Retrying", "Pending"]],
+				"next_retry_date": ["<=", now()],
+			},
+			fields=["name", "document_type", "document_name"],
+		)
+
+		if not pending:
+			return
+
+		from portugal_compliance.utils.at_invoice_webservice import register_invoice
+
+		for log in pending:
+			try:
+				register_invoice(log.document_type, log.document_name, log_name=log.name)
+			except Exception as e:
+				frappe.log_error(
+					f"Erro ao reenviar comunicacao de fatura {log.document_name}: {str(e)}",
+					"ATInvoiceWebservice",
+				)
+
+	except Exception as e:
+		frappe.log_error(f"Error in retry_invoice_communications: {str(e)}")
 
 
 def should_retry_communication(series):

@@ -100,6 +100,19 @@
             "label": "Certificado Público da AT (cifra WS-Security)",
             "fieldtype": "Data",
             "description": "Certificado público da AT (.cer/.pem) usado para cifrar a password no cabeçalho WS-Security proprietário exigido pelo webservice de séries - distinto do certificado mTLS acima."
+        },
+        {
+            "fieldname": "invoice_communication_section",
+            "fieldtype": "Section Break",
+            "label": "Comunicação de Faturas à AT"
+        },
+        {
+            "fieldname": "invoice_communication_method",
+            "label": "Método de Comunicação de Faturas",
+            "fieldtype": "Select",
+            "options": "Offline (SAF-T Mensal)\nTempo Real (Webservice)",
+            "default": "Offline (SAF-T Mensal)",
+            "description": "Offline: a fatura só é assinada (RSA) e reportada à AT no SAF-T mensal. Tempo Real: além da assinatura, a fatura é comunicada à AT via webservice (RegisterInvoice) logo após a submissão."
         }
     ]
 }
