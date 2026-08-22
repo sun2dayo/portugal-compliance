@@ -307,6 +307,33 @@ fixtures = [
 		"filters": [
 			["module", "=", "Portugal Compliance"]
 		]
+	},
+	{
+		# Property Setters do modulo: read_only/description do campo
+		# atcud_code, default de portugal_compliance_enabled, e o
+		# default_print_format dos 3 doctypes com Print Format proprio
+		# (Sales Invoice -> Factura PT, POS Invoice ->
+		# Fatura Simplificada PT, Payment Entry -> Recibo PT) - sem
+		# isto, uma reinstalacao limpa da app perdia o Print Format
+		# predefinido e o utilizador via o print generico do Frappe em
+		# vez do documento fiscal certificado.
+		# Filtro por "name" (nao por doc_type/property) para nao
+		# arrastar Property Setters de outras apps/configuracoes do
+		# site - so exporta exatamente os que este modulo cria.
+		"dt": "Property Setter",
+		"filters": [
+			["name", "in", [
+				"Sales Invoice-atcud_code-read_only",
+				"Sales Invoice-atcud_code-description",
+				"POS Invoice-atcud_code-read_only",
+				"Purchase Invoice-atcud_code-read_only",
+				"Payment Entry-atcud_code-read_only",
+				"Company-portugal_compliance_enabled-default",
+				"Sales Invoice-main-default_print_format",
+				"POS Invoice-main-default_print_format",
+				"Payment Entry-main-default_print_format",
+			]]
+		]
 	}
 ]
 
