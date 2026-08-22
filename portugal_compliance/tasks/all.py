@@ -217,10 +217,12 @@ def update_configurations_cache():
 	"""
 	try:
 		# Cache de empresas com compliance ativo
+		# at_certificate_number removido (2026-08-23): campo legado da
+		# Company eliminado - o numero do certificado vive em Portugal
+		# Auth Settings (software_certificate_number), unico para o site.
 		companies_with_compliance = frappe.db.get_all("Company",
 													  filters={"portugal_compliance_enabled": 1},
-													  fields=["name", "company_name", "tax_id",
-															  "at_certificate_number"]
+													  fields=["name", "company_name", "tax_id"]
 													  )
 
 		frappe.cache.set("portugal_compliance_companies", companies_with_compliance,

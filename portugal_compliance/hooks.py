@@ -173,26 +173,17 @@ doc_events = {
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
-	"Purchase Receipt": {
-		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
-		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
-	},
-	"Stock Entry": {
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
-	},
-
-	# ========== DOCUMENTOS CONTABILÍSTICOS ==========
-	"Journal Entry": {
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
-		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
-	},
+	# Purchase Receipt, Stock Entry e Journal Entry removidos deste bloco
+	# (2026-08-22): ATCUD/assinatura RSA aplicam-se por lei a documentos
+	# EMITIDOS a terceiros (Portaria 195/2020), nunca a receções de
+	# compra, movimentos internos de stock ou lançamentos contabilísticos.
+	# Nenhum dos três teve alguma vez série comunicada à AT (nem devia) -
+	# Purchase Receipt já era código morto (nunca esteve em
+	# supported_doctypes); Stock Entry e Journal Entry geravam ATCUD/
+	# assinatura local sem necessidade legal. Ver document_hooks.py:
+	# entradas removidas de supported_doctypes no mesmo commit. Os
+	# registos já existentes em ATCUD Log destes doctypes mantêm-se
+	# intactos para efeitos de auditoria.
 
 	# ========== DOCUMENTOS COMERCIAIS (SEM ATCUD OBRIGATÓRIO) ==========
 	"Quotation": {
@@ -211,10 +202,12 @@ doc_events = {
 	# ========== CONFIGURAÇÃO DA EMPRESA ==========
 	"Company": {
 		"on_update": "portugal_compliance.utils.document_hooks.setup_company_portugal_compliance",
+		# sync_at_credentials removido (2026-08-23): Company deixou de ter
+		# campos de credenciais AT - Portugal Auth Settings e a unica
+		# fonte de verdade. Ver document_hooks.py.
 		"validate": [
 			"portugal_compliance.regional.portugal.validate_portugal_company_settings_safe",
-			"portugal_compliance.utils.document_hooks.sync_communication_settings",
-			"portugal_compliance.utils.document_hooks.sync_at_credentials"
+			"portugal_compliance.utils.document_hooks.sync_communication_settings"
 		]
 	},
 

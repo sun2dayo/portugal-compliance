@@ -348,9 +348,11 @@ def validate_portugal_settings_non_blocking(doc):
 			elif not validate_portuguese_nif_safe(doc.tax_id)['valid']:
 				warnings.append("• NIF parece inválido - verifique o formato")
 
-			# ✅ VERIFICAR CREDENCIAIS AT
-			if not getattr(doc, 'at_username', None):
-				warnings.append("• Configure credenciais AT para comunicação automática de séries")
+			# ✅ VERIFICAR CREDENCIAIS AT (2026-08-23: le Portugal Auth
+			# Settings - Company.at_username era um campo legado,
+			# entretanto eliminado)
+			if not frappe.db.get_single_value("Portugal Auth Settings", "at_username"):
+				warnings.append("• Configure credenciais AT em Portugal Auth Settings para comunicação automática de séries")
 
 			# ✅ VERIFICAR ABREVIATURA
 			if not getattr(doc, 'abbr', None):

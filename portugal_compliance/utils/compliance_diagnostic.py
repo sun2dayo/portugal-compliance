@@ -33,13 +33,20 @@ def run_compliance_diagnostic():
 def validate_company_setup():
 	"""
 	Verificar configuração das empresas portuguesas
+
+	at_environment passou a ler Portugal Auth Settings (2026-08-23) -
+	Company.at_environment era um campo legado, entretanto eliminado; o
+	ambiente AT e por definicao unico para o site inteiro, nao por
+	empresa.
 	"""
 
 	portuguese_companies = frappe.get_all(
 		'Company',
 		filters={'country': 'Portugal'},
-		fields=['name', 'portugal_compliance_enabled', 'at_environment', 'tax_id']
+		fields=['name', 'portugal_compliance_enabled', 'tax_id']
 	)
+
+	at_environment = "test" if frappe.db.get_single_value("Portugal Auth Settings", "sandbox_mode") else "production"
 
 	company_status = {}
 
@@ -47,7 +54,7 @@ def validate_company_setup():
 		company_status[company.name] = {
 			'compliance_enabled': bool(company.portugal_compliance_enabled),
 			'has_nif': bool(company.tax_id),
-			'at_environment': company.at_environment or 'Not Set',
+			'at_environment': at_environment,
 			'series_count': frappe.db.count(
 				'Portugal Series Configuration',
 				{'company': company.name}

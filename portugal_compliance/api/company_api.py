@@ -178,12 +178,12 @@ def save_company_settings(company_settings):
 		original_compliance = company_doc.portugal_compliance_enabled
 
 		# ✅ PROCESSAR AÇÕES ESPECÍFICAS
-		if action == 'save_at_credentials':
-			return save_at_credentials_safe(company_doc, company_settings)
-		elif action == 'communicate_all_series':
+		# 'save_at_credentials' e 'test_at_connection' removidas (2026-08-23):
+		# Portugal Auth Settings é a única fonte de verdade para credenciais
+		# AT - configurar/testar faz-se lá, não na Company. Ver nota em
+		# document_hooks.sync_at_credentials (removida no mesmo commit).
+		if action == 'communicate_all_series':
 			return communicate_series_safe(company_doc, company_settings)
-		elif action == 'test_at_connection':
-			return test_at_connection_safe(company_doc, company_settings)
 		else:
 			# ✅ SALVAR CONFIGURAÇÕES GERAIS
 			return save_general_settings_safe(company_doc, company_settings, original_compliance)
@@ -193,75 +193,30 @@ def save_company_settings(company_settings):
 		return {'success': False, 'error': str(e)}
 
 
-def save_at_credentials_safe(company_input, settings):
-	"""
-	Grava as credenciais AT via ORM (nao SQL bruto), para que a cifra
-	automatica do Frappe para campos Password (at_password) seja
-	aplicada - gravar por SQL direto punha a password em texto simples
-	na tabela tabCompany. O controlo de permissao ja foi feito em
-	save_company_settings antes de chegar aqui.
-	"""
-	try:
-		if isinstance(company_input, str):
-			company_name = company_input
-		elif hasattr(company_input, 'name'):
-			company_name = company_input.name
-		else:
-			company_name = str(company_input)
-
-		if not frappe.db.exists("Company", company_name):
-			return {'success': False, 'error': f'Empresa {company_name} não encontrada'}
-
-		company_doc = frappe.get_doc("Company", company_name)
-
-		if settings.get('at_username'):
-			company_doc.at_username = settings['at_username']
-		if settings.get('at_password'):
-			company_doc.at_password = settings['at_password']
-		if settings.get('at_environment'):
-			company_doc.at_environment = settings['at_environment']
-		if settings.get('at_certificate_number'):
-			company_doc.at_certificate_number = settings['at_certificate_number']
-
-		company_doc.portugal_compliance_enabled = 1
-		# ERPNext core (Company.on_update) le self.update_default_account,
-		# que só é definido em Company.validate() - com ignore_validate=True
-		# esse validate() não corre, por isso definimos aqui para evitar
-		# AttributeError em on_update().
-		company_doc.update_default_account = False
-		company_doc.flags.ignore_validate = True
-		company_doc.save(ignore_permissions=True)
-		frappe.db.commit()
-
-		frappe.logger().info(f"Credenciais AT salvas para {company_name}")
-
-		return {
-			'success': True,
-			'message': 'Credenciais AT salvas com sucesso',
-			'company': company_name,
-		}
-
-	except Exception as e:
-		frappe.db.rollback()
-		error_msg = str(e)
-		frappe.log_error(f"Erro ao salvar credenciais: {error_msg}")
-		return {'success': False, 'error': error_msg}
-
-
 def communicate_series_safe(company_doc, settings):
 	"""
 	✅ CORRIGIDO: Comunicar séries sem métodos inexistentes
+
+	save_at_credentials_safe removida (2026-08-23): gravava
+	Company.at_username/at_password/at_environment, campos legados
+	eliminados - Portugal Auth Settings é agora a única fonte de
+	verdade para credenciais AT (configuráveis lá, não na Company).
 	"""
 	try:
 		# ✅ PRESERVAR COMPLIANCE
 		original_compliance = company_doc.portugal_compliance_enabled
 
-		# ✅ VERIFICAR CREDENCIAIS SEM MÉTODOS INEXISTENTES
-		if not getattr(company_doc, 'at_username', None) or not getattr(company_doc,
-																		'at_environment', None):
+		# ✅ VERIFICAR CREDENCIAIS EM PORTUGAL AUTH SETTINGS (fonte real
+		# usada por ATWebserviceClient/register_naming_series - a
+		# verificacao aqui e so uma mensagem de erro mais cedo e mais
+		# clara do que deixar a chamada ao webservice falhar mais tarde)
+		auth_settings = frappe.get_single("Portugal Auth Settings")
+		if not auth_settings.get("at_username") or not auth_settings.get_password(
+			"at_password", raise_exception=False
+		):
 			return {
 				'success': False,
-				'error': 'Credenciais AT não configuradas. Configure primeiro as credenciais.'
+				'error': 'Credenciais AT não configuradas em Portugal Auth Settings.'
 			}
 
 		# ✅ BUSCAR SÉRIES NÃO COMUNICADAS (só tipos que a AT realmente aceita
@@ -343,8 +298,10 @@ def save_general_settings_safe(company_doc, settings, original_compliance):
 	"""
 	try:
 		# ✅ APLICAR APENAS CAMPOS SEGUROS
-		safe_fields = ['at_username', 'at_password', 'at_environment', 'at_certificate_number',
-					   'portugal_compliance_enabled']
+		# at_username/at_password/at_environment/at_certificate_number
+		# removidos (2026-08-23) - campos legados eliminados da Company,
+		# ver nota em communicate_series_safe.
+		safe_fields = ['portugal_compliance_enabled']
 
 		for key, value in settings.items():
 			if key in safe_fields and hasattr(company_doc, key):
@@ -378,58 +335,11 @@ def save_general_settings_safe(company_doc, settings, original_compliance):
 		return {'success': False, 'error': str(e)}
 
 
-def test_at_connection_safe(company_doc, settings):
-	"""
-	✅ NOVO: Testar conexão AT sem desativar compliance
-	"""
-	try:
-		# ✅ PRESERVAR COMPLIANCE
-		original_compliance = company_doc.portugal_compliance_enabled
-
-		# ✅ VERIFICAR CREDENCIAIS
-		if not company_doc.at_username or not company_doc.at_environment:
-			return {
-				'success': False,
-				'error': 'Credenciais AT incompletas'
-			}
-
-		# ✅ TESTE REAL: tenta construir o cliente do webservice (valida
-		# mTLS + credenciais configuradas em Portugal Auth Settings, sem
-		# fazer necessariamente um pedido de rede a AT)
-		from portugal_compliance.utils.at_webservice import get_series_webservice_client, ATWebserviceError
-		try:
-			get_series_webservice_client()
-			connection_status = 'Configuração válida (mTLS + credenciais AT presentes)'
-			connection_ok = True
-		except ATWebserviceError as e:
-			connection_status = str(e)
-			connection_ok = False
-
-		test_result = {
-			'username': company_doc.at_username,
-			'environment': company_doc.at_environment,
-			'status': connection_status,
-			'ok': connection_ok,
-			'timestamp': frappe.utils.now()
-		}
-
-		# ✅ GARANTIR QUE COMPLIANCE PERMANECE ATIVO
-		if original_compliance:
-			company_doc.portugal_compliance_enabled = 1
-			# Ver nota nas outras 2 gravações com ignore_validate neste ficheiro
-			company_doc.update_default_account = False
-			company_doc.flags.ignore_validate = True
-			company_doc.save()
-
-		return {
-			'success': True,
-			'message': 'Teste de conexão realizado com sucesso',
-			'test_result': test_result
-		}
-
-	except Exception as e:
-		frappe.log_error(f"Erro no teste de conexão: {str(e)}")
-		return {'success': False, 'error': str(e)}
+# test_at_connection_safe removida (2026-08-23): testava mTLS/
+# credenciais construindo get_series_webservice_client(), que já lê
+# Portugal Auth Settings diretamente - o "Testar Ligação" nativo desse
+# doctype (portugal_auth_settings.js) cobre exatamente isto, sem
+# depender de campos da Company.
 
 
 @frappe.whitelist()

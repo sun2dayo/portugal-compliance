@@ -121,11 +121,14 @@ def activate_compliance_via_document_hooks(company_doc):
 		if not cint(company_doc.get("portugal_compliance_enabled", 0)):
 			company_doc.portugal_compliance_enabled = 1
 
-			# ✅ CONFIGURAR CREDENCIAIS DE TESTE (se não existirem)
-			if not company_doc.get("at_username"):
-				company_doc.at_username = "599999993/1"  # Credenciais de teste AT
-				company_doc.at_password = "testes123"
-				company_doc.at_environment = "test"
+			# ✅ CONFIGURAR CREDENCIAIS DE TESTE (se não existirem) - 2026-08-23:
+			# passaram para Portugal Auth Settings, ver nota em after_install.py
+			auth_settings = frappe.get_single("Portugal Auth Settings")
+			if not auth_settings.get("at_username"):
+				auth_settings.at_username = "599999993/1"  # Credenciais de teste AT
+				auth_settings.at_password = "testes123"
+				auth_settings.sandbox_mode = 1
+				auth_settings.save(ignore_permissions=True)
 				print("✅ Credenciais de teste AT configuradas")
 
 			# ✅ SALVAR E TRIGGERAR DOCUMENT_HOOKS

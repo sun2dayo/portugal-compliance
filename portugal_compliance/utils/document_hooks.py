@@ -68,20 +68,19 @@ class PortugalComplianceDocumentHooks:
 				"critical": True,
 				"code": "GR"
 			},
-			"Stock Entry": {
-				"prefixes": ["GM"],
-				"requires_atcud": True,
-				"fiscal_document": False,
-				"critical": False,
-				"code": "GM"
-			},
-			"Journal Entry": {
-				"prefixes": ["JE", "LC"],
-				"requires_atcud": True,
-				"fiscal_document": False,
-				"critical": False,
-				"code": "JE"
-			}
+			# Stock Entry e Journal Entry removidos (2026-08-22), mesmo
+			# motivo legal da remocao da Purchase Invoice acima: ATCUD e
+			# assinatura RSA aplicam-se por lei a documentos EMITIDOS a
+			# terceiros (Portaria 195/2020), nunca a movimentos internos de
+			# stock ou lancamentos contabilisticos - nenhum dos dois e
+			# comunicado a AT nem tem serie comunicavel (nunca teve). Os
+			# registos ja existentes em ATCUD Log destes doctypes (gerados
+			# antes desta correcao) mantem-se intactos para efeitos de
+			# auditoria - so a geracao futura para. Ver hooks.py:
+			# doc_events["Stock Entry"] e doc_events["Journal Entry"]
+			# removidos no mesmo commit (Purchase Receipt tambem, apesar de
+			# nunca ter estado nesta lista - o bloco em hooks.py era
+			# codigo morto).
 		}
 
 	# ========== HOOK PRINCIPAL: CONFIGURAÇÃO DA EMPRESA ==========
@@ -121,9 +120,14 @@ class PortugalComplianceDocumentHooks:
 			property_setters_count = results.get('property_setters', {}).get('configured', 0)
 
 			if created_count > 0:
-				# ✅ VERIFICAR SE HÁ CREDENCIAIS AT CONFIGURADAS
+				# ✅ VERIFICAR SE HÁ CREDENCIAIS AT CONFIGURADAS (2026-08-23:
+				# passou a ler Portugal Auth Settings - Company deixou de
+				# ter campos de credenciais AT proprios)
+				auth_settings = frappe.get_single("Portugal Auth Settings")
 				has_at_credentials = bool(
-					getattr(doc, 'at_username', None) and getattr(doc, 'at_password', None))
+					auth_settings.get("at_username")
+					and auth_settings.get_password("at_password", raise_exception=False)
+				)
 
 				if has_at_credentials:
 					# ✅ COM CREDENCIAIS: Oferecer comunicação automática
@@ -161,10 +165,7 @@ class PortugalComplianceDocumentHooks:
 							frappe.call({{
 								method: 'portugal_compliance.api.series_api.communicate_all_company_series',
 								args: {{
-									company: company,
-									username: '{getattr(doc, "at_username", "")}',
-									password: '{getattr(doc, "at_password", "")}',
-									environment: '{getattr(doc, "at_environment", "test")}'
+									company: company
 								}},
 								callback: function(r) {{
 									if (r.message && r.message.success) {{
@@ -205,10 +206,8 @@ class PortugalComplianceDocumentHooks:
 							</div>
 							<div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 15px 0;">
 								<strong>📋 Próximos Passos:</strong><br>
-								1. Configure suas credenciais AT nos campos:<br>
-								   • AT Username<br>
-								   • AT Password<br>
-								2. Use a API para comunicar séries à AT<br>
+								1. Configure as credenciais AT em Portugal Auth Settings<br>
+								2. Use o botão "Comunicar Séries" para comunicar à AT<br>
 								3. Comece a emitir documentos com ATCUD automático
 							</div>
 							<div style="color: #856404; background: #fff3cd; padding: 10px; border-radius: 5px;">
@@ -1322,64 +1321,16 @@ def sync_communication_settings(doc, method=None):
 		frappe.log_error(f"Erro em sync_communication_settings: {str(e)}")
 
 
-def sync_at_credentials(doc, method=None):
-	"""
-	Hook de validate da Company (junto de sync_communication_settings).
-
-	Consolida a duplicacao de credenciais AT identificada na auditoria:
-	Company.at_username/at_password/at_environment (usado pelo caminho
-	mais antigo de company_api.py - botoes "Configurar Credenciais AT"/
-	"Comunicar Series" no ecra da Company) e Portugal Auth Settings.
-	at_username/at_password/sandbox_mode (fonte real lida por TODOS os
-	webservices atuais: at_webservice.py, at_invoice_webservice.py,
-	at_transport_webservice.py) sao dois locais distintos para a mesma
-	informacao, sem garantia de estarem sincronizados.
-
-	Em vez de eliminar um dos dois (quebraria o botao "Comunicar
-	Series" ja em uso), este hook mantem-nos sincronizados nos dois
-	sentidos - a Company continua a ser onde o utilizador mexe, mas o
-	valor propaga sempre para Portugal Auth Settings, e vice-versa
-	quando o campo na Company ainda esta vazio.
-
-	Nota sobre o ambiente: Company usa at_environment (Select
-	test/production), Portugal Auth Settings usa sandbox_mode (Check) -
-	mapeados um para o outro (test <-> 1, production <-> 0).
-	"""
-	if not cint(getattr(doc, "portugal_compliance_enabled", 0)):
-		return
-
-	try:
-		settings = frappe.get_single("Portugal Auth Settings")
-		settings_dirty = False
-
-		new_username = getattr(doc, "at_username", None)
-		if new_username and new_username != settings.at_username:
-			settings.at_username = new_username
-			settings_dirty = True
-		elif not new_username and settings.at_username:
-			doc.at_username = settings.at_username
-
-		new_password = doc.get_password("at_password", raise_exception=False)
-		current_password = settings.get_password("at_password", raise_exception=False)
-		if new_password and new_password != current_password:
-			settings.at_password = new_password
-			settings_dirty = True
-		elif not new_password and current_password:
-			doc.at_password = current_password
-
-		new_environment = getattr(doc, "at_environment", None)
-		if new_environment:
-			new_sandbox = 1 if new_environment == "test" else 0
-			if cint(settings.sandbox_mode) != new_sandbox:
-				settings.sandbox_mode = new_sandbox
-				settings_dirty = True
-		else:
-			doc.at_environment = "test" if cint(settings.sandbox_mode) else "production"
-
-		if settings_dirty:
-			settings.save(ignore_permissions=True)
-	except Exception as e:
-		frappe.log_error(f"Erro em sync_at_credentials: {str(e)}")
+# sync_at_credentials removida (2026-08-23): mantinha
+# Company.at_username/at_password/at_environment sincronizados nos
+# dois sentidos com Portugal Auth Settings - uma mitigacao provisoria
+# da duplicacao de credenciais identificada na auditoria. Decisao
+# final: eliminar os campos legados da Company (ver
+# fixtures/custom_field.json e hooks.py) em vez de os manter
+# sincronizados - Portugal Auth Settings passa a ser a unica fonte de
+# verdade, sem risco de divergencia por desenho. Ver tambem
+# api/company_api.py (botoes "Configurar Credenciais AT"/"Testar
+# Conexao AT" removidos no mesmo commit).
 
 
 def generate_and_attach_qr_code(doc, method=None):

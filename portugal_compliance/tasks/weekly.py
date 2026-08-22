@@ -954,10 +954,10 @@ def backup_company_configurations():
 	Faz backup de configurações de empresa
 	"""
 	try:
+		# at_certificate_number removido (2026-08-23): ver nota em tasks/all.py
 		companies = frappe.db.get_all("Company",
 									  filters={"portugal_compliance_enabled": 1},
 									  fields=["name", "company_name", "tax_id",
-											  "at_certificate_number",
 											  "portugal_compliance_enabled"]
 									  )
 

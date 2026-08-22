@@ -794,13 +794,11 @@ function add_custom_buttons(frm) {
         check_communicated_series_fixed(frm);
     }, __('Comunicação AT'));
 
-    frm.add_custom_button(__('Configurar Credenciais AT'), function() {
-        configure_at_credentials_fixed(frm);
-    }, __('Comunicação AT'));
-
-    frm.add_custom_button(__('Testar Conexão AT'), function() {
-        test_at_connection_fixed(frm);
-    }, __('Comunicação AT'));
+    // Botões "Configurar Credenciais AT" e "Testar Conexão AT" removidos
+    // (2026-08-23): geriam Company.at_username/at_password/at_environment,
+    // campos legados eliminados - Portugal Auth Settings é agora a única
+    // fonte de verdade, com o seu próprio ecrã de configuração e o botão
+    // nativo "Testar Ligação" (portugal_auth_settings.js).
 
     // ✅ GRUPO: Relatórios
     frm.add_custom_button(__('Ver Séries'), function() {
@@ -826,15 +824,15 @@ function communicate_all_series_to_at_fixed(frm) {
            '• Esta operação não pode ser desfeita'),
         function() {
             // ✅ USAR MÉTODO WHITELISTED EXISTENTE
+            // Credenciais deixaram de ser enviadas no payload (2026-08-23) -
+            // communicate_series_safe já lê Portugal Auth Settings
+            // diretamente no servidor.
             frappe.call({
                 method: 'portugal_compliance.api.company_api.save_company_settings',
                 args: {
                     company_settings: {
                         company: frm.doc.name,
-                        action: 'communicate_all_series',
-                        at_username: frm.doc.at_username,
-                        at_password: frm.doc.at_password,
-                        at_environment: frm.doc.at_environment
+                        action: 'communicate_all_series'
                     }
                 },
                 freeze: true,
@@ -897,149 +895,11 @@ function check_communicated_series_fixed(frm) {
     });
 }
 
-function configure_at_credentials_fixed(frm) {
-    /**
-     * ✅ CORRIGIDO: Configurar credenciais com save funcional
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Configurar Credenciais AT'),
-        fields: [
-            {
-                fieldtype: 'Data',
-                fieldname: 'at_username',
-                label: __('Username AT'),
-                reqd: 1,
-                default: frm.doc.at_username || ''
-            },
-            {
-                fieldtype: 'Password',
-                fieldname: 'at_password',
-                label: __('Password AT'),
-                reqd: 1,
-                default: ''
-            },
-            {
-                fieldtype: 'Select',
-                fieldname: 'at_environment',
-                label: __('Ambiente'),
-                options: 'test\nproduction',
-                reqd: 1,
-                default: frm.doc.at_environment || 'test'
-            },
-            {
-                fieldtype: 'Data',
-                fieldname: 'at_certificate_number',
-                label: __('Número do Certificado'),
-                description: __('Número do certificado digital (opcional)'),
-                default: frm.doc.at_certificate_number || ''
-            }
-        ],
-        primary_action_label: __('Salvar Credenciais'),
-        primary_action: function(values) {
-            // ✅ CORRIGIDO: Usar método whitelisted para salvar
-            frappe.call({
-                method: 'portugal_compliance.api.company_api.save_company_settings',
-                args: {
-                    company_settings: {
-                        company: frm.doc.name,
-                        action: 'save_at_credentials',
-                        at_username: values.at_username,
-                        at_password: values.at_password,
-                        at_environment: values.at_environment,
-                        at_certificate_number: values.at_certificate_number || ''
-                    }
-                },
-                freeze: true,
-                freeze_message: __('Salvando credenciais...'),
-                callback: function(r) {
-                    if (r.message && r.message.success) {
-                        frappe.show_alert({
-                            message: __('✅ Credenciais AT salvas com sucesso'),
-                            indicator: 'green'
-                        });
-
-                        // ✅ ATUALIZAR FORMULÁRIO
-                        frm.doc.at_username = values.at_username;
-                        frm.doc.at_environment = values.at_environment;
-                        if (values.at_certificate_number) {
-                            frm.doc.at_certificate_number = values.at_certificate_number;
-                        }
-                        frm.refresh();
-
-                        dialog.hide();
-                    } else {
-                        frappe.msgprint({
-                            title: __('❌ Erro'),
-                            message: r.message ? r.message.error : __('Erro ao salvar credenciais'),
-                            indicator: 'red'
-                        });
-                    }
-                },
-                error: function(xhr, status, error) {
-                    frappe.msgprint({
-                        title: __('❌ Erro de Comunicação'),
-                        message: __('Erro ao salvar: {0}', [error]),
-                        indicator: 'red'
-                    });
-                }
-            });
-        }
-    });
-
-    dialog.show();
-}
-
-function test_at_connection_fixed(frm) {
-    /**
-     * ✅ CORRIGIDO: Testar conexão usando método whitelisted
-     */
-
-    if (!frm.doc.at_username || !frm.doc.at_environment) {
-        frappe.msgprint({
-            title: __('Credenciais Necessárias'),
-            message: __('Configure as credenciais AT antes de testar a conexão'),
-            indicator: 'orange'
-        });
-        return;
-    }
-
-    frappe.call({
-        method: 'portugal_compliance.api.company_api.save_company_settings',
-        args: {
-            company_settings: {
-                company: frm.doc.name,
-                action: 'test_at_connection',
-                at_username: frm.doc.at_username,
-                at_environment: frm.doc.at_environment
-            }
-        },
-        freeze: true,
-        freeze_message: __('Testando conexão AT...'),
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frappe.msgprint({
-                    title: __('✅ Teste Realizado'),
-                    message: __('Teste de conexão executado. Verifique os logs para detalhes.'),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint({
-                    title: __('❌ Erro no Teste'),
-                    message: r.message ? r.message.error : __('Erro no teste de conexão'),
-                    indicator: 'red'
-                });
-            }
-        },
-        error: function(xhr, status, error) {
-            frappe.msgprint({
-                title: __('❌ Erro de Comunicação'),
-                message: __('Erro no teste: {0}', [error]),
-                indicator: 'red'
-            });
-        }
-    });
-}
+// configure_at_credentials_fixed e test_at_connection_fixed removidas
+// (2026-08-23): geriam Company.at_username/at_password/at_environment/
+// at_certificate_number, campos legados eliminados - ver nota junto
+// aos botões "Configurar Credenciais AT"/"Testar Conexão AT" removidos
+// em add_custom_buttons, acima.
 
 function show_series_communication_status_fixed(frm, series_data) {
     /**
@@ -1131,241 +991,15 @@ function export_compliance_config(frm) {
 }
 
 
-// ========== FUNÇÕES DOS BOTÕES DE COMUNICAÇÃO AT ==========
-
-function communicate_all_series_to_at(frm) {
-    /**
-     * ✅ NOVO: Comunicar todas as séries não comunicadas à AT
-     */
-
-    frappe.confirm(
-        __('Comunicar todas as séries não comunicadas à AT?<br><br>' +
-           '<strong>⚠️ Importante:</strong><br>' +
-           '• Certifique-se que as credenciais AT estão configuradas<br>' +
-           '• Esta operação não pode ser desfeita<br>' +
-           '• As séries ficarão oficialmente registadas na AT'),
-        function() {
-            frappe.call({
-                method: 'portugal_compliance.api.at_communication.communicate_all_series',
-                args: {
-                    company: frm.doc.name
-                },
-                freeze: true,
-                freeze_message: __('Comunicando séries à AT...'),
-                callback: function(r) {
-                    if (r.message && r.message.success) {
-                        frappe.msgprint({
-                            title: __('✅ Comunicação Concluída'),
-                            message: __('Séries comunicadas com sucesso à AT!<br>' +
-                                       'Total: {0} séries<br>' +
-                                       'Sucessos: {1}<br>' +
-                                       'Falhas: {2}', [
-                                r.message.total || 0,
-                                r.message.success_count || 0,
-                                r.message.error_count || 0
-                            ]),
-                            indicator: 'green'
-                        });
-                        frm.reload_doc();
-                    } else {
-                        frappe.msgprint({
-                            title: __('❌ Erro na Comunicação'),
-                            message: r.message ? r.message.error : __('Erro desconhecido'),
-                            indicator: 'red'
-                        });
-                    }
-                },
-                error: function(xhr, status, error) {
-                    frappe.msgprint({
-                        title: __('❌ Erro de Conexão'),
-                        message: __('Erro ao comunicar com AT: {0}', [error]),
-                        indicator: 'red'
-                    });
-                }
-            });
-        }
-    );
-}
-
-function check_communicated_series(frm) {
-    /**
-     * ✅ NOVO: Verificar status das séries comunicadas
-     */
-
-    frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-            doctype: 'Portugal Series Configuration',
-            filters: {
-                company: frm.doc.name
-            },
-            fields: ['prefix', 'document_type', 'is_communicated', 'communication_date', 'at_response'],
-            order_by: 'is_communicated desc, document_type'
-        },
-        callback: function(r) {
-            if (r.message) {
-                show_series_communication_status(frm, r.message);
-            }
-        }
-    });
-}
-
-function configure_at_credentials(frm) {
-    /**
-     * ✅ NOVO: Configurar credenciais AT
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Configurar Credenciais AT'),
-        fields: [
-            {
-                fieldtype: 'Data',
-                fieldname: 'at_username',
-                label: __('Username AT'),
-                reqd: 1,
-                default: frm.doc.at_username || ''
-            },
-            {
-                fieldtype: 'Password',
-                fieldname: 'at_password',
-                label: __('Password AT'),
-                reqd: 1
-            },
-            {
-                fieldtype: 'Select',
-                fieldname: 'at_environment',
-                label: __('Ambiente'),
-                options: 'test\nproduction',
-                reqd: 1,
-                default: frm.doc.at_environment || 'test'
-            },
-            {
-                fieldtype: 'Data',
-                fieldname: 'at_certificate_number',
-                label: __('Número do Certificado'),
-                description: __('Número do certificado digital (opcional)')
-            }
-        ],
-        primary_action_label: __('Salvar Credenciais'),
-        primary_action: function(values) {
-            // Salvar credenciais na empresa
-            frm.doc.at_username = values.at_username;
-            frm.doc.at_password = values.at_password;
-            frm.doc.at_environment = values.at_environment;
-            if (values.at_certificate_number) {
-                frm.doc.at_certificate_number = values.at_certificate_number;
-            }
-
-            frm.save().then(() => {
-                frappe.show_alert({
-                    message: __('Credenciais AT salvas com sucesso'),
-                    indicator: 'green'
-                });
-                dialog.hide();
-            });
-        }
-    });
-
-    dialog.show();
-}
-
-function test_at_connection(frm) {
-    /**
-     * ✅ NOVO: Testar conexão com AT
-     */
-
-    if (!frm.doc.at_username || !frm.doc.at_password) {
-        frappe.msgprint({
-            title: __('Credenciais Necessárias'),
-            message: __('Configure as credenciais AT antes de testar a conexão'),
-            indicator: 'orange'
-        });
-        return;
-    }
-
-    frappe.call({
-        method: 'portugal_compliance.api.at_communication.test_at_connection',
-        args: {
-            company: frm.doc.name
-        },
-        freeze: true,
-        freeze_message: __('Testando conexão AT...'),
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frappe.msgprint({
-                    title: __('✅ Conexão Bem-sucedida'),
-                    message: __('Conexão com AT estabelecida com sucesso!'),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint({
-                    title: __('❌ Falha na Conexão'),
-                    message: r.message ? r.message.error : __('Erro na conexão com AT'),
-                    indicator: 'red'
-                });
-            }
-        }
-    });
-}
-
-function show_series_communication_status(frm, series_data) {
-    /**
-     * ✅ NOVO: Mostrar status de comunicação das séries
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Status de Comunicação das Séries'),
-        size: 'large',
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'series_status'
-            }
-        ]
-    });
-
-    let communicated = series_data.filter(s => s.is_communicated).length;
-    let total = series_data.length;
-
-    let html = `
-        <div class="series-communication-status">
-            <h5>Resumo: ${communicated}/${total} séries comunicadas</h5>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Prefixo</th>
-                        <th>Tipo</th>
-                        <th>Status</th>
-                        <th>Data Comunicação</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    series_data.forEach(function(series) {
-        let status = series.is_communicated ?
-            '<span class="indicator green">✅ Comunicada</span>' :
-            '<span class="indicator red">❌ Não Comunicada</span>';
-
-        let date = series.communication_date ?
-            frappe.datetime.str_to_user(series.communication_date) :
-            '-';
-
-        html += `
-            <tr>
-                <td><strong>${series.prefix}</strong></td>
-                <td>${series.document_type}</td>
-                <td>${status}</td>
-                <td>${date}</td>
-            </tr>
-        `;
-    });
-
-    html += '</tbody></table></div>';
-
-    dialog.fields_dict.series_status.$wrapper.html(html);
-    dialog.show();
-}
+// communicate_all_series_to_at / check_communicated_series /
+// configure_at_credentials / test_at_connection / show_series_
+// communication_status removidas (2026-08-23): código morto, nunca
+// chamado por nenhum add_custom_button (as versões "_fixed" acima são
+// as reais) - chamavam inclusive um módulo
+// portugal_compliance.api.at_communication que nunca existiu neste
+// repositório. As duas primeiras também dependiam de
+// Company.at_username/at_password/at_environment, campos legados
+// entretanto eliminados.
 
 function generate_compliance_report(frm) {
     /**

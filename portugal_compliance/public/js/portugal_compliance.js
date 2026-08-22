@@ -1427,14 +1427,10 @@ window.portugal_compliance = {
 
             status.progress = 75;
 
-            if (!frm.doc.at_certificate_number) {
-                status.level = 'warning';
-                status.title = 'Certificado AT Recomendado';
-                status.message = 'Configure certificado AT para compliance completo';
-                status.progress = 90;
-                return status;
-            }
-
+            // Verificacao de at_certificate_number removida (2026-08-23):
+            // campo legado da Company eliminado - o numero do certificado
+            // de software vive agora em Portugal Auth Settings, nao afeta
+            // o estado de compliance desta empresa especifica.
             status.level = 'success';
             status.title = 'Compliance Completo';
             status.message = 'Empresa configurada para compliance português total';

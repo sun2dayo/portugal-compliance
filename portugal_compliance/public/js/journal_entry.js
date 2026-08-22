@@ -1282,7 +1282,7 @@ function load_company_settings(frm) {
         args: {
             doctype: 'Company',
             filters: {name: frm.doc.company},
-            fieldname: ['at_environment', 'portugal_compliance_enabled']
+            fieldname: ['portugal_compliance_enabled']
         },
         callback: function(r) {
             if (r.message) {

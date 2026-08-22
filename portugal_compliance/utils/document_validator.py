@@ -381,23 +381,29 @@ class DocumentValidationUtilities:
 	def get_company_compliance_info(self, company):
 		"""
 		✅ UTILITÁRIO: Obter informações de compliance da empresa
+
+		has_at_credentials/at_environment passaram a ler Portugal Auth
+		Settings (2026-08-23) - Company.at_username/at_environment eram
+		campos legados, entretanto eliminados; a fonte real das
+		credenciais AT ja era Portugal Auth Settings havia muito.
 		"""
 		try:
 			company_data = frappe.db.get_value("Company", company, [
-				"country", "portugal_compliance_enabled", "abbr",
-				"at_username", "at_environment"
+				"country", "portugal_compliance_enabled", "abbr"
 			], as_dict=True)
 
 			if not company_data:
 				return None
+
+			auth_settings = frappe.get_single("Portugal Auth Settings")
 
 			return {
 				'company': company,
 				'country': company_data.country,
 				'compliance_enabled': cint(company_data.portugal_compliance_enabled),
 				'abbr': company_data.abbr,
-				'has_at_credentials': bool(company_data.at_username),
-				'at_environment': company_data.at_environment or 'test',
+				'has_at_credentials': bool(auth_settings.get("at_username")),
+				'at_environment': "test" if cint(auth_settings.get("sandbox_mode")) else "production",
 				'is_portuguese': company_data.country == "Portugal"
 			}
 
