@@ -108,7 +108,10 @@ doc_events = {
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
 		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
-		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
+		"on_cancel": [
+			"portugal_compliance.utils.document_hooks.log_document_cancellation",
+			"portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_cancellation"
+		]
 	},
 	# Purchase Invoice removida deste bloco (2026-08-22): ATCUD/
 	# assinatura RSA/series aplicam-se por lei a documentos EMITIDOS a
@@ -196,7 +199,8 @@ doc_events = {
 		"on_update": "portugal_compliance.utils.document_hooks.setup_company_portugal_compliance",
 		"validate": [
 			"portugal_compliance.regional.portugal.validate_portugal_company_settings_safe",
-			"portugal_compliance.utils.document_hooks.sync_communication_settings"
+			"portugal_compliance.utils.document_hooks.sync_communication_settings",
+			"portugal_compliance.utils.document_hooks.sync_at_credentials"
 		]
 	},
 

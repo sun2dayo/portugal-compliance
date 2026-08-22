@@ -31,7 +31,6 @@ def execute():
 		process_failed_communications()
 		retry_invoice_communications()
 		update_real_time_cache()
-		check_certificate_status()
 		validate_recent_atcud()
 		cleanup_temporary_files()
 
@@ -420,47 +419,15 @@ def update_real_time_cache():
 		frappe.log_error(f"Error updating real-time cache: {str(e)}")
 
 
-def check_certificate_status():
-	"""
-	Verifica status dos certificados
-	"""
-	try:
-		# Verificar certificados que expiram em breve
-		companies_with_certs = frappe.db.get_all("Company",
-												 filters={"portugal_compliance_enabled": 1,
-														  "at_certificate_number": ["is", "set"]},
-												 fields=["name", "at_certificate_number",
-														 "certificate_expiry_date"]
-												 )
-
-		for company in companies_with_certs:
-			if company.certificate_expiry_date:
-				days_until_expiry = (
-						get_datetime(company.certificate_expiry_date) - get_datetime(now())).days
-
-				if days_until_expiry <= 30:
-					create_certificate_expiry_alert(company, days_until_expiry)
-
-	except Exception as e:
-		frappe.log_error(f"Error checking certificate status: {str(e)}")
-
-
-def create_certificate_expiry_alert(company, days_until_expiry):
-	"""
-	Cria alerta de expiração de certificado
-	"""
-	try:
-		severity = "critical" if days_until_expiry <= 7 else "warning"
-
-		message = _("AT Certificate for company '{0}' expires in {1} days").format(
-			company.name, days_until_expiry
-		)
-
-		# Criar log de erro para rastreamento
-		frappe.log_error(message, "Certificate Expiry Alert")
-
-	except Exception as e:
-		frappe.log_error(f"Error creating certificate expiry alert: {str(e)}")
+# check_certificate_status/create_certificate_expiry_alert removidas
+# (2026-08-22): liam Company.certificate_expiry_date, um campo que
+# nunca existiu (nem em Company nem em Portugal Auth Settings) - a
+# funcao corria de hora a hora ha meses sem nunca poder encontrar nada
+# para alertar, com os certificados reais (mTLS, publico da AT) a
+# aproximarem-se da validade sem qualquer aviso. Substituida por
+# check_certificate_expiry em tasks/daily.py, que le a data real de
+# expiracao dos proprios ficheiros de certificado (x509) em vez de um
+# campo de BD inexistente.
 
 
 def validate_recent_atcud():

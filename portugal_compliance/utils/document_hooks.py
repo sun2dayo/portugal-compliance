@@ -1322,6 +1322,66 @@ def sync_communication_settings(doc, method=None):
 		frappe.log_error(f"Erro em sync_communication_settings: {str(e)}")
 
 
+def sync_at_credentials(doc, method=None):
+	"""
+	Hook de validate da Company (junto de sync_communication_settings).
+
+	Consolida a duplicacao de credenciais AT identificada na auditoria:
+	Company.at_username/at_password/at_environment (usado pelo caminho
+	mais antigo de company_api.py - botoes "Configurar Credenciais AT"/
+	"Comunicar Series" no ecra da Company) e Portugal Auth Settings.
+	at_username/at_password/sandbox_mode (fonte real lida por TODOS os
+	webservices atuais: at_webservice.py, at_invoice_webservice.py,
+	at_transport_webservice.py) sao dois locais distintos para a mesma
+	informacao, sem garantia de estarem sincronizados.
+
+	Em vez de eliminar um dos dois (quebraria o botao "Comunicar
+	Series" ja em uso), este hook mantem-nos sincronizados nos dois
+	sentidos - a Company continua a ser onde o utilizador mexe, mas o
+	valor propaga sempre para Portugal Auth Settings, e vice-versa
+	quando o campo na Company ainda esta vazio.
+
+	Nota sobre o ambiente: Company usa at_environment (Select
+	test/production), Portugal Auth Settings usa sandbox_mode (Check) -
+	mapeados um para o outro (test <-> 1, production <-> 0).
+	"""
+	if not cint(getattr(doc, "portugal_compliance_enabled", 0)):
+		return
+
+	try:
+		settings = frappe.get_single("Portugal Auth Settings")
+		settings_dirty = False
+
+		new_username = getattr(doc, "at_username", None)
+		if new_username and new_username != settings.at_username:
+			settings.at_username = new_username
+			settings_dirty = True
+		elif not new_username and settings.at_username:
+			doc.at_username = settings.at_username
+
+		new_password = doc.get_password("at_password", raise_exception=False)
+		current_password = settings.get_password("at_password", raise_exception=False)
+		if new_password and new_password != current_password:
+			settings.at_password = new_password
+			settings_dirty = True
+		elif not new_password and current_password:
+			doc.at_password = current_password
+
+		new_environment = getattr(doc, "at_environment", None)
+		if new_environment:
+			new_sandbox = 1 if new_environment == "test" else 0
+			if cint(settings.sandbox_mode) != new_sandbox:
+				settings.sandbox_mode = new_sandbox
+				settings_dirty = True
+		else:
+			doc.at_environment = "test" if cint(settings.sandbox_mode) else "production"
+
+		if settings_dirty:
+			settings.save(ignore_permissions=True)
+	except Exception as e:
+		frappe.log_error(f"Erro em sync_at_credentials: {str(e)}")
+
+
 # ========== INVIOLABILIDADE (Portaria n.º 363/2010) ==========
 #
 # Um documento fiscal certificado nunca pode ser apagado da base de

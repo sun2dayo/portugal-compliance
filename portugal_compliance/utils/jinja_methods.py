@@ -60,18 +60,33 @@ def get_document_title(doc):
 	get_document_type_description, que só mapeia doctype -> nome
 	genérico). Varia com o estado do documento:
 	  - Sales Invoice com is_return: "Nota de Crédito"
+	  - Sales Invoice com is_pos: "Fatura Simplificada" - este sistema
+	    tem POS Settings.invoice_type = "Sales Invoice" (confirmado
+	    2026-08-22), ou seja as vendas de balcão reais passam por
+	    Sales Invoice com is_pos=1, não pelo doctype POS Invoice.
 	  - Sales Invoice já totalmente paga no momento da emissão
 	    (outstanding_amount <= 0): "Fatura-Recibo"
 	  - Sales Invoice normal: "Fatura"
+	  - POS Invoice (doctype dedicado, caso a empresa mude
+	    POS Settings.invoice_type no futuro): "Fatura Simplificada"
+	  - Payment Entry: "Recibo"
 	  - Delivery Note: "Guia de Transporte"
 	"""
 	try:
 		if doc.doctype == "Sales Invoice":
 			if cint(getattr(doc, "is_return", 0)):
 				return "Nota de Crédito"
+			if cint(getattr(doc, "is_pos", 0)):
+				return "Fatura Simplificada"
 			if flt(getattr(doc, "grand_total", 0)) > 0 and flt(getattr(doc, "outstanding_amount", 0)) <= 0:
 				return "Fatura-Recibo"
 			return "Fatura"
+		if doc.doctype == "POS Invoice":
+			if cint(getattr(doc, "is_return", 0)):
+				return "Nota de Crédito"
+			return "Fatura Simplificada"
+		if doc.doctype == "Payment Entry":
+			return "Recibo"
 		if doc.doctype == "Delivery Note":
 			return "Guia de Transporte"
 		return get_document_type_description(doc.doctype)
@@ -599,25 +614,37 @@ def get_company_nif(company):
 def get_customer_nif(doc):
 	"""
 	✅ NOVO: Obter NIF do cliente do documento
+
+	Payment Entry não tem campo `customer` direto (usa `party` +
+	`party_type` genéricos, para servir tanto Customer como Supplier) -
+	sem este fallback, o campo B (NIF do adquirente) do QR Code de
+	qualquer Recibo ficava sempre vazio.
 	"""
 	try:
-		if not hasattr(doc, 'customer') or not doc.customer:
-			return ""
+		if getattr(doc, 'customer', None):
+			return frappe.db.get_value("Customer", doc.customer, "tax_id") or ""
 
-		return frappe.db.get_value("Customer", doc.customer, "tax_id") or ""
+		if getattr(doc, 'doctype', None) == "Payment Entry" and doc.party_type == "Customer" and doc.party:
+			return frappe.db.get_value("Customer", doc.party, "tax_id") or ""
+
+		return ""
 	except Exception:
 		return ""
 
 
 def get_supplier_nif(doc):
 	"""
-	✅ NOVO: Obter NIF do fornecedor do documento
+	✅ NOVO: Obter NIF do fornecedor do documento (ver nota em
+	get_customer_nif sobre o fallback para Payment Entry).
 	"""
 	try:
-		if not hasattr(doc, 'supplier') or not doc.supplier:
-			return ""
+		if getattr(doc, 'supplier', None):
+			return frappe.db.get_value("Supplier", doc.supplier, "tax_id") or ""
 
-		return frappe.db.get_value("Supplier", doc.supplier, "tax_id") or ""
+		if getattr(doc, 'doctype', None) == "Payment Entry" and doc.party_type == "Supplier" and doc.party:
+			return frappe.db.get_value("Supplier", doc.party, "tax_id") or ""
+
+		return ""
 	except Exception:
 		return ""
 
@@ -982,6 +1009,14 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 		except Exception:
 			tax_breakdown = {code: {"base": 0.0, "tax": 0.0} for code in ("NOR", "INT", "RED", "ISE")}
 
+		# Payment Entry (Recibo) não tem grand_total - o valor do
+		# documento é paid_amount. Sem isto, N/O ficavam sempre "0.00"
+		# no QR Code de qualquer recibo impresso.
+		document_total = (
+			flt(getattr(doc, 'paid_amount', 0)) if doc.doctype == "Payment Entry"
+			else flt(getattr(doc, 'grand_total', 0))
+		)
+
 		qr_data = {
 			"A": company_nif,  # NIF do emitente
 			"B": customer_nif,  # NIF do adquirente
@@ -999,8 +1034,8 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 			"I6": f"{tax_breakdown['RED']['tax']:.2f}",  # IVA taxa reduzida
 			"I7": f"{tax_breakdown['ISE']['base']:.2f}",  # Base tributável taxa isenta
 			"I8": f"{tax_breakdown['ISE']['tax']:.2f}",  # IVA taxa isenta
-			"N": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",  # Total do documento
-			"O": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",  # Total com impostos
+			"N": f"{document_total:.2f}",  # Total do documento
+			"O": f"{document_total:.2f}",  # Total com impostos
 			"P": "0",  # Retenção na fonte
 			# Q: 4 caracteres de controlo da assinatura RSA-SHA1 REAL do
 			# documento (ver utils/signature.py / ATCUD Log). A versão

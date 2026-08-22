@@ -29,6 +29,7 @@ def execute():
 
 		# ✅ TAREFAS PRINCIPAIS (ADAPTADAS PARA NOVA ABORDAGEM)
 		generate_daily_report()
+		check_certificate_expiry()
 		check_series_expiration()
 		validate_daily_sequences()
 		cleanup_old_logs()
@@ -46,7 +47,6 @@ def execute():
 		validate_essential_custom_fields_integrity()
 		cleanup_failed_communications()
 		generate_compliance_metrics()
-		sync_portugal_series_configurations()
 
 		frappe.logger().info(
 			"🇵🇹 Portugal Compliance: Daily tasks completed successfully - NEW APPROACH")
@@ -75,6 +75,96 @@ def is_portugal_compliance_enabled():
 
 	except Exception:
 		return False
+
+
+def check_certificate_expiry():
+	"""
+	Verifica a validade REAL dos certificados x509 usados pelos
+	webservices da AT (mTLS cliente e certificado publico da AT usado
+	para cifrar o WS-Security) - le a data de expiracao do proprio
+	ficheiro de certificado, nao um campo de BD (ver nota em
+	tasks/hourly.py sobre o mecanismo anterior, que nunca funcionou
+	porque o campo que lia nunca existiu). Notifica os System Managers
+	via Notification Log quando faltam 30 dias ou menos para expirar -
+	a renovacao junto da AT (novo CSR + email para asi-cd@at.gov.pt) e
+	manual e pode demorar, por isso o aviso tem de vir com antecedencia
+	real.
+	"""
+	try:
+		from cryptography import x509
+		from cryptography.hazmat.backends import default_backend
+
+		settings = frappe.get_single("Portugal Auth Settings")
+		certs_to_check = [
+			("Certificado Cliente mTLS", settings.get("mtls_certificate_path")),
+			("Certificado Público da AT (WS-Security)", settings.get("at_public_certificate_path")),
+		]
+
+		for label, path in certs_to_check:
+			if not path:
+				continue
+			try:
+				import os
+				if not os.path.exists(path):
+					continue
+				with open(path, "rb") as f:
+					cert_bytes = f.read()
+				try:
+					cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())
+				except ValueError:
+					cert = x509.load_der_x509_certificate(cert_bytes, default_backend())
+
+				expiry = cert.not_valid_after_utc if hasattr(cert, "not_valid_after_utc") else cert.not_valid_after
+				days_left = (expiry.replace(tzinfo=None) - datetime.utcnow()).days
+
+				if days_left <= 30:
+					_notify_certificate_expiry(label, path, expiry, days_left)
+			except Exception as e:
+				frappe.log_error(f"Erro ao ler certificado '{label}' ({path}): {str(e)}",
+								  "Certificate Expiry Check")
+
+	except Exception as e:
+		frappe.log_error(f"Error checking certificate expiry: {str(e)}")
+
+
+def _notify_certificate_expiry(label, path, expiry_date, days_left):
+	"""
+	Notificação System Manager - deduplicada por dia (uma so
+	notificação por certificado por dia, não uma de hora a hora).
+	"""
+	try:
+		subject = _("Certificado AT a expirar: {0} ({1} dias)").format(label, days_left)
+
+		already_sent_today = frappe.db.exists("Notification Log", {
+			"subject": subject,
+			"creation": [">=", today()],
+		})
+		if already_sent_today:
+			return
+
+		severity = _("CRÍTICO") if days_left <= 7 else _("Aviso")
+		message = _(
+			"{0}: o {1} ({2}) expira em {3} ({4} dias). A renovação junto da AT é manual "
+			"(novo CSR + email para asi-cd@at.gov.pt) - inicie o processo com antecedência."
+		).format(severity, label, path, expiry_date.strftime("%Y-%m-%d"), days_left)
+
+		users = frappe.get_all("Has Role",
+			filters={"role": "System Manager", "parenttype": "User"}, pluck="parent")
+		for user in set(users):
+			if not frappe.db.get_value("User", user, "enabled"):
+				continue
+			frappe.get_doc({
+				"doctype": "Notification Log",
+				"subject": subject,
+				"email_content": message,
+				"for_user": user,
+				"type": "Alert",
+			}).insert(ignore_permissions=True)
+
+		frappe.db.commit()
+		frappe.logger().warning(f"Certificado a expirar: {label} - {days_left} dias")
+	except Exception as e:
+		frappe.log_error(f"Erro ao notificar expiração de certificado: {str(e)}")
 
 
 def generate_daily_report():
@@ -700,53 +790,11 @@ def count_series_with_correct_naming_series():
 
 
 # ✅ NOVA FUNÇÃO: Sincronizar Portugal Series Configuration
-def sync_portugal_series_configurations():
-	"""
-	Sincroniza Portugal Series Configuration com Portugal Document Series
-	"""
-	try:
-		# Verificar se há Portugal Document Series para sincronizar
-		if frappe.db.table_exists("tabPortugal Document Series"):
-			document_series = frappe.db.get_all("Portugal Document Series",
-												filters={"is_active": 1},
-												fields=["name", "prefix", "document_type",
-														"company"])
-
-			synced_count = 0
-			for ds in document_series:
-				try:
-					# Verificar se já existe Portugal Series Configuration correspondente
-					existing_config = frappe.db.exists("Portugal Series Configuration", {
-						"prefix": ds.prefix,
-						"company": ds.company,
-						"document_type": ds.document_type
-					})
-
-					if not existing_config:
-						# Criar Portugal Series Configuration
-						config = frappe.get_doc({
-							"doctype": "Portugal Series Configuration",
-							"series_name": f"{ds.document_type} - {ds.prefix}",
-							"company": ds.company,
-							"document_type": ds.document_type,
-							"prefix": ds.prefix,
-							"naming_series": f"{ds.prefix}.####",
-							"current_sequence": 1,
-							"is_active": 1,
-							"is_communicated": 0
-						})
-						config.insert(ignore_permissions=True)
-						synced_count += 1
-
-				except Exception as e:
-					frappe.log_error(f"Error syncing series {ds.name}: {str(e)}")
-
-			if synced_count > 0:
-				frappe.logger().info(
-					f"✅ Synced {synced_count} Portugal Document Series to Portugal Series Configuration")
-
-	except Exception as e:
-		frappe.log_error(f"Error syncing Portugal Series Configurations: {str(e)}")
+# sync_portugal_series_configurations removida (2026-08-22): existia
+# so para migrar dados do DocType "Portugal Document Series", ja morto
+# ha muito (substituido por Portugal Series Configuration, a fonte
+# real usada em todo o modulo) - 0 registos, a funcao nunca tinha nada
+# para sincronizar. O proprio DocType foi eliminado no mesmo commit.
 
 
 # ========== FUNÇÕES DE ALERTA ADAPTADAS ==========

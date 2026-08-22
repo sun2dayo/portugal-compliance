@@ -196,10 +196,17 @@ class SAFTGenerator:
 									  WHERE si.customer = c.name
 										AND si.company = %s
 										AND si.posting_date BETWEEN %s AND %s
-										AND si.docstatus = 1
+										AND si.docstatus IN (1, 2)
 								  )
 								  ORDER BY c.name
 								  """, (company, company, from_date, to_date), as_dict=True)
+		# docstatus IN (1, 2): desde que get_sales_invoices_data passou
+		# a incluir faturas anuladas (docstatus=2) no SourceDocuments,
+		# o cliente dessa fatura tem de constar do MasterFiles tambem -
+		# senao o CustomerID referenciado na fatura anulada aponta para
+		# um cliente inexistente no ficheiro (keyref invalido, XSD
+		# rejeita o ficheiro inteiro). So aconteceria com um cliente
+		# cuja UNICA fatura no periodo estivesse anulada.
 
 		for row in customers:
 			row["country_code"] = self._country_code(row.country)
@@ -371,9 +378,17 @@ class SAFTGenerator:
 									  INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
 							 WHERE si.company = %s
 							   AND si.posting_date BETWEEN %s AND %s
-							   AND si.docstatus = 1
+							   AND si.docstatus IN (1, 2)
 							 ORDER BY si.posting_date, si.name
 							 """, (company, from_date, to_date), as_dict=True)
+		# docstatus IN (1, 2): faturas anuladas (docstatus=2) tem de
+		# constar no SAF-T com InvoiceStatus=A e valores fiscais a
+		# 0.00 - a lei portuguesa exige o registo da anulacao, nao a
+		# sua omissao. Antes desta correcao, uma fatura anulada
+		# simplesmente desaparecia do ficheiro, como se nunca tivesse
+		# existido - o ATCUD/assinatura originais continuavam validos
+		# no sistema (nunca sao apagados, ver inviolabilidade em
+		# document_hooks.py) mas o SAF-T nao refletia a anulacao.
 
 		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}))
 		invoice_names = list({r.name for r in rows})
@@ -507,9 +522,15 @@ class SAFTGenerator:
 				# sentido (credito/estorno) e comunicado pelo
 				# InvoiceType=NC e pelo DebitAmount/CreditAmount por
 				# linha (ver abaixo), nunca por um total negativo.
-				invoice["tax_payable"] = abs(flt(row.total_taxes_and_charges))
-				invoice["net_total_abs"] = abs(flt(row.net_total))
-				invoice["gross_total_abs"] = abs(flt(row.grand_total))
+				#
+				# Documento anulado (docstatus=2): Base e Imposto vao a
+				# 0.00 (exigencia legal) - o ATCUD/Hash abaixo
+				# mantêm-se os originais, prova de que o documento foi
+				# mesmo assinado antes de ser anulado.
+				is_cancelled = row.docstatus == 2
+				invoice["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.total_taxes_and_charges))
+				invoice["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.net_total))
+				invoice["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.grand_total))
 				invoice["original_document_reference"] = _original_document_reference(row.return_against)
 				invoice["ship_to"] = _address_dict(row.shipping_address_name)
 				invoice["self_billing_indicator"] = _self_billing(row.customer)
@@ -524,7 +545,7 @@ class SAFTGenerator:
 					"AT Tax Exemption", row.at_exemption_reason, "description"
 				) or row.at_exemption_reason
 			signed_amount = flt(row.amount)
-			abs_amount = abs(signed_amount)
+			abs_amount = 0.0 if row.docstatus == 2 else abs(signed_amount)
 			invoices[row.name]["lines"].append(frappe._dict({
 				"item_code": row.item_code,
 				"item_name": row.item_name,
@@ -570,6 +591,18 @@ class SAFTGenerator:
 					"allocated_amount": ref.allocated_amount,
 					"invoice_date": invoice_date or pe.posting_date,
 				}))
+			# O XSD exige SourceDocumentID (OriginatingON+InvoiceDate)
+			# em TODA a Line de um Payment - nao ha forma valida de
+			# representar um recebimento sem nenhuma fatura alocada
+			# (ex: adiantamento ainda por reconciliar) neste schema.
+			# Confirmado ao validar contra o XSD real: sem este filtro,
+			# um Payment Entry sem references gera uma Line sem
+			# SourceDocumentID e falha a validacao. Excluido do SAF-T
+			# ate estar reconciliado - continua a ter ATCUD/assinatura
+			# local normalmente, so nao entra no ficheiro enquanto nao
+			# tiver documento de origem para referenciar.
+			if not pe.saft_references:
+				continue
 			payments.append(pe)
 
 		self.records_count += len(payments)

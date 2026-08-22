@@ -397,6 +397,123 @@ def enqueue_invoice_communication(doc, method=None):
 	)
 
 
+def change_invoice_status(document_type, document_name, new_status, log_name=None):
+	"""
+	Comunica uma mudanca de estado (ex: anulacao) de uma fatura ja
+	registada na AT, via ChangeInvoiceStatus - reutiliza o mesmo
+	InvoiceHeaderType (InvoiceNo/ATCUD/InvoiceType/SelfBillingIndicator/
+	CustomerTaxID) ja calculado para RegisterInvoice, ver
+	build_invoice_payload. So faz sentido para faturas que tenham sido
+	mesmo comunicadas com sucesso via este canal (modo Tempo Real) - uma
+	fatura reportada so pelo SAF-T mensal nunca foi registada
+	individualmente na AT por aqui, nao ha nada para "mudar de estado".
+	"""
+	if document_type != "Sales Invoice":
+		raise InvoiceWebserviceError(
+			_("ChangeInvoiceStatus só está implementado para Sales Invoice, não {0}").format(document_type)
+		)
+
+	doc = frappe.get_doc(document_type, document_name)
+	company_doc = frappe.get_doc("Company", doc.company)
+	generator = SAFTGenerator()
+
+	invoices = generator.get_sales_invoices_data(doc.company, doc.posting_date, doc.posting_date)
+	invoice = next((i for i in invoices if i.name == document_name), None)
+	if invoice is None:
+		raise InvoiceWebserviceError(
+			_("Não foi possível reconstruir os dados fiscais de {0} a partir do gerador SAF-T").format(document_name)
+		)
+
+	customer_tax_id = doc.tax_id or "999999990"
+	customer_address_name = frappe.db.get_value(
+		"Dynamic Link",
+		{"link_doctype": "Customer", "link_name": doc.customer, "parenttype": "Address"},
+		"parent",
+	)
+	customer_country_name = (
+		frappe.db.get_value("Address", customer_address_name, "country") if customer_address_name else None
+	)
+	customer_country = generator._country_code(customer_country_name)
+
+	payload = {
+		"eFaturaMDVersion": "0.0.1",
+		"TaxRegistrationNumber": int(company_doc.tax_id),
+		"InvoiceHeader": {
+			"InvoiceNo": invoice.invoice_no,
+			"ATCUD": doc.atcud_code or "",
+			"InvoiceDate": doc.posting_date,
+			"InvoiceType": invoice.invoice_type,
+			"SelfBillingIndicator": int(bool(invoice.self_billing_indicator)),
+			"CustomerTaxID": customer_tax_id,
+			"CustomerTaxIDCountry": customer_country,
+		},
+		"InvoiceStatus": {
+			"InvoiceStatus": new_status,
+			"InvoiceStatusDate": get_datetime(frappe.utils.now()),
+		},
+	}
+
+	try:
+		service, wsse_header = get_invoice_webservice_client()
+	except InvoiceWebserviceError as e:
+		return _write_log(log_name, document_type, document_name, doc.company, "Retrying",
+						   message=str(e), payload=payload, bump_retry=True)
+
+	try:
+		response = service.ChangeInvoiceStatus(_soapheaders=[wsse_header], **payload)
+	except zeep.exceptions.Fault as e:
+		frappe.log_error(f"AT rejeitou ChangeInvoiceStatus (SOAP Fault): {str(e)}", "ATInvoiceWebservice")
+		return _write_log(log_name, document_type, document_name, doc.company, "Failed",
+						   message=str(e), payload=payload, bump_retry=True)
+	except Exception as e:
+		frappe.log_error(f"Erro ao comunicar ChangeInvoiceStatus: {str(e)}", "ATInvoiceWebservice")
+		return _write_log(log_name, document_type, document_name, doc.company, "Retrying",
+						   message=str(e), payload=payload, bump_retry=True)
+
+	raw_response = zeep.helpers.serialize_object(response)
+	info = getattr(response, "Response", None) or response
+	code = str(getattr(info, "CodigoResposta", "")) if info else ""
+	message = getattr(info, "Mensagem", "") if info else ""
+
+	if code in SUCCESS_CODES:
+		return _write_log(log_name, document_type, document_name, doc.company, "Success",
+						   code=code, message=message, payload=payload, raw_response=str(raw_response))
+
+	friendly_msg = get_at_error_message(code, message)
+	frappe.log_error(f"AT recusou ChangeInvoiceStatus para {document_name} [{code}]: {friendly_msg}",
+					  "ATInvoiceWebservice")
+	return _write_log(log_name, document_type, document_name, doc.company, "Failed",
+					   code=code, message=friendly_msg, payload=payload,
+					   raw_response=str(raw_response), bump_retry=True)
+
+
+def enqueue_invoice_cancellation(doc, method=None):
+	"""
+	Hook de on_cancel da Sales Invoice. So enfileira ChangeInvoiceStatus
+	se a fatura tiver mesmo um registo de sucesso prévio em Portugal
+	Invoice Communication Log (foi comunicada via RegisterInvoice) - uma
+	fatura em modo Offline (SAF-T mensal) nunca foi individualmente
+	registada na AT por webservice, pelo que não há nada a anular por
+	este canal (a anulação chega à AT no próximo SAF-T mensal, já com
+	InvoiceStatus=A e valores a 0.00 - ver saft_generator.py).
+	"""
+	was_registered = frappe.db.exists(
+		"Portugal Invoice Communication Log",
+		{"document_type": doc.doctype, "document_name": doc.name, "status": "Success"},
+	)
+	if not was_registered:
+		return
+
+	frappe.enqueue(
+		"portugal_compliance.utils.at_invoice_webservice.change_invoice_status",
+		queue="short",
+		timeout=120,
+		document_type=doc.doctype,
+		document_name=doc.name,
+		new_status="A",
+	)
+
+
 @frappe.whitelist()
 def test_connection():
 	"""Testar configuracao do webservice de faturas (mesmo padrao do teste de series)."""
