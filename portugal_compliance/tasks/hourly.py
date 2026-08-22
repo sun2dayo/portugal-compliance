@@ -142,11 +142,17 @@ def sync_pending_series():
 
 def retry_invoice_communications():
 	"""
-	Reenvia faturas cuja comunicacao em tempo real com a AT falhou ou
-	ficou pendente (rede em baixo, timeout, etc) - mesmo padrao de
+	Reenvia documentos cuja comunicacao em tempo real com a AT falhou
+	ou ficou pendente (rede em baixo, timeout, etc) - mesmo padrao de
 	retry com backoff exponencial ja usado para series
 	(process_failed_communications / try_series_communication acima),
 	agora para Portugal Invoice Communication Log.
+
+	O nome do doctype/funcao ficou de "faturas" por ser o primeiro
+	fluxo implementado, mas o log e generico (campo document_type) e
+	desde a comunicacao de Documentos de Transporte (Delivery Note)
+	passou a servir os dois - despachado consoante document_type, em
+	vez de assumir sempre register_invoice.
 	"""
 	try:
 		pending = frappe.db.get_all(
@@ -162,13 +168,17 @@ def retry_invoice_communications():
 			return
 
 		from portugal_compliance.utils.at_invoice_webservice import register_invoice
+		from portugal_compliance.utils.at_transport_webservice import register_transport_document
 
 		for log in pending:
 			try:
-				register_invoice(log.document_type, log.document_name, log_name=log.name)
+				if log.document_type == "Delivery Note":
+					register_transport_document(log.document_type, log.document_name, log_name=log.name)
+				else:
+					register_invoice(log.document_type, log.document_name, log_name=log.name)
 			except Exception as e:
 				frappe.log_error(
-					f"Erro ao reenviar comunicacao de fatura {log.document_name}: {str(e)}",
+					f"Erro ao reenviar comunicacao de {log.document_type} {log.document_name}: {str(e)}",
 					"ATInvoiceWebservice",
 				)
 

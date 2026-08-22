@@ -113,6 +113,19 @@
             "options": "Offline (SAF-T Mensal)\nTempo Real (Webservice)",
             "default": "Offline (SAF-T Mensal)",
             "description": "Offline: a fatura só é assinada (RSA) e reportada à AT no SAF-T mensal. Tempo Real: além da assinatura, a fatura é comunicada à AT via webservice (RegisterInvoice) logo após a submissão."
+        },
+        {
+            "fieldname": "transport_communication_section",
+            "fieldtype": "Section Break",
+            "label": "Comunicação de Documentos de Transporte à AT"
+        },
+        {
+            "fieldname": "transport_communication_method",
+            "label": "Método de Comunicação de Guias de Transporte",
+            "fieldtype": "Select",
+            "options": "Tempo Real (Webservice)\nDesativado",
+            "default": "Tempo Real (Webservice)",
+            "description": "Tempo Real: a Delivery Note é comunicada à AT via webservice (envioDocumentoTransporte) logo após a submissão. Desativado: nenhuma comunicação automática (este módulo ainda não implementa o canal alternativo por ficheiro SAF-T de documentos de transporte)."
         }
     ]
 }
