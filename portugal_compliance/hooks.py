@@ -331,6 +331,12 @@ jinja = {
 		# ✅ MÉTODOS DE VALIDAÇÃO
 		"portugal_compliance.utils.jinja_methods.validate_portuguese_nif",
 		"portugal_compliance.utils.jinja_methods.get_company_nif",
+		"portugal_compliance.utils.jinja_methods.get_customer_nif",
+		"portugal_compliance.utils.jinja_methods.get_supplier_nif",
+
+		# ✅ MÉTODOS DE ENDEREÇOS
+		"portugal_compliance.utils.jinja_methods.get_company_address_formatted",
+		"portugal_compliance.utils.jinja_methods.get_party_address_formatted",
 
 		# ✅ MÉTODOS DE DOCUMENTOS
 		"portugal_compliance.utils.jinja_methods.get_document_type_description",

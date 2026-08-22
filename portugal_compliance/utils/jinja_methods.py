@@ -858,15 +858,20 @@ def get_document_totals_summary(doc):
 
 # ========== MÉTODOS DE ENDEREÇOS E EMPRESA ==========
 
-def get_company_address_formatted(company):
-	"""Obter endereço da empresa formatado"""
+def _format_primary_address(link_doctype, link_name):
+	"""
+	Endereço "is_primary_address" de qualquer parceiro (Company,
+	Customer, Supplier) formatado em linhas separadas por <br> - lógica
+	partilhada entre get_company_address_formatted e
+	get_party_address_formatted.
+	"""
 	try:
-		if not company:
+		if not link_name:
 			return ""
 
 		address = frappe.db.get_value("Address", {
-			"link_name": company,
-			"link_doctype": "Company",
+			"link_name": link_name,
+			"link_doctype": link_doctype,
 			"is_primary_address": 1
 		}, ["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True)
 
@@ -892,6 +897,31 @@ def get_company_address_formatted(company):
 			lines.append(address.country)
 
 		return "<br>".join(lines)
+	except Exception:
+		return ""
+
+
+def get_company_address_formatted(company):
+	"""Obter endereço da empresa formatado"""
+	return _format_primary_address("Company", company)
+
+
+def get_party_address_formatted(doc):
+	"""
+	Endereço formatado da contraparte (Customer/Supplier) num
+	documento. Ao contrário da Sales Invoice (`address_display`), o
+	Payment Entry (Recibo) não tem campo de endereço próprio - liga-se
+	ao endereço "is_primary_address" do `party` via `party_type`, mesmo
+	padrão usado em get_company_address_formatted (ver também
+	get_customer_nif/get_supplier_nif, que resolvem o NIF da mesma
+	forma para Payment Entry).
+	"""
+	try:
+		party_type = getattr(doc, 'party_type', None)
+		party = getattr(doc, 'party', None)
+		if not party_type or not party:
+			return ""
+		return _format_primary_address(party_type, party)
 	except Exception:
 		return ""
 
