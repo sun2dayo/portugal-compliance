@@ -334,6 +334,27 @@ fixtures = [
 				"Payment Entry-main-default_print_format",
 			]]
 		]
+	},
+	{
+		# Workspace Sidebar + Desktop Icon: sem estes dois registos o
+		# Workspace "Portugal Compliance" existe mas fica invisivel no
+		# ecra inicial do Desk (bug encontrado em 2026-08-22) - o Frappe
+		# v16 só descobre um Workspace automaticamente via
+		# `bench new-site` (create_workspace_sidebar_for_workspaces /
+		# create_desktop_icons_from_workspace correm uma única vez nesse
+		# momento); instalar a app num site já existente nunca gera
+		# estes dois registos. Exportados por `app` para não arrastar os
+		# equivalentes nativos do frappe/erpnext.
+		"dt": "Workspace Sidebar",
+		"filters": [
+			["app", "=", "portugal_compliance"]
+		]
+	},
+	{
+		"dt": "Desktop Icon",
+		"filters": [
+			["app", "=", "portugal_compliance"]
+		]
 	}
 ]
 
