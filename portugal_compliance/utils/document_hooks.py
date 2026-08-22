@@ -1382,6 +1382,45 @@ def sync_at_credentials(doc, method=None):
 		frappe.log_error(f"Erro em sync_at_credentials: {str(e)}")
 
 
+def generate_and_attach_qr_code(doc, method=None):
+	"""
+	Hook de after_insert (corre a seguir a generate_atcud_after_insert,
+	depois do ATCUD Log real estar persistido). Gera o QR Code (string
+	no formato AT + imagem PNG) e grava-o no proprio documento -
+	qr_code (novo) e qr_code_image existiam como campos ha muito, mas
+	nenhum codigo os preenchia de facto: o QR so era calculado em
+	memoria no momento da impressao, direto no template
+	(get_qr_code_data/generate_qr_code_image chamados inline). Isto
+	tornava invisivel para qualquer widget de estado que o documento
+	esta de facto conforme - o painel de compliance da POS Invoice
+	(public/js/pos_invoice.js) verifica frm.doc.qr_code, e mostrava
+	sempre "QR Code Pendente" mesmo num documento já assinado e com
+	ATCUD real, porque esse campo nunca existia.
+
+	Nao altera os print formats existentes (continuam a calcular o QR
+	fresco no momento da impressao, ja testado) - isto e apenas um
+	registo persistido, para o painel de estado e para qualquer
+	inspecao/auditoria futura ao documento.
+	"""
+	if doc.doctype not in FISCAL_IMMUTABLE_DOCTYPES:
+		return
+	if not getattr(doc, "atcud_code", None):
+		return
+	try:
+		from portugal_compliance.utils.jinja_methods import get_qr_code_data, generate_qr_code_image
+
+		qr_string = get_qr_code_data(doc=doc)
+		if not qr_string:
+			return
+		doc.db_set("qr_code", qr_string, update_modified=False)
+
+		qr_image = generate_qr_code_image(qr_string, 280)
+		if qr_image:
+			doc.db_set("qr_code_image", qr_image, update_modified=False)
+	except Exception as e:
+		frappe.log_error(f"Erro ao gerar QR Code para {doc.doctype} {doc.name}: {str(e)}")
+
+
 # ========== INVIOLABILIDADE (Portaria n.º 363/2010) ==========
 #
 # Um documento fiscal certificado nunca pode ser apagado da base de

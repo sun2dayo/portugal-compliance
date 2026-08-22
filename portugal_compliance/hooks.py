@@ -105,7 +105,10 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+		"after_insert": [
+			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+		],
 		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": [
@@ -129,7 +132,10 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+		"after_insert": [
+			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+		],
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
@@ -140,7 +146,10 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+		"after_insert": [
+			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+		],
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
@@ -154,7 +163,10 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+		"after_insert": [
+			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+		],
 		"on_submit": "portugal_compliance.utils.at_transport_webservice.enqueue_transport_communication",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
