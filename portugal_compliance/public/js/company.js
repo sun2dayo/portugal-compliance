@@ -634,6 +634,14 @@ function load_company_series(frm) {
     });
 }
 
+// Tipos de documento que a lei portuguesa (Portaria 195/2020) exige
+// comunicar à AT (ATCUD/série comunicada) - documentos emitidos a
+// clientes. Todos os outros (lançamentos contábeis, faturas de
+// compra, movimentos de stock internos, etc.) nunca têm série
+// comunicada à AT por definição - mostrar "Não" para esses é um falso
+// alarme, não um problema de configuração real.
+const AT_CLIENT_FACING_DOCTYPES = ['Sales Invoice', 'POS Invoice', 'Payment Entry', 'Delivery Note'];
+
 function display_company_series(frm, series_list) {
     /**
      * Exibir séries da empresa
@@ -649,7 +657,12 @@ function display_company_series(frm, series_list) {
 
     series_list.forEach(function(series) {
         let status = series.is_active ? '✅ Ativa' : '❌ Inativa';
-        let communicated = series.is_communicated ? '✅ Sim' : '⚠️ Não';
+        let communicated;
+        if (AT_CLIENT_FACING_DOCTYPES.includes(series.document_type)) {
+            communicated = series.is_communicated ? '✅ Sim' : '⚠️ Não';
+        } else {
+            communicated = '<span style="color:#888;">N/A - Uso Interno</span>';
+        }
 
         html += `<tr>
             <td><strong>${series.prefix}</strong></td>

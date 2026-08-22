@@ -1274,6 +1274,52 @@ def setup_company_compliance_api(company):
 		return {'success': False, 'error': str(e)}
 
 
+def sync_communication_settings(doc, method=None):
+	"""
+	Hook de validate da Company. Portugal Auth Settings e um Single (uma
+	so configuracao no site) - e a fonte real que o codigo dos
+	webservices le (at_invoice_webservice.py, at_transport_webservice.py),
+	mas ate agora so era visivel/editavel no proprio formulario de
+	Portugal Auth Settings, nao no ecra da Company onde o resto das
+	credenciais AT esta. Este hook faz de ponte nos dois sentidos:
+
+	  - Se o utilizador mudou invoice_communication_method/
+	    transport_communication_method na Company, escreve o novo valor
+	    em Portugal Auth Settings (fonte real usada pelo codigo).
+	  - Se o campo na Company ainda esta vazio (primeira vez que este
+	    campo aparece num registo ja existente, ou uma segunda empresa
+	    que nunca tocou nisto), mostra o valor atualmente configurado em
+	    vez de aparecer em branco.
+
+	Nota: por Portugal Auth Settings ser Single, o metodo de comunicacao
+	e partilhado por todas as empresas do site - se houver mais do que
+	uma empresa portuguesa ativa neste site, a ultima a gravar este
+	campo e que prevalece. Nao e um problema para o site atual (uma so
+	empresa, novadx), mas fica registado aqui para nao ser esquecido se
+	um dia houver multi-empresa real.
+	"""
+	if not cint(getattr(doc, "portugal_compliance_enabled", 0)):
+		return
+
+	try:
+		current_invoice = frappe.db.get_single_value("Portugal Auth Settings", "invoice_communication_method")
+		current_transport = frappe.db.get_single_value("Portugal Auth Settings", "transport_communication_method")
+
+		new_invoice = getattr(doc, "invoice_communication_method", None)
+		if new_invoice and new_invoice != current_invoice:
+			frappe.db.set_single_value("Portugal Auth Settings", "invoice_communication_method", new_invoice)
+		elif not new_invoice:
+			doc.invoice_communication_method = current_invoice or "Offline (SAF-T Mensal)"
+
+		new_transport = getattr(doc, "transport_communication_method", None)
+		if new_transport and new_transport != current_transport:
+			frappe.db.set_single_value("Portugal Auth Settings", "transport_communication_method", new_transport)
+		elif not new_transport:
+			doc.transport_communication_method = current_transport or "Tempo Real (Webservice)"
+	except Exception as e:
+		frappe.log_error(f"Erro em sync_communication_settings: {str(e)}")
+
+
 # ========== LOG FINAL ==========
 frappe.logger().info(
 	"Portugal Document Hooks OTIMIZADO loaded - Version 2.1.0 - Clean & Efficient")

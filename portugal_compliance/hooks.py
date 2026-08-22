@@ -172,7 +172,10 @@ doc_events = {
 	# ========== CONFIGURAÇÃO DA EMPRESA ==========
 	"Company": {
 		"on_update": "portugal_compliance.utils.document_hooks.setup_company_portugal_compliance",
-		"validate": "portugal_compliance.regional.portugal.validate_portugal_company_settings_safe"
+		"validate": [
+			"portugal_compliance.regional.portugal.validate_portugal_company_settings_safe",
+			"portugal_compliance.utils.document_hooks.sync_communication_settings"
+		]
 	},
 
 	# ========== VALIDAÇÃO DE ENTIDADES ==========
