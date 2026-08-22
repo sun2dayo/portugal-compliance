@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import getdate, formatdate, now, get_site_path, flt
+from frappe.utils import getdate, formatdate, now, get_site_path, flt, cint
 import os
 import json
 import hashlib
@@ -174,6 +174,7 @@ class SAFTGenerator:
 												  c.customer_name,
 												  c.tax_id,
 												  c.customer_type,
+												  c.at_is_self_billing,
 												  pa.account AS default_receivable_account,
 												  a.address_line1,
 												  a.address_line2,
@@ -354,6 +355,9 @@ class SAFTGenerator:
 									si.atcud_code,
 									si.naming_series,
 									si.is_return,
+									si.return_against,
+									si.shipping_address_name,
+									si.customer_address,
 									sii.item_code,
 									sii.item_name,
 									sii.description,
@@ -400,6 +404,92 @@ class SAFTGenerator:
 				)
 			return series_code_cache[naming_series] or ("NC" if is_return else "FT")
 
+		original_doc_cache = {}
+
+		def _original_document_reference(return_against):
+			"""
+			Para uma Nota de Credito (return_against preenchido), a AT
+			exige a referencia ao documento original no formato
+			"ATCUD_ORIGINAL NUMERO_ORIGINAL" (ex: "AAJFJ23MT8-0001 FT
+			FT2026N/1"). sequence_number vem do ATCUD Log do ORIGINAL,
+			nao do documento atual - por isso o mesmo helper de
+			formatacao (_format_invoice_no) e reutilizado aqui com os
+			dados do original.
+			"""
+			if not return_against:
+				return None
+			if return_against not in original_doc_cache:
+				orig = frappe.db.get_value(
+					"Sales Invoice", return_against,
+					["atcud_code", "naming_series", "is_return"], as_dict=True,
+				)
+				if not orig:
+					original_doc_cache[return_against] = None
+				else:
+					orig_sig = self._get_signatures_by_invoice([return_against]).get(return_against)
+					orig_doc_code = _document_code_for(orig.naming_series, orig.is_return)
+					orig_invoice_no = self._format_invoice_no(
+						return_against, orig_sig.sequence_number if orig_sig else None, orig_doc_code
+					)
+					original_doc_cache[return_against] = f"{orig.atcud_code or ''} {orig_invoice_no}".strip()
+			return original_doc_cache[return_against]
+
+		address_cache = {}
+
+		def _address_dict(address_name):
+			"""
+			Morada (ShipTo/ShipFrom) no formato CustomerAddressStructure
+			exigido pelo XSD - AddressDetail/City/PostalCode/Country
+			nunca podem ir vazios (minLength=1), por isso o fallback
+			"Desconhecido" quando o ERPNext nao tem o dado preenchido.
+			"""
+			if not address_name:
+				return None
+			if address_name not in address_cache:
+				addr = frappe.db.get_value(
+					"Address", address_name,
+					["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True,
+				)
+				if not addr:
+					address_cache[address_name] = None
+				else:
+					detail = ((addr.address_line1 or "") + " " + (addr.address_line2 or "")).strip()
+					address_cache[address_name] = frappe._dict({
+						"address_detail": detail or "Desconhecido",
+						"city": addr.city or "Desconhecido",
+						"postal_code": addr.pincode or "Desconhecido",
+						"country_code": self._country_code(addr.country),
+					})
+			return address_cache[address_name]
+
+		self_billing_cache = {}
+
+		def _self_billing(customer):
+			if customer not in self_billing_cache:
+				self_billing_cache[customer] = cint(
+					frappe.db.get_value("Customer", customer, "at_is_self_billing")
+				)
+			return self_billing_cache[customer]
+
+		def _withholding_tax_rows(invoice_name):
+			"""
+			Linhas de Sales Taxes and Charges marcadas como retencao na
+			fonte (is_tax_withholding_account=1 - campo nativo do
+			ERPNext, criado quando uma Tax Withholding Category e
+			aplicada). WithholdingTaxType (IRS/IRC/IS) nao tem
+			correspondencia direta e fiavel no ERPNext - fica de fora
+			(campo opcional no XSD) em vez de adivinhar; so o valor
+			(obrigatorio) e a descricao (opcional) sao mapeados.
+			"""
+			rows = frappe.db.sql("""
+								 SELECT description, tax_amount FROM `tabSales Taxes and Charges`
+								 WHERE parent = %s AND is_tax_withholding_account = 1
+								 """, (invoice_name,), as_dict=True)
+			return [
+				frappe._dict({"description": r.description or "", "amount": abs(flt(r.tax_amount))})
+				for r in rows if r.tax_amount
+			]
+
 		invoices = {}
 		for row in rows:
 			if row.name not in invoices:
@@ -420,6 +510,10 @@ class SAFTGenerator:
 				invoice["tax_payable"] = abs(flt(row.total_taxes_and_charges))
 				invoice["net_total_abs"] = abs(flt(row.net_total))
 				invoice["gross_total_abs"] = abs(flt(row.grand_total))
+				invoice["original_document_reference"] = _original_document_reference(row.return_against)
+				invoice["ship_to"] = _address_dict(row.shipping_address_name)
+				invoice["self_billing_indicator"] = _self_billing(row.customer)
+				invoice["withholding_tax"] = _withholding_tax_rows(row.name)
 				invoice["lines"] = []
 				invoices[row.name] = invoice
 

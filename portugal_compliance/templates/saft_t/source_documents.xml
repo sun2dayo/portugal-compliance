@@ -23,16 +23,31 @@
             <InvoiceDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</InvoiceDate>
             <InvoiceType>{{ invoice.invoice_type }}</InvoiceType>
             <SpecialRegimes>
-                <SelfBillingIndicator>0</SelfBillingIndicator>
+                <SelfBillingIndicator>{{ invoice.self_billing_indicator or 0 }}</SelfBillingIndicator>
                 <CashVATSchemeIndicator>0</CashVATSchemeIndicator>
                 <ThirdPartiesBillingIndicator>0</ThirdPartiesBillingIndicator>
             </SpecialRegimes>
             <SourceID>{{ invoice.owner }}</SourceID>
             <SystemEntryDate>{{ invoice.creation.strftime('%Y-%m-%dT%H:%M:%S') }}</SystemEntryDate>
             <CustomerID>{{ invoice.customer }}</CustomerID>
+            {% if invoice.ship_to %}
+            <ShipTo>
+                <Address>
+                    <AddressDetail>{{ invoice.ship_to.address_detail }}</AddressDetail>
+                    <City>{{ invoice.ship_to.city }}</City>
+                    <PostalCode>{{ invoice.ship_to.postal_code }}</PostalCode>
+                    <Country>{{ invoice.ship_to.country_code }}</Country>
+                </Address>
+            </ShipTo>
+            {% endif %}
             {% for item in invoice.lines %}
             <Line>
                 <LineNumber>{{ loop.index }}</LineNumber>
+                {% if invoice.original_document_reference %}
+                <OrderReferences>
+                    <OriginatingON>{{ invoice.original_document_reference }}</OriginatingON>
+                </OrderReferences>
+                {% endif %}
                 <ProductCode>{{ item.item_code }}</ProductCode>
                 <ProductDescription>{{ item.item_name or item.item_code }}</ProductDescription>
                 <Quantity>{{ item.qty }}</Quantity>
@@ -62,6 +77,12 @@
                 <NetTotal>{{ '%.2f'|format(invoice.net_total_abs or 0) }}</NetTotal>
                 <GrossTotal>{{ '%.2f'|format(invoice.gross_total_abs or 0) }}</GrossTotal>
             </DocumentTotals>
+            {% for wh in invoice.withholding_tax %}
+            <WithholdingTax>
+                {% if wh.description %}<WithholdingTaxDescription>{{ wh.description }}</WithholdingTaxDescription>{% endif %}
+                <WithholdingTaxAmount>{{ '%.2f'|format(wh.amount or 0) }}</WithholdingTaxAmount>
+            </WithholdingTax>
+            {% endfor %}
         </Invoice>
         {% endfor %}
     </SalesInvoices>

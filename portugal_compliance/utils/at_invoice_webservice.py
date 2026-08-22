@@ -84,6 +84,7 @@ AT_ERROR_MESSAGES = {
 	"-2": "Data de emissão inválida",
 	"-3": "Documento duplicado (já existe na AT)",
 	"-4": "Entidade emissora sem permissões para este NIF",
+	"-16": "Utilizador não tem permissões para registar documentos com autofaturação para este NIF (confirmado em teste real - SelfBillingIndicator=1 exige autorizacao especifica na AT)",
 	"-10": "Documento já registado pelo emitente (confirmado em teste real contra a AT)",
 	"-98": "Erro de integridade/tipo de dados nos parâmetros",
 	"-99": "Erro interno na AT",
@@ -247,7 +248,10 @@ def build_invoice_payload(document_type, document_name):
 		# nao um literal fixo - uma Nota de Credito emitida na serie NC
 		# tinha de ser sempre reportada como "FT" a AT ate esta correcao.
 		"InvoiceType": invoice.invoice_type,
-		"SelfBillingIndicator": 0,
+		# Mesmo campo real do Customer (at_is_self_billing) usado no
+		# SAF-T (ver SAFTGenerator.get_sales_invoices_data) - nao um
+		# literal fixo.
+		"SelfBillingIndicator": int(bool(invoice.self_billing_indicator)),
 		"CustomerTaxID": customer_tax_id,
 		"CustomerTaxIDCountry": customer_country,
 		"DocumentStatus": {
@@ -265,6 +269,11 @@ def build_invoice_payload(document_type, document_name):
 			"GrossTotal": invoice.gross_total_abs,
 		},
 	}
+	if invoice.withholding_tax:
+		invoice_data["WithholdingTax"] = [
+			{"WithholdingTaxDescription": wh.description, "WithholdingTaxAmount": wh.amount}
+			for wh in invoice.withholding_tax
+		]
 
 	request = {
 		"eFaturaMDVersion": "0.0.1",

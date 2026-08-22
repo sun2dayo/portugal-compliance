@@ -14,7 +14,7 @@
             <PostalCode>{{ customer.pincode or 'Desconhecido' }}</PostalCode>
             <Country>{{ customer.country_code }}</Country>
         </BillingAddress>
-        <SelfBillingIndicator>0</SelfBillingIndicator>
+        <SelfBillingIndicator>{{ 1 if customer.at_is_self_billing else 0 }}</SelfBillingIndicator>
     </Customer>
     {% endfor %}
 
