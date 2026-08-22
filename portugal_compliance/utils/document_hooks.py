@@ -45,13 +45,15 @@ class PortugalComplianceDocumentHooks:
 				"critical": True,
 				"code": "FS"
 			},
-			"Purchase Invoice": {
-				"prefixes": ["FC"],
-				"requires_atcud": True,
-				"fiscal_document": True,
-				"critical": True,
-				"code": "FC"
-			},
+			# Purchase Invoice removida (2026-08-22): ATCUD/assinatura RSA
+			# aplicam-se por lei a documentos EMITIDOS a clientes (Portaria
+			# 195/2020), nunca a faturas de compra RECEBIDAS de
+			# fornecedores. Gerar ATCUD aqui nunca teve base legal - a
+			# fatura de compra e da responsabilidade fiscal de quem a
+			# emitiu (o fornecedor), nao da novadx. Nunca foi comunicada a
+			# serie (nem devia), so o ATCUD/assinatura local eram gerados
+			# indevidamente. Ver hooks.py: bloco doc_events["Purchase
+			# Invoice"] removido no mesmo commit.
 			"Payment Entry": {
 				"prefixes": ["RC", "RB"],
 				"requires_atcud": True,
@@ -1318,6 +1320,144 @@ def sync_communication_settings(doc, method=None):
 			doc.transport_communication_method = current_transport or "Tempo Real (Webservice)"
 	except Exception as e:
 		frappe.log_error(f"Erro em sync_communication_settings: {str(e)}")
+
+
+# ========== INVIOLABILIDADE (Portaria n.º 363/2010) ==========
+#
+# Um documento fiscal certificado nunca pode ser apagado da base de
+# dados nem ter os seus campos fiscais alterados depois de assinado -
+# a unica forma legal de o desfazer e a anulacao documentada
+# (Cancelar) ou a emissao de um documento de estorno (ex: Nota de
+# Credito). O Frappe ja bloqueia nativamente apagar um documento
+# SUBMETIDO (docstatus=1), mas permite livremente apagar rascunhos e
+# documentos ja ANULADOS (docstatus=2) - e exatamente aqui que um
+# documento com ATCUD/assinatura real podia desaparecer sem deixar
+# rasto. Delivery Note nao entra nesta lista porque a comunicacao a AT
+# ja a torna auditavel do lado deles (ATDocCodeID), mas o pedido do
+# utilizador foi explicito nestes 4 doctypes - mantido tal como pedido.
+
+FISCAL_IMMUTABLE_DOCTYPES = ["Sales Invoice", "Delivery Note", "Payment Entry", "POS Invoice"]
+
+# Campos cuja alteracao depois de assinado invalidaria a assinatura
+# RSA-SHA1 ja calculada (generate_atcud_before_save so gera o ATCUD
+# uma vez, nunca regenera - sem este bloqueio seria possivel editar o
+# total/cliente/data de um rascunho DEPOIS de assinado e a assinatura
+# ficava a corresponder a dados que ja nao existem).
+FISCAL_LOCK_FIELDS = {
+	"Sales Invoice": ["customer", "posting_date", "grand_total", "net_total", "is_return", "naming_series", "atcud_code"],
+	"POS Invoice": ["customer", "posting_date", "grand_total", "net_total", "naming_series", "atcud_code"],
+	"Delivery Note": ["customer", "posting_date", "naming_series", "is_return", "atcud_code"],
+	"Payment Entry": ["party", "posting_date", "paid_amount", "received_amount", "naming_series", "atcud_code"],
+}
+
+
+def block_fiscal_document_deletion(doc, method=None):
+	"""
+	Hook de on_trash. Bloqueia eliminacao de qualquer documento fiscal
+	que ja tenha ATCUD/assinatura gerados, ou que esteja anulado
+	(docstatus=2) mesmo sem ATCUD - o registo tem de permanecer.
+	"""
+	if doc.doctype not in FISCAL_IMMUTABLE_DOCTYPES:
+		return
+
+	if getattr(doc, "atcud_code", None):
+		frappe.throw(
+			_(
+				"{0} {1} não pode ser eliminado: já tem ATCUD/assinatura fiscal gerados ({2}). "
+				"Documentos assinados são invioláveis (Portaria n.º 363/2010) - anule o documento "
+				"(Cancelar) ou emita um documento de estorno (ex: Nota de Crédito) em vez de o apagar."
+			).format(_(doc.doctype), doc.name, doc.atcud_code),
+			title=_("Eliminação Bloqueada"),
+		)
+
+	if doc.docstatus == 2:
+		frappe.throw(
+			_(
+				"{0} {1} está anulado e não pode ser eliminado - o registo tem de permanecer na "
+				"base de dados para efeitos de auditoria, mesmo sem ATCUD."
+			).format(_(doc.doctype), doc.name),
+			title=_("Eliminação Bloqueada"),
+		)
+
+
+def enforce_fiscal_field_lock(doc, method=None):
+	"""
+	Hook de before_save - tem de correr ANTES de
+	generate_atcud_before_save no mesmo evento (ver ordem em hooks.py).
+	Compara com get_doc_before_save() (estado na BD antes desta
+	gravacao); se o documento ja tinha ATCUD antes desta gravacao,
+	nenhum dos campos fiscais pode ter mudado.
+	"""
+	if doc.doctype not in FISCAL_LOCK_FIELDS or doc.is_new():
+		return
+
+	before = doc.get_doc_before_save()
+	if not before or not getattr(before, "atcud_code", None):
+		return
+
+	changed = [f for f in FISCAL_LOCK_FIELDS[doc.doctype] if doc.get(f) != before.get(f)]
+	if changed:
+		frappe.throw(
+			_(
+				"{0} {1} já tem ATCUD/assinatura gerados ({2}) - os campos fiscais {3} não podem "
+				"ser alterados (Portaria 195/2020). Anule o documento e emita um novo em vez de "
+				"corrigir os valores diretamente."
+			).format(_(doc.doctype), doc.name, before.atcud_code, ", ".join(changed)),
+			title=_("Alteração Bloqueada"),
+		)
+
+
+def log_document_cancellation(doc, method=None):
+	"""
+	Hook de on_cancel. Nao bloqueia - anular e a via legal para desfazer
+	um documento fiscal em Portugal. So deixa um registo explicito e
+	visivel na timeline do documento com o ATCUD anulado, mais facil de
+	encontrar numa auditoria do que vasculhar o historico de versoes do
+	Track Changes.
+	"""
+	if doc.doctype not in FISCAL_IMMUTABLE_DOCTYPES:
+		return
+	if not getattr(doc, "atcud_code", None):
+		return
+	try:
+		doc.add_comment(
+			"Info",
+			_(
+				"Documento anulado por {0}. O ATCUD {1} mantém-se registado para efeitos de "
+				"auditoria - o registo original não foi nem pode ser eliminado."
+			).format(frappe.session.user, doc.atcud_code),
+		)
+	except Exception as e:
+		frappe.log_error(f"Erro ao registar anulação de {doc.doctype} {doc.name}: {str(e)}")
+
+
+def force_track_changes_property_setters():
+	"""
+	Chamada em after_migrate (ver hooks.py). Garante via Property Setter
+	que track_changes esta sempre ativo nos doctypes fiscais, mesmo que
+	alguem o desligue manualmente no Customize Form - pista de auditoria
+	(quem alterou o que e quando) e um requisito de certificacao
+	(Portaria 363/2010), nao uma preferencia de UI.
+	"""
+	for doctype in FISCAL_IMMUTABLE_DOCTYPES:
+		try:
+			existing = frappe.db.get_value(
+				"Property Setter", {"doc_type": doctype, "property": "track_changes"}, "name"
+			)
+			if existing:
+				frappe.db.set_value("Property Setter", existing, "value", "1")
+			else:
+				frappe.get_doc({
+					"doctype": "Property Setter",
+					"doctype_or_field": "DocType",
+					"doc_type": doctype,
+					"property": "track_changes",
+					"property_type": "Check",
+					"value": "1",
+				}).insert(ignore_permissions=True)
+		except Exception as e:
+			frappe.log_error(f"Erro ao forçar track_changes em {doctype}: {str(e)}")
+	frappe.clear_cache()
 
 
 # ========== LOG FINAL ==========

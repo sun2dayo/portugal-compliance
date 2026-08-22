@@ -1956,3 +1956,30 @@ if (typeof module !== 'undefined' && module.exports) {
 
 console.log('🇵🇹 Portugal Compliance Module v2.0.0 carregado com sucesso - Versão Unificada!');
 
+// ========== PISTA DE AUDITORIA: REGISTO DE (RE)IMPRESSÕES ==========
+// Portaria n.º 363/2010 (requisitos de software certificado) - a AT
+// costuma verificar em auditoria se o software regista reimpressões
+// de documentos fiscais ja emitidos. Registado centralmente aqui (em
+// vez de em cada ficheiro *.js por doctype) para os 4 doctypes onde a
+// inviolabilidade foi implementada (ver document_hooks.py). Falha em
+// silêncio no cliente - nunca deve impedir a impressão em si.
+(function () {
+	const FISCAL_PRINT_DOCTYPES = ['Sales Invoice', 'Delivery Note', 'Payment Entry', 'POS Invoice'];
+
+	FISCAL_PRINT_DOCTYPES.forEach(function (doctype) {
+		frappe.ui.form.on(doctype, {
+			before_print: function (frm) {
+				if (!frm.doc || frm.doc.__islocal) return;
+				frappe.call({
+					method: 'portugal_compliance.portugal_compliance.doctype.portugal_document_print_log.portugal_document_print_log.log_document_print',
+					args: {
+						document_type: frm.doctype,
+						document_name: frm.docname,
+						print_format: (frm.print_preview && frm.print_preview.selected_format) || frm.meta.default_print_format || null
+					}
+				});
+			}
+		});
+	});
+})();
+

@@ -88,7 +88,8 @@ after_app_install = [
 # ✅ MIGRATION HOOKS
 after_migrate = [
     "portugal_compliance.utils.startup_fixes.fix_customer_search_on_startup",
-	"portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters"
+	"portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters",
+	"portugal_compliance.utils.document_hooks.force_track_changes_property_setters"
 ]
 
 
@@ -98,41 +99,62 @@ doc_events = {
 	# ========== DOCUMENTOS FISCAIS CRÍTICOS ==========
 	"Sales Invoice": {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
+		"before_save": [
+			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
+			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
+		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
-		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication"
+		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication",
+		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
+		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
-	"Purchase Invoice": {
-		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
-		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
-	},
+	# Purchase Invoice removida deste bloco (2026-08-22): ATCUD/
+	# assinatura RSA/series aplicam-se por lei a documentos EMITIDOS a
+	# clientes (Portaria 195/2020), nunca a faturas de compra RECEBIDAS
+	# de fornecedores - a responsabilidade fiscal desse documento e de
+	# quem o emitiu. Nunca teve serie comunicada (nem devia), so o
+	# ATCUD/assinatura local eram gerados indevidamente. Ver
+	# document_hooks.py: entrada "Purchase Invoice" removida de
+	# supported_doctypes no mesmo commit.
 	"POS Invoice": {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
+		"before_save": [
+			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
+			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
+		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
+		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
 	"Payment Entry": {
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
+		"before_save": [
+			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
+			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
+		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
-		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert"
+		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
+		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
+		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
 
 	# ========== DOCUMENTOS DE TRANSPORTE ==========
 	"Delivery Note": {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": "portugal_compliance.utils.document_hooks.generate_atcud_before_save",
+		"before_save": [
+			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
+			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
+		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"after_insert": "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
-		"on_submit": "portugal_compliance.utils.at_transport_webservice.enqueue_transport_communication"
+		"on_submit": "portugal_compliance.utils.at_transport_webservice.enqueue_transport_communication",
+		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
+		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
 	"Purchase Receipt": {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
