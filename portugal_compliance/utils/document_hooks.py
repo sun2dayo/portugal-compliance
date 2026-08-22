@@ -1556,6 +1556,41 @@ def force_track_changes_property_setters():
 				}).insert(ignore_permissions=True)
 		except Exception as e:
 			frappe.log_error(f"Erro ao forçar track_changes em {doctype}: {str(e)}")
+
+
+def set_pos_invoice_default_print_format():
+	"""
+	Chamada em after_migrate (ver hooks.py). Garante via Property Setter
+	que "Fatura Simplificada PT" (talão térmico 80mm) é o print format
+	por omissão do DocType POS Invoice.
+
+	Sem isto, os botões "Imprimir Térmica"/"Reimprimir" (POS_invoice.js)
+	abrem a vista de impressão nativa do Frappe sem nenhum formato
+	pré-selecionado - a vista cai no primeiro formato "standard"
+	disponível (normalmente um genérico do ERPNext, sem ATCUD/QR/
+	layout térmico), dando uma 2ª via completamente diferente da
+	impressa no checkout. Só se aplica a POS Invoice - nunca a Sales
+	Invoice, que serve muito mais do que vendas de balcão (fixar aqui
+	o formato térmico como omissão global forçaria um talão de 80mm em
+	qualquer fatura normal impressa a partir do Desk).
+	"""
+	try:
+		existing = frappe.db.get_value(
+			"Property Setter", {"doc_type": "POS Invoice", "property": "default_print_format"}, "name"
+		)
+		if existing:
+			frappe.db.set_value("Property Setter", existing, "value", "Fatura Simplificada PT")
+		else:
+			frappe.get_doc({
+				"doctype": "Property Setter",
+				"doctype_or_field": "DocType",
+				"doc_type": "POS Invoice",
+				"property": "default_print_format",
+				"property_type": "Data",
+				"value": "Fatura Simplificada PT",
+			}).insert(ignore_permissions=True)
+	except Exception as e:
+		frappe.log_error(f"Erro ao forçar default_print_format em POS Invoice: {str(e)}")
 	frappe.clear_cache()
 
 

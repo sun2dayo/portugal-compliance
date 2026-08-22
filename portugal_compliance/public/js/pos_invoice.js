@@ -1106,41 +1106,40 @@ function show_series_status_dialog(frm, series_data) {
     dialog.show();
 }
 
+function open_pos_thermal_print_view(frm) {
+    /**
+     * Abre a vista de impressão nativa do Frappe (mesma API usada pelo
+     * botão "Print" standard, ver frappe/public/js/frappe/form/form.js
+     * Form.prototype.print_doc) - substitui uma chamada anterior a
+     * "portugal_compliance.pos.print_thermal_receipt", um método de
+     * servidor que nunca existiu (o módulo "portugal_compliance.pos"
+     * nunca foi criado neste código - o botão falhava sempre).
+     *
+     * A vista de impressão do Frappe pré-seleciona sempre
+     * DocType.default_print_format (ver set_default_print_format em
+     * frappe/printing/page/print/print.js) - "Fatura Simplificada PT"
+     * está definido como tal via Property Setter, por isso não é
+     * preciso (nem é lido pela própria vista) passar o formato aqui.
+     */
+    frappe.route_options = { frm: frm };
+    frappe.set_route("print", frm.doctype, frm.doc.name);
+}
+
 function print_thermal_receipt(frm) {
     /**
-     * Imprimir recibo térmico
+     * Imprimir recibo térmico - abre a pré-visualização de impressão
+     * nativa, já no formato térmico de 80mm (Fatura Simplificada PT).
      */
-
-    frappe.call({
-        method: 'portugal_compliance.pos.print_thermal_receipt',
-        args: {
-            pos_invoice: frm.doc.name
-        },
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frappe.show_alert({
-                    message: __('Recibo térmico enviado para impressora'),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint({
-                    title: __('Erro'),
-                    message: r.message ? r.message.error : __('Erro ao imprimir'),
-                    indicator: 'red'
-                });
-            }
-        }
-    });
+    open_pos_thermal_print_view(frm);
 }
 
 function reprint_pos_invoice(frm) {
     /**
-     * Reimprimir fatura POS
+     * Reimprimir fatura POS - mesma vista de impressão nativa que
+     * "Imprimir Térmica", para a 2ª via sair sempre idêntica à
+     * impressa no momento do checkout (ATCUD, QR, layout 80mm).
      */
-
-    // Sem format explicito - deixa o Frappe escolher o print format por
-    // defeito (nao existe ainda nenhum print format dedicado para este doctype).
-    frappe.set_route("print", frm.doc.doctype, frm.doc.name);
+    open_pos_thermal_print_view(frm);
 }
 
 function convert_to_sales_invoice(frm) {
