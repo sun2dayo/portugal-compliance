@@ -258,6 +258,15 @@ fixtures = [
 		"filters": [
 			["module", "in", ["Portugal Compliance"]]
 		]
+	},
+	{
+		# Workspace de navegacao central do modulo - sem isto, uma
+		# reinstalacao limpa da app deixava o utilizador sem o
+		# workspace, obrigado a procurar Logs/Settings na pesquisa.
+		"dt": "Workspace",
+		"filters": [
+			["module", "=", "Portugal Compliance"]
+		]
 	}
 ]
 
