@@ -146,22 +146,64 @@ class CompanyDashboard:
 			frappe.log_error(f"Error getting recent ATCUD logs: {str(e)}")
 			return []
 
+	def _get_certificate_expiries(self):
+		"""
+		Le a data de expiracao real dos certificados x509 (mTLS cliente e
+		certificado publico da AT) configurados em Portugal Auth Settings.
+		Devolve lista de (rotulo, dias_restantes) - dias_restantes fica
+		None se o ficheiro nao existir/nao for legivel (sem alerta, sem
+		erro - ver tasks/daily.py::check_certificate_expiry, mesma logica).
+		"""
+		results = []
+		try:
+			from cryptography import x509
+			from cryptography.hazmat.backends import default_backend
+			import os
+
+			settings = frappe.get_single("Portugal Auth Settings")
+			certs_to_check = [
+				(_("Certificado Cliente mTLS"), settings.get("mtls_certificate_path")),
+				(_("Certificado Público da AT"), settings.get("at_public_certificate_path")),
+			]
+
+			for label, path in certs_to_check:
+				if not path or not os.path.exists(path):
+					continue
+				try:
+					with open(path, "rb") as f:
+						cert_bytes = f.read()
+					try:
+						cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())
+					except ValueError:
+						cert = x509.load_der_x509_certificate(cert_bytes, default_backend())
+
+					expiry = cert.not_valid_after_utc if hasattr(cert, "not_valid_after_utc") else cert.not_valid_after
+					days_left = (expiry.replace(tzinfo=None) - datetime.utcnow()).days
+					results.append((label, days_left))
+				except Exception as e:
+					frappe.log_error(f"Erro ao ler certificado '{label}' ({path}): {str(e)}", "Dashboard Certificate Check")
+		except Exception as e:
+			frappe.log_error(f"Erro ao verificar certificados no dashboard: {str(e)}")
+
+		return results
+
 	def get_alerts(self):
 		"""Obtém alertas relacionados com a empresa"""
 		alerts = []
 
 		try:
-			# Verificar certificados a expirar
-			company = frappe.get_doc('Company', self.company_name)
-
-			if company.get('certificate_expiry_date'):
-				expiry_date = getdate(company.certificate_expiry_date)
-				days_to_expiry = (expiry_date - getdate()).days
-
-				if days_to_expiry <= 30:
+			# Verificar certificados a expirar - le a validade REAL dos
+			# ficheiros x509 (mTLS cliente + certificado publico da AT),
+			# mesma logica de tasks/daily.py::check_certificate_expiry.
+			# Nao usa Company.certificate_expiry_date (2026-08-24: esse
+			# campo nunca existiu - o mesmo bug ja corrigido no D2 desta
+			# app, aqui reproduzido porque este dashboard nunca tinha
+			# sido ligado a UI nenhuma e por isso nunca foi exercitado).
+			for label, days_to_expiry in self._get_certificate_expiries():
+				if days_to_expiry is not None and days_to_expiry <= 30:
 					alerts.append({
 						'type': 'certificate_expiry',
-						'message': _('AT Certificate expires in {0} days').format(days_to_expiry),
+						'message': _('{0} expira em {1} dias').format(label, days_to_expiry),
 						'severity': 'critical' if days_to_expiry <= 7 else 'warning',
 						'action': _('Renew Certificate')
 					})
@@ -274,11 +316,16 @@ class CompanyDashboard:
 	def get_series_summary(self):
 		"""Obtém resumo das séries"""
 		try:
+			# current_number corrigido para current_sequence (2026-08-24) -
+			# o campo real do doctype; o nome errado fazia esta query
+			# falhar sempre (SQL "unknown column"), caindo no except mais
+			# abaixo e devolvendo {} em silêncio - só ficou visível agora
+			# que este dashboard foi ligado a uma UI pela primeira vez.
 			series_data = frappe.db.get_all('Portugal Series Configuration',
 											filters={'company': self.company_name},
 											fields=['name', 'series_name', 'document_type',
 													'is_active', 'is_communicated',
-													'current_number', 'total_documents_issued'],
+													'current_sequence', 'total_documents_issued'],
 											order_by='document_type, series_name'
 											)
 

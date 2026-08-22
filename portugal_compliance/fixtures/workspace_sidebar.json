@@ -29,6 +29,22 @@
     "icon": null,
     "indent": 0,
     "keep_closed": 0,
+    "label": "Dashboard AT",
+    "link_to": "compliance-dashboard",
+    "link_type": "Page",
+    "navigate_to_tab": null,
+    "route_options": null,
+    "show_arrow": 0,
+    "type": "Link",
+    "url": null
+   },
+   {
+    "child": 0,
+    "collapsible": 1,
+    "filters": null,
+    "icon": null,
+    "indent": 0,
+    "keep_closed": 0,
     "label": "Portugal Auth Settings",
     "link_to": "Portugal Auth Settings",
     "link_type": "DocType",
@@ -103,11 +119,11 @@
     "url": null
    }
   ],
-  "modified": "2026-08-22 22:29:23.857493",
+  "modified": "2026-08-23 00:33:33.336834",
   "module": "Portugal Compliance",
   "module_onboarding": null,
   "name": "Portugal Compliance",
-  "standard": 1,
+  "standard": 0,
   "title": "Portugal Compliance"
  }
 ]

@@ -518,6 +518,19 @@ function add_custom_buttons(frm) {
             check_at_status(frm);
         }, __('Portugal Compliance'));
     }
+
+    // ✅ FINALIZAR / ANULAR SÉRIE NA AT (só faz sentido para séries já
+    // comunicadas - sem código de validação não há nada para fechar
+    // nem para anular).
+    if (frm.doc.is_communicated && frm.doc.validation_code) {
+        frm.add_custom_button(__('Finalizar Série na AT'), function() {
+            finalizar_serie_na_at(frm);
+        }, __('Portugal Compliance'));
+
+        frm.add_custom_button(__('Anular Série na AT'), function() {
+            anular_serie_na_at(frm);
+        }, __('Portugal Compliance'));
+    }
 }
 
 // ========== FUNÇÕES DE VALIDAÇÃO ==========
@@ -787,6 +800,136 @@ function communicate_series_to_at(frm) {
             });
         }
     );
+}
+
+function finalizar_serie_na_at(frm) {
+    /**
+     * Fechar formalmente a série na AT (fim de ano fiscal, migração de
+     * sistema) - operação distinta de anular: mantém o histórico da
+     * série como legítimo, só impede novos documentos nela.
+     */
+    let dialog = new frappe.ui.Dialog({
+        title: __('Finalizar Série na AT'),
+        fields: [
+            {
+                fieldtype: 'HTML',
+                options: `<p>${__('A série {0} (código {1}) vai ser fechada junto da AT.', [frm.doc.series_name, frm.doc.validation_code])}</p>`
+            },
+            {
+                fieldtype: 'Int',
+                fieldname: 'seq_ultimo_doc_emitido',
+                label: __('Número do Último Documento Emitido'),
+                default: Math.max((frm.doc.current_sequence || 1) - 1, 0),
+                reqd: 1,
+                description: __('Confirme que este é o último número efetivamente emitido nesta série.')
+            },
+            {
+                fieldtype: 'Small Text',
+                fieldname: 'justificacao',
+                label: __('Justificação (opcional)')
+            }
+        ],
+        primary_action_label: __('Finalizar Série'),
+        primary_action: function(values) {
+            frappe.call({
+                method: 'portugal_compliance.utils.at_webservice.finalizar_serie',
+                args: {
+                    series_config_name: frm.doc.name,
+                    seq_ultimo_doc_emitido: values.seq_ultimo_doc_emitido,
+                    justificacao: values.justificacao
+                },
+                freeze: true,
+                freeze_message: __('A finalizar série na AT...'),
+                callback: function(r) {
+                    dialog.hide();
+                    if (r.message && r.message.success) {
+                        frappe.msgprint({
+                            title: __('Resposta da AT'),
+                            message: __('Código: {0}<br>Mensagem: {1}', [
+                                r.message.at_result_code || '-',
+                                frappe.utils.escape_html(r.message.at_message || '-')
+                            ]),
+                            indicator: 'blue'
+                        });
+                    } else {
+                        frappe.msgprint({
+                            title: __('Erro'),
+                            message: (r.message && r.message.error) || __('Erro ao finalizar série'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    });
+    dialog.show();
+}
+
+function anular_serie_na_at(frm) {
+    /**
+     * Anular na AT o registo de uma série mal configurada. A AT exige
+     * uma confirmação explícita de que a série nunca chegou a ser
+     * usada para emitir documentos - por isso o checkbox não tem
+     * default marcado.
+     */
+    let dialog = new frappe.ui.Dialog({
+        title: __('Anular Série na AT'),
+        fields: [
+            {
+                fieldtype: 'HTML',
+                options: `<div class="alert alert-warning">${__('A anulação desfaz o registo da série {0} (código {1}) na AT, como se nunca tivesse sido comunicada.', [frm.doc.series_name, frm.doc.validation_code])}</div>`
+            },
+            {
+                fieldtype: 'Small Text',
+                fieldname: 'motivo',
+                label: __('Motivo da Anulação'),
+                reqd: 1
+            },
+            {
+                fieldtype: 'Check',
+                fieldname: 'declaracao_nao_emissao',
+                label: __('Confirmo que não foram emitidos documentos com esta série'),
+                reqd: 1
+            }
+        ],
+        primary_action_label: __('Anular Série'),
+        primary_action: function(values) {
+            if (!values.declaracao_nao_emissao) {
+                frappe.msgprint(__('Tem de confirmar que não foram emitidos documentos com esta série.'));
+                return;
+            }
+            frappe.call({
+                method: 'portugal_compliance.utils.at_webservice.anular_serie',
+                args: {
+                    series_config_name: frm.doc.name,
+                    motivo: values.motivo,
+                    declaracao_nao_emissao: 1
+                },
+                freeze: true,
+                freeze_message: __('A anular série na AT...'),
+                callback: function(r) {
+                    dialog.hide();
+                    if (r.message && r.message.success) {
+                        frappe.msgprint({
+                            title: __('Resposta da AT'),
+                            message: __('Código: {0}<br>Mensagem: {1}', [
+                                r.message.at_result_code || '-',
+                                frappe.utils.escape_html(r.message.at_message || '-')
+                            ]),
+                            indicator: 'blue'
+                        });
+                    } else {
+                        frappe.msgprint({
+                            title: __('Erro'),
+                            message: (r.message && r.message.error) || __('Erro ao anular série'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    });
+    dialog.show();
 }
 
 function test_series_generation(frm) {
@@ -1064,21 +1207,20 @@ function load_company_settings(frm) {
      * Carregar configurações da empresa
      */
 
+    // at_environment removido do fieldname (2026-08-24): campo legado
+    // da Company eliminado na limpeza de credenciais AT duplicadas
+    // (D3) - este ficheiro escapou a essa limpeza na altura. O ambiente
+    // AT é hoje único por site, definido em Portugal Auth Settings.
     frappe.call({
         method: 'frappe.client.get_value',
         args: {
             doctype: 'Company',
             filters: {name: frm.doc.company},
-            fieldname: ['at_environment', 'portugal_compliance_enabled', 'tax_id']
+            fieldname: ['portugal_compliance_enabled', 'tax_id']
         },
         callback: function(r) {
             if (r.message) {
                 frm._company_settings = r.message;
-
-                // ✅ DEFINIR AMBIENTE AT
-                if (!frm.doc.at_environment && r.message.at_environment) {
-                    frm.set_value('at_environment', r.message.at_environment);
-                }
             }
         }
     });

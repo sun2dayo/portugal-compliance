@@ -26,7 +26,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad
 import json
 import time
-from frappe.utils import now, today, get_datetime
+from frappe.utils import now, today, get_datetime, cint
 
 
 import zeep
@@ -516,6 +516,137 @@ class ATWebserviceClient:
 			"raw_response": zeep.helpers.serialize_object(info) if info else None,
 		}
 
+	def finalizar_serie(self, series_config_name, seq_ultimo_doc_emitido=None, justificacao=None,
+						username=None, password=None):
+		"""
+		Fecha formalmente junto da AT uma série já comunicada
+		(finalizarSerie) - operação de fim de ano fiscal ou migração de
+		sistema, distinta de anular (que desfaz o registo por erro). A
+		AT exige o código de validação já obtido em registarSerie e o
+		número do último documento efetivamente emitido nessa série.
+
+		Não assume um código de sucesso específico da AT para esta
+		operação (só registarSerie tem o "2001" confirmado por teste
+		real) - devolve sempre a mensagem/código reais da AT para o
+		administrador confirmar visualmente antes de considerar a série
+		encerrada.
+		"""
+		series_config = frappe.get_doc("Portugal Series Configuration", series_config_name)
+
+		if not series_config.validation_code:
+			return {
+				"success": False,
+				"error": _("Esta série ainda não foi comunicada à AT (sem código de validação)."),
+			}
+
+		prefix = series_config.prefix
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})$'
+		match = re.match(pattern, prefix)
+		if not match:
+			return {"success": False, "error": _("Formato de prefixo inválido: {0}").format(prefix)}
+		doc_code, year, company_abbr = match.groups()
+		at_series_format = f"{doc_code}-{year}-{company_abbr}"
+
+		if seq_ultimo_doc_emitido is None:
+			seq_ultimo_doc_emitido = max(int(series_config.current_sequence or 1) - 1, 0)
+
+		try:
+			service, wsse_header = get_series_webservice_client(username, password)
+			response = service.finalizarSerie(
+				serie=at_series_format,
+				classeDoc=self._map_doc_code_to_class(doc_code),
+				tipoDoc=doc_code,
+				codValidacaoSerie=series_config.validation_code,
+				seqUltimoDocEmitido=int(seq_ultimo_doc_emitido),
+				justificacao=justificacao or "",
+				_soapheaders=[wsse_header],
+			)
+		except zeep.exceptions.Fault as e:
+			frappe.log_error(f"AT rejeitou a finalização da série (SOAP Fault): {str(e)}", "ATWebserviceClient")
+			return {"success": False, "error": _("AT rejeitou o pedido: {0}").format(str(e))}
+		except Exception as e:
+			frappe.log_error(f"Erro ao finalizar série na AT: {str(e)}", "ATWebserviceClient")
+			return {"success": False, "error": _("Erro na comunicação com a AT: {0}").format(str(e))}
+
+		resp_body = getattr(response, "finalizarSerieResp", response)
+		oper_info = getattr(resp_body, "infoResultOper", None)
+		cod_result = getattr(oper_info, "codResultOper", None) if oper_info else None
+		msg_result = getattr(oper_info, "msgResultOper", None) if oper_info else ""
+
+		return {
+			"success": True,
+			"series_at_format": at_series_format,
+			"at_result_code": cod_result,
+			"at_message": msg_result,
+			"raw_response": zeep.helpers.serialize_object(resp_body) if resp_body else None,
+		}
+
+	def anular_serie(self, series_config_name, motivo, declaracao_nao_emissao,
+					  username=None, password=None):
+		"""
+		Anula junto da AT o registo de uma série mal configurada
+		(anularSerie) - ao contrário de finalizar, desfaz a comunicação
+		como se nunca tivesse acontecido. A AT só aceita o pedido se o
+		sujeito passivo atestar explicitamente (declaracaoNaoEmissao)
+		que não emitiu documentos com essa série - por isso este
+		parâmetro é obrigatório e não tem default silencioso.
+		"""
+		if not declaracao_nao_emissao:
+			return {
+				"success": False,
+				"error": _(
+					"É obrigatório confirmar que não foram emitidos documentos com esta série "
+					"antes de a anular na AT."
+				),
+			}
+
+		series_config = frappe.get_doc("Portugal Series Configuration", series_config_name)
+
+		if not series_config.validation_code:
+			return {
+				"success": False,
+				"error": _("Esta série ainda não foi comunicada à AT (sem código de validação)."),
+			}
+
+		prefix = series_config.prefix
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})$'
+		match = re.match(pattern, prefix)
+		if not match:
+			return {"success": False, "error": _("Formato de prefixo inválido: {0}").format(prefix)}
+		doc_code, year, company_abbr = match.groups()
+		at_series_format = f"{doc_code}-{year}-{company_abbr}"
+
+		try:
+			service, wsse_header = get_series_webservice_client(username, password)
+			response = service.anularSerie(
+				serie=at_series_format,
+				classeDoc=self._map_doc_code_to_class(doc_code),
+				tipoDoc=doc_code,
+				codValidacaoSerie=series_config.validation_code,
+				motivo=motivo,
+				declaracaoNaoEmissao=bool(declaracao_nao_emissao),
+				_soapheaders=[wsse_header],
+			)
+		except zeep.exceptions.Fault as e:
+			frappe.log_error(f"AT rejeitou a anulação da série (SOAP Fault): {str(e)}", "ATWebserviceClient")
+			return {"success": False, "error": _("AT rejeitou o pedido: {0}").format(str(e))}
+		except Exception as e:
+			frappe.log_error(f"Erro ao anular série na AT: {str(e)}", "ATWebserviceClient")
+			return {"success": False, "error": _("Erro na comunicação com a AT: {0}").format(str(e))}
+
+		resp_body = getattr(response, "anularSerieResp", response)
+		oper_info = getattr(resp_body, "infoResultOper", None)
+		cod_result = getattr(oper_info, "codResultOper", None) if oper_info else None
+		msg_result = getattr(oper_info, "msgResultOper", None) if oper_info else ""
+
+		return {
+			"success": True,
+			"series_at_format": at_series_format,
+			"at_result_code": cod_result,
+			"at_message": msg_result,
+			"raw_response": zeep.helpers.serialize_object(resp_body) if resp_body else None,
+		}
+
 	def _save_atcud_to_series_config(self, naming_series, company, atcud_code):
 		"""
 		✅ FUNÇÃO CORRIGIDA: Salvar ATCUD na Portugal Series Configuration
@@ -792,3 +923,23 @@ def validate_naming_series_format(naming_series):
 
 	except Exception as e:
 		return {"valid": False, "error": str(e)}
+
+
+# ========== FINALIZAR / ANULAR SÉRIE (Lacuna D1 da Auditoria Comparativa) ==========
+# A referência Dolibarr expõe estas duas operações do mesmo webservice de
+# séries que já usamos; nós só tínhamos registarSerie/consultarSeries.
+# Chamadas por botões em Portugal Series Configuration (ver .js).
+
+@frappe.whitelist()
+def finalizar_serie(series_config_name, seq_ultimo_doc_emitido=None, justificacao=None):
+	"""Fecha formalmente uma série na AT (fim de ano fiscal, migração)."""
+	client = ATWebserviceClient()
+	return client.finalizar_serie(series_config_name, seq_ultimo_doc_emitido, justificacao)
+
+
+@frappe.whitelist()
+def anular_serie(series_config_name, motivo, declaracao_nao_emissao):
+	"""Anula na AT o registo de uma série mal configurada."""
+	declaracao_nao_emissao = cint(declaracao_nao_emissao)
+	client = ATWebserviceClient()
+	return client.anular_serie(series_config_name, motivo, bool(declaracao_nao_emissao))
