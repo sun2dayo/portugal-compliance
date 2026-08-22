@@ -507,12 +507,14 @@ function add_custom_buttons(frm) {
         }, __('Validações'));
     }
 
-    // ✅ BOTÃO PARA CONVERTER EM FATURA
-    if (frm.doc.docstatus === 1 && frm.doc.grand_total > 1000) {
-        frm.add_custom_button(__('Converter em Fatura'), function() {
-            convert_to_sales_invoice(frm);
-        }, __('Conversões'));
-    }
+    // Botão "Converter em Fatura" removido (2026-08-22): chamava
+    // portugal_compliance.pos.convert_pos_to_sales_invoice, um método
+    // de servidor que nunca existiu (mesmo padrão de código morto já
+    // corrigido em print_thermal_receipt/reprint_pos_invoice). Também
+    // fiscalmente incorreto por desenho: converter uma Fatura
+    // Simplificada já assinada e com ATCUD gerado noutro documento,
+    // sem o estorno adequado, gera inconsistências no SAF-T (o
+    // documento original teria de ser anulado formalmente primeiro).
 }
 
 // ========== FUNÇÕES DE NAMING SERIES ==========
@@ -1142,39 +1144,8 @@ function reprint_pos_invoice(frm) {
     open_pos_thermal_print_view(frm);
 }
 
-function convert_to_sales_invoice(frm) {
-    /**
-     * Converter POS Invoice em Sales Invoice
-     */
-
-    frappe.confirm(
-        __('Converter esta fatura POS em fatura normal? Isso criará uma nova Sales Invoice.'),
-        function() {
-            frappe.call({
-                method: 'portugal_compliance.pos.convert_pos_to_sales_invoice',
-                args: {
-                    pos_invoice: frm.doc.name
-                },
-                callback: function(r) {
-                    if (r.message && r.message.success) {
-                        frappe.show_alert({
-                            message: __('Sales Invoice criada: {0}', [r.message.sales_invoice]),
-                            indicator: 'green'
-                        });
-
-                        frappe.set_route("Form", "Sales Invoice", r.message.sales_invoice);
-                    } else {
-                        frappe.msgprint({
-                            title: __('Erro'),
-                            message: r.message ? r.message.error : __('Erro na conversão'),
-                            indicator: 'red'
-                        });
-                    }
-                }
-            });
-        }
-    );
-}
+// convert_to_sales_invoice removida (2026-08-22) junto com o botão
+// "Converter em Fatura" - ver nota em add_custom_buttons.
 
 // ========== FUNÇÕES AUXILIARES ==========
 
@@ -1658,18 +1629,8 @@ function setup_keyboard_shortcuts(frm) {
         page: frm.page
     });
 
-    // ✅ CTRL+C para converter
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+shift+c',
-        action: () => {
-            if (frm.doc.docstatus === 1 && frm.doc.grand_total > 1000) {
-                convert_to_sales_invoice(frm);
-            }
-        },
-        description: __('Converter em Fatura'),
-        ignore_inputs: true,
-        page: frm.page
-    });
+    // Atalho Ctrl+Shift+C ("Converter em Fatura") removido junto com
+    // o botão e a função - ver nota em add_custom_buttons.
 }
 
 // ========== EVENTOS DE CLEANUP ==========
