@@ -168,17 +168,26 @@ def _get_signature_for_invoice(document_type, document_name):
 	)
 
 
+SUPPORTED_INVOICE_DOCTYPES = ("Sales Invoice", "POS Invoice")
+
+
 def build_invoice_payload(document_type, document_name):
 	"""
 	Constroi o dict RegisterInvoiceRequest para uma unica fatura,
 	reutilizando SAFTGenerator.get_sales_invoices_data() (ja testado e
 	validado contra o XSD do SAF-T) para os dados fiscais por linha, em
 	vez de recalcular a mesma logica de taxa/isencao aqui outra vez.
+
+	Suporta Sales Invoice e POS Invoice - a segunda bifurcacao nativa
+	do POS (POS Settings.invoice_type="POS Invoice", serie FS) precisa
+	da mesma comunicacao em tempo real que ja existia so para Sales
+	Invoice. get_sales_invoices_data aceita agora doctype= exatamente
+	para isto (POS Invoice tem a mesma estrutura de colunas).
 	"""
-	if document_type != "Sales Invoice":
+	if document_type not in SUPPORTED_INVOICE_DOCTYPES:
 		raise InvoiceWebserviceError(
-			_("Comunicação de faturas em tempo real só está implementada para Sales Invoice, não {0}").format(
-				document_type
+			_("Comunicação de faturas em tempo real só está implementada para {0}, não {1}").format(
+				" ou ".join(SUPPORTED_INVOICE_DOCTYPES), document_type
 			)
 		)
 
@@ -191,7 +200,7 @@ def build_invoice_payload(document_type, document_name):
 
 	# Reutiliza a query do SAF-T (filtrando por 1 dia so devolve as
 	# faturas dessa data - filtramos a nossa pelo nome a seguir).
-	invoices = generator.get_sales_invoices_data(doc.company, doc.posting_date, doc.posting_date)
+	invoices = generator.get_sales_invoices_data(doc.company, doc.posting_date, doc.posting_date, doctype=document_type)
 	invoice = next((i for i in invoices if i.name == document_name), None)
 	if invoice is None:
 		raise InvoiceWebserviceError(
@@ -408,16 +417,18 @@ def change_invoice_status(document_type, document_name, new_status, log_name=Non
 	fatura reportada so pelo SAF-T mensal nunca foi registada
 	individualmente na AT por aqui, nao ha nada para "mudar de estado".
 	"""
-	if document_type != "Sales Invoice":
+	if document_type not in SUPPORTED_INVOICE_DOCTYPES:
 		raise InvoiceWebserviceError(
-			_("ChangeInvoiceStatus só está implementado para Sales Invoice, não {0}").format(document_type)
+			_("ChangeInvoiceStatus só está implementado para {0}, não {1}").format(
+				" ou ".join(SUPPORTED_INVOICE_DOCTYPES), document_type
+			)
 		)
 
 	doc = frappe.get_doc(document_type, document_name)
 	company_doc = frappe.get_doc("Company", doc.company)
 	generator = SAFTGenerator()
 
-	invoices = generator.get_sales_invoices_data(doc.company, doc.posting_date, doc.posting_date)
+	invoices = generator.get_sales_invoices_data(doc.company, doc.posting_date, doc.posting_date, doctype=document_type)
 	invoice = next((i for i in invoices if i.name == document_name), None)
 	if invoice is None:
 		raise InvoiceWebserviceError(

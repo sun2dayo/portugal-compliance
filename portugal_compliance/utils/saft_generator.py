@@ -297,7 +297,7 @@ class SAFTGenerator:
 
 		return tax_rates
 
-	def _get_signatures_by_invoice(self, invoice_names):
+	def _get_signatures_by_invoice(self, invoice_names, doctype="Sales Invoice"):
 		"""
 		Assinaturas RSA-SHA1 reais (ver utils/signature.py), ja geradas
 		no submit de cada fatura e guardadas em ATCUD Log. O SAF-T so
@@ -308,9 +308,9 @@ class SAFTGenerator:
 		rows = frappe.db.sql("""
 							 SELECT document_name, signature_hash, sequence_number
 							 FROM `tabATCUD Log`
-							 WHERE document_type = 'Sales Invoice'
+							 WHERE document_type = %(doctype)s
 							   AND document_name IN %(names)s
-							 """, {"names": invoice_names}, as_dict=True)
+							 """, {"doctype": doctype, "names": invoice_names}, as_dict=True)
 		return {r.document_name: r for r in rows}
 
 	def _format_invoice_no(self, invoice_name, sequence_number, doc_code="FT"):
@@ -338,15 +338,25 @@ class SAFTGenerator:
 			series_prefix = invoice_name[:-len(suffix)] if invoice_name.endswith(suffix) else invoice_name
 		return f"{doc_code} {series_prefix}/{sequence_number}"
 
-	def get_sales_invoices_data(self, company, from_date, to_date):
+	def get_sales_invoices_data(self, company, from_date, to_date, doctype="Sales Invoice"):
 		"""
 		Obtém dados das faturas de venda. Devolve uma lista achatada de
 		objetos por fatura (cada um com `.items`), no formato que os
 		templates Jinja esperam diretamente - a versao anterior embrulhava
 		tudo num nivel 'header' que nao corresponde ao que source_documents.xml
 		le (invoice.name, invoice.posting_date, etc. direto no objeto).
+
+		doctype: "Sales Invoice" (omissao) ou "POS Invoice" - mesma
+		estrutura de colunas nos dois (POS Invoice foi desenhado pelo
+		ERPNext como variante leve de Sales Invoice), reutilizada aqui
+		para o webservice em tempo real tambem funcionar quando POS
+		Settings.invoice_type="POS Invoice" (a outra bifurcacao nativa
+		do POS). doctype nunca vem de input do utilizador - so das 2
+		constantes internas acima, por isso interpolar diretamente no
+		nome da tabela e seguro.
 		"""
-		rows = frappe.db.sql("""
+		item_doctype = f"{doctype} Item"
+		rows = frappe.db.sql(f"""
 							 SELECT si.name,
 									si.customer,
 									si.posting_date,
@@ -374,8 +384,8 @@ class SAFTGenerator:
 									sii.amount,
 									sii.item_tax_template,
 									sii.at_exemption_reason
-							 FROM `tabSales Invoice` si
-									  INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+							 FROM `tab{doctype}` si
+									  INNER JOIN `tab{item_doctype}` sii ON sii.parent = si.name
 							 WHERE si.company = %s
 							   AND si.posting_date BETWEEN %s AND %s
 							   AND si.docstatus IN (1, 2)
@@ -390,7 +400,7 @@ class SAFTGenerator:
 		# no sistema (nunca sao apagados, ver inviolabilidade em
 		# document_hooks.py) mas o SAF-T nao refletia a anulacao.
 
-		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}))
+		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}), doctype=doctype)
 		invoice_names = list({r.name for r in rows})
 		fallback_rates = {}
 		if invoice_names:
@@ -417,7 +427,8 @@ class SAFTGenerator:
 				series_code_cache[naming_series] = frappe.db.get_value(
 					"Portugal Series Configuration", {"naming_series": naming_series}, "document_code"
 				)
-			return series_code_cache[naming_series] or ("NC" if is_return else "FT")
+			default_code = "FS" if doctype == "POS Invoice" else "FT"
+			return series_code_cache[naming_series] or ("NC" if is_return else default_code)
 
 		original_doc_cache = {}
 
@@ -435,13 +446,13 @@ class SAFTGenerator:
 				return None
 			if return_against not in original_doc_cache:
 				orig = frappe.db.get_value(
-					"Sales Invoice", return_against,
+					doctype, return_against,
 					["atcud_code", "naming_series", "is_return"], as_dict=True,
 				)
 				if not orig:
 					original_doc_cache[return_against] = None
 				else:
-					orig_sig = self._get_signatures_by_invoice([return_against]).get(return_against)
+					orig_sig = self._get_signatures_by_invoice([return_against], doctype=doctype).get(return_against)
 					orig_doc_code = _document_code_for(orig.naming_series, orig.is_return)
 					orig_invoice_no = self._format_invoice_no(
 						return_against, orig_sig.sequence_number if orig_sig else None, orig_doc_code

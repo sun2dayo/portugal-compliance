@@ -136,6 +136,7 @@ doc_events = {
 			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
 			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
 		],
+		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
