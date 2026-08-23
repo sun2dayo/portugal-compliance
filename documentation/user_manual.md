@@ -330,7 +330,113 @@ O Dashboard AT dá uma visão consolidada, em tempo real, do estado de complianc
 
 ---
 
-## 9. Resumo do fluxo completo
+## 9. Gestão e Manutenção de Séries
+
+Os passos anteriores cobrem o arranque: comunicar, em bloco, todas as séries criadas
+automaticamente quando a compliance é ativada. Mas a vida de uma empresa não pára aí — ao
+longo do ano vai certamente precisar de criar uma série nova isoladamente (ex. uma segunda
+série de Faturas para outro departamento), fechar formalmente uma série no final do ano
+fiscal, ou corrigir um erro de configuração antes de a série ter sido usada. Estas três
+operações fazem-se todas a partir da própria série, em
+**Portugal Compliance › Portugal Series Configuration**, e não do comunicador em bloco da
+Empresa usado no Passo 4.
+
+Abra a série que quer gerir. Consoante o estado em que ela se encontra, verá botões
+diferentes no topo do documento, agrupados sob o menu **Portugal Compliance**.
+
+### 9.1. Comunicação Individual de uma Série
+
+Se criar uma série nova a meio do ano — por exemplo, ao adicionar manualmente uma segunda
+série de Faturas — **não precisa de voltar à Empresa e repetir a comunicação em bloco**. Essa
+ação reenviaria também as séries que já estão comunicadas, o que não é necessário. Em vez
+disso:
+
+1. Abra a série recém-criada em **Portugal Series Configuration**.
+2. Enquanto a série não estiver comunicada, o sistema mostra o botão
+   **Comunicar à AT** (menu **Portugal Compliance**, no topo do documento).
+3. Clique nele. O sistema pede confirmação: *"Comunicar série {nome da série} à Autoridade
+   Tributária?"*.
+4. Confirme. A chamada à AT é feita apenas para esta série — as restantes séries da empresa
+   não são tocadas.
+5. Em caso de sucesso, aparece uma notificação verde:
+   *"Série comunicada com sucesso: {código de validação}"*, e o documento recarrega já com o
+   estado **Comunicada: Sim** e o código de validação preenchido.
+
+Esta é a forma normal e recomendada de comunicar qualquer série que não tenha sido criada
+pelo assistente automático da Empresa (Passo 3) — por exemplo, séries adicionais, séries de
+um novo tipo de documento, ou séries de um novo ano fiscal.
+
+### 9.2. Finalizar Série na AT
+
+**Quando usar:** no final do ano fiscal, quando uma série deixa de ser usada por mudança de
+sistema, ou sempre que decidir deliberadamente parar de emitir documentos numa série
+específica. A AT não permite que uma série fique "em aberto" indefinidamente sem que a
+empresa a feche formalmente quando deixa de a usar — é essa formalização que este botão faz.
+
+Finalizar **não apaga nem invalida** nada: os documentos já emitidos nessa série continuam
+válidos para sempre. Só impede a emissão de **novos** documentos nela.
+
+1. Abra a série a fechar. O botão **Finalizar Série na AT** só aparece depois de a série já
+   estar comunicada (com código de validação atribuído) — não faz sentido fechar na AT algo
+   que a AT nem sequer conhece.
+2. Clique em **Finalizar Série na AT**. Abre-se uma caixa de diálogo com o mesmo nome, que
+   confirma: *"A série {nome} (código {código de validação}) vai ser fechada junto da AT."*
+3. Preencha:
+   - **Número do Último Documento Emitido**: campo numérico obrigatório, já vem preenchido
+     por defeito com o último número realmente emitido nesta série. Confirme que está
+     correto — é este valor que a AT regista como o ponto onde a série foi fechada.
+   - **Justificação** (opcional): um texto livre curto, para o seu próprio registo interno.
+4. Clique em **Finalizar Série**. O sistema mostra a resposta da AT (código e mensagem) numa
+   caixa **"Resposta da AT"**.
+5. A partir deste momento, a série deixa de estar disponível para emitir novos documentos —
+   se tentar usá-la, o sistema bloqueia a criação, tal como bloquearia uma série nunca
+   comunicada.
+
+### 9.3. Anular Série na AT
+
+**Quando usar — e quando nunca usar:** a Anulação é uma operação diferente da Finalização, e
+a diferença é importante: **anular só deve ser usado para séries criadas por engano e nunca
+utilizadas para emitir nenhum documento**. Ao contrário de Finalizar (que fecha uma série com
+histórico legítimo), Anular desfaz o registo da série na AT como se ela nunca tivesse sido
+comunicada — não é uma operação para "encerrar" uma série que já teve uso normal.
+
+O sistema impõe duas condições rígidas, exigidas pela própria AT, e não deixa anular fora
+delas:
+
+- **Só é possível anular no próprio dia em que a série foi comunicada, ou no dia seguinte.**
+  Passado esse prazo, a única opção para uma série mal configurada mas já em uso é
+  Finalizá-la e criar uma nova série corrigida.
+- **A série tem de ter zero documentos emitidos.** Se já emitiu sequer uma fatura, um recibo
+  ou uma guia com essa série, não pode anulá-la — só finalizá-la.
+
+Passos:
+
+1. Abra a série a anular. Tal como o botão de Finalizar, **Anular Série na AT** só aparece em
+   séries já comunicadas.
+2. Clique em **Anular Série na AT**. A caixa de diálogo mostra um aviso explícito (fundo
+   amarelo) a repetir as duas condições acima e a informar que o motivo reportado à AT será
+   automaticamente **"ER — Anulação por erro de registo"** — o único motivo previsto pela AT
+   para este cenário, pelo que não precisa de o escolher manualmente.
+3. Marque a checkbox obrigatória **"Confirmo que não foram emitidos documentos com esta
+   série"**. O sistema não deixa avançar sem esta confirmação explícita — não vem marcada por
+   defeito.
+4. Clique em **Anular Série**. O sistema mostra a resposta da AT (código e mensagem).
+5. A série fica anulada, como se nunca tivesse existido do ponto de vista da AT — mas o
+   registo em si permanece no ERPNext, para auditoria interna do que aconteceu e porquê.
+
+### 9.4. Resumo: Finalizar vs. Anular
+
+| | **Finalizar Série** | **Anular Série** |
+| :--- | :--- | :--- |
+| **Quando** | Fim de ano fiscal, fim de vida da série, mudança de sistema | Só logo a seguir a uma comunicação feita por engano |
+| **Prazo na AT** | Sem limite de tempo | Apenas no dia da comunicação ou no dia seguinte |
+| **Documentos já emitidos** | Pode ter qualquer quantidade — ficam válidos | Tem de ter zero |
+| **Efeito** | Fecha a série para novos documentos; histórico mantém-se válido | Desfaz o registo, como se a série nunca tivesse sido comunicada |
+| **Motivo enviado à AT** | Justificação livre (opcional) | Fixo: "ER — Anulação por erro de registo" |
+
+---
+
+## 10. Resumo do fluxo completo
 
 ```
 Criar Empresa (NIF + Morada)
