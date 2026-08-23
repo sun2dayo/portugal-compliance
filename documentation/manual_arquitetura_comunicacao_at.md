@@ -95,7 +95,7 @@ sequenceDiagram
     Hooks->>Frappe: doc.atcud_code = "AAJFJ...-19"
     deactivate Hooks
     Frappe->>Hooks: after_insert: generate_atcud_after_insert, generate_and_attach_qr_code
-    Hooks->>Frappe: ATCUD Log.insert() ; doc.db_set(qr_code, qr_code_image)
+    Hooks->>Frappe: ATCUD Log.insert() e doc.db_set(qr_code, qr_code_image)
     Frappe->>Hooks: validate: _validate_series_not_inactive (bloqueia se série Finalizada/Anulada)
     Frappe->>Frappe: COMMIT
 
@@ -123,12 +123,9 @@ classDiagram
         +invoice_signing_key_path: Password
         +invoice_signing_key_password: Password
         +invoice_signing_key_version: Data
-        +Algoritmo: RSA-SHA1 (PKCS#1 v1.5)
-        +Uso: sign_document() - hash de documentos
-        +Continuidade: crítica - trocar a chave não invalida
-          documentos já assinados, mas rompe o encadeamento
-          para o próximo (previous_signature_hash não vem
-          mais desta chave)
+        +Algoritmo: RSA-SHA1, PKCS1 v1.5
+        +Uso: assinatura de documentos
+        +Continuidade: crítica, ver nota abaixo
     }
 
     class ChaveComunicacao {
@@ -136,9 +133,8 @@ classDiagram
         +mtls_certificate_path: Data
         +mtls_private_key_path: Data
         +at_public_certificate_path: Data
-        +Uso: mTLS handshake + cifra WS-Security (AES-128 + RSA)
-        +Renovação: conforme validade do certificado emitido
-          pela entidade certificadora
+        +Uso: mTLS e WS-Security
+        +Renovacao: conforme validade do certificado
     }
 
     class Documento {
@@ -146,9 +142,21 @@ classDiagram
         +qr_code
     }
 
-    Documento ..> ChaveAssinatura : Assinado com (signature.py)
-    Documento ..> ChaveComunicacao : Comunicado via (at_*_webservice.py)
+    Documento ..> ChaveAssinatura : Assinado com signature.py
+    Documento ..> ChaveComunicacao : Comunicado via webservice
 ```
+
+> **Continuidade da chave de assinatura**: `sign_document()` usa `invoice_signing_key_path`
+> para calcular o hash RSA-SHA1 de cada documento. Trocar esta chave **não invalida**
+> documentos já assinados, mas **rompe o encadeamento** para o próximo documento da série —
+> `previous_signature_hash` deixa de poder ser recalculado a partir da chave antiga, pelo que
+> a rotação de chave tem de ser feita com o mesmo cuidado de uma finalização de série.
+>
+> **Renovação da chave de comunicação**: os certificados mTLS/AT (`mtls_certificate_path`,
+> `mtls_private_key_path`, `at_public_certificate_path`) devem ser renovados conforme a
+> validade emitida pela entidade certificadora — ao contrário da chave de assinatura, a sua
+> renovação não tem qualquer efeito sobre documentos já emitidos, porque não participa no
+> cálculo do hash fiscal.
 
 > **Nota de fidelidade ao código**: ao contrário de convenções de pastas fixas
 > (`saft/production/`, `webservice/production/`), este módulo **não impõe** uma estrutura de
