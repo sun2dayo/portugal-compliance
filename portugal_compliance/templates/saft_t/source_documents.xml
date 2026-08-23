@@ -93,7 +93,7 @@
         <TotalCredit>{{ '%.2f'|format(payments|sum(attribute='paid_amount') or 0) }}</TotalCredit>
         {% for payment in payments %}
         <Payment>
-            <PaymentRefNo>{{ payment.name }}</PaymentRefNo>
+            <PaymentRefNo>{{ payment.saft_ref_no }}</PaymentRefNo>
             <ATCUD>{{ payment.atcud_code or '' }}</ATCUD>
             <TransactionDate>{{ payment.posting_date.strftime('%Y-%m-%d') }}</TransactionDate>
             <PaymentType>{{ 'RC' if payment.payment_type == 'Receive' else 'RG' }}</PaymentType>
@@ -124,6 +124,13 @@
                     <TaxCode>NOR</TaxCode>
                     <TaxPercentage>0.00</TaxPercentage>
                 </Tax>
+                <!-- TaxExemptionReason/Code sao irmaos de Tax dentro de Line, nao
+                     filhos de Tax (PaymentTax nem os permite) - exigidos pelo XSD
+                     porque TaxPercentage=0: o recibo nao tem IVA proprio, o imposto
+                     ja foi liquidado na fatura de origem referenciada acima em
+                     SourceDocumentID. -->
+                <TaxExemptionReason>Não sujeito ou não tributado / autoliquidação</TaxExemptionReason>
+                <TaxExemptionCode>M99</TaxExemptionCode>
             </Line>
             {% endfor %}
             <DocumentTotals>

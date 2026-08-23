@@ -38,6 +38,7 @@ from frappe.utils import get_datetime, getdate, flt
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.exceptions import InvalidSignature
 
 
 class SignatureError(Exception):
@@ -317,3 +318,187 @@ def verify_signing_key_configured():
 	settings = frappe.get_single("Portugal Auth Settings")
 	key_path = settings.get("invoice_signing_key_path")
 	return {"configured": bool(key_path)}
+
+
+# ---------------------------------------------------------------------------
+# Verificacao da cadeia de assinaturas (Requisito 2.4 da auditoria de
+# certificacao 2026-08-24) - nao existia nenhuma forma de confirmar, a
+# posteriori, que a cadeia RSA-SHA1 gerada por sign_document() e
+# realmente integra. Reconstroi cada data_to_sign a partir do
+# documento (que a inviolabilidade em document_hooks.py garante nao
+# ter mudado desde a assinatura) e verifica com a chave publica
+# derivada da mesma chave privada usada para assinar.
+# ---------------------------------------------------------------------------
+
+def _get_public_key():
+	private_key = _load_private_key()
+	return private_key.public_key()
+
+
+def _verify_single_entry(log, public_key, expected_previous_hash):
+	"""
+	Verifica uma entrada do ATCUD Log: continuidade da cadeia
+	(previous_signature_hash bate com a hash do documento anterior) e
+	validade criptografica da assinatura (RSA-SHA1 contra a chave
+	publica). Devolve um dict de resultado, nunca lanca excecao - o
+	chamador decide o que fazer com uma entrada invalida, o resto da
+	cadeia continua a ser verificado.
+	"""
+	result = {
+		"sequence_number": log.sequence_number,
+		"document_type": log.document_type,
+		"document_name": log.document_name,
+		"atcud_code": log.atcud_code,
+		"chain_ok": None,
+		"signature_ok": None,
+		"error": None,
+	}
+
+	result["chain_ok"] = (log.previous_signature_hash or "") == (expected_previous_hash or "")
+	if not result["chain_ok"]:
+		result["error"] = _(
+			"Hash anterior não corresponde à assinatura do documento anterior da série "
+			"(esperado {0}, encontrado {1}) - cadeia quebrada."
+		).format(expected_previous_hash or "(vazio)", log.previous_signature_hash or "(vazio)")
+
+	try:
+		doc = frappe.get_doc(log.document_type, log.document_name)
+		spec = get_signing_spec(doc.doctype)
+		if not spec:
+			raise SignatureError(_("Doctype {0} sem especificação de assinatura").format(doc.doctype))
+
+		series_prefix = frappe.db.get_value("Portugal Series Configuration", log.series_used, "prefix")
+		if not series_prefix:
+			raise SignatureError(_("Série {0} não encontrada").format(log.series_used))
+
+		data_to_sign = build_data_to_sign(
+			doc, spec, series_prefix, log.sequence_number, log.previous_signature_hash
+		)
+
+		signature_bytes = base64.b64decode(log.signature_hash)
+		public_key.verify(
+			signature_bytes,
+			data_to_sign.encode("utf-8"),
+			padding.PKCS1v15(),
+			hashes.SHA1(),
+		)
+		result["signature_ok"] = True
+
+	except InvalidSignature:
+		result["signature_ok"] = False
+		result["error"] = (result["error"] + " " if result["error"] else "") + _(
+			"Assinatura RSA inválida para os dados atuais do documento - documento pode ter "
+			"sido alterado após a assinatura, ou a assinatura foi corrompida/forjada."
+		)
+	except frappe.DoesNotExistError:
+		result["signature_ok"] = False
+		result["error"] = (result["error"] + " " if result["error"] else "") + _(
+			"Documento {0} {1} não existe mais na base de dados - viola a inviolabilidade "
+			"fiscal (Portaria 363/2010)."
+		).format(log.document_type, log.document_name)
+	except Exception as e:
+		result["signature_ok"] = False
+		result["error"] = (result["error"] + " " if result["error"] else "") + str(e)
+
+	return result
+
+
+@frappe.whitelist()
+def verify_signature_chain(series_configuration=None, company=None):
+	"""
+	Verifica a integridade completa da cadeia de assinaturas RSA-SHA1
+	de uma série (series_configuration) ou de todas as séries de uma
+	empresa (company). Sem nenhum dos dois parâmetros, verifica todas
+	as séries de todas as empresas.
+
+	Devolve um resumo por série com o detalhe de cada documento -
+	pensado para ser corrido sob pedido por um auditor (via API, bench
+	execute, ou um botão na UI), não em cada submissão de documento.
+	"""
+	if not frappe.has_permission("ATCUD Log", "read"):
+		frappe.throw(_("Sem permissão"), frappe.PermissionError)
+
+	filters = {"generation_status": "Success"}
+	if series_configuration:
+		filters["series_used"] = series_configuration
+	elif company:
+		filters["company"] = company
+
+	logs = frappe.get_all(
+		"ATCUD Log",
+		filters=filters,
+		fields=["name", "series_used", "sequence_number", "document_type", "document_name",
+				"atcud_code", "signature_hash", "previous_signature_hash"],
+		order_by="series_used, sequence_number asc",
+	)
+
+	if not logs:
+		return {"success": True, "series_checked": 0, "documents_checked": 0,
+				"broken_chains": 0, "invalid_signatures": 0, "series": {}}
+
+	try:
+		public_key = _get_public_key()
+	except SignatureError as e:
+		return {"success": False, "error": str(e)}
+
+	series_results = {}
+	for log in logs:
+		series_results.setdefault(log.series_used, {"entries": [], "expected_previous": ""})
+
+	documents_checked = 0
+	broken_chains = 0
+	invalid_signatures = 0
+
+	for log in logs:
+		bucket = series_results[log.series_used]
+		entry_result = _verify_single_entry(log, public_key, bucket["expected_previous"])
+		bucket["entries"].append(entry_result)
+		bucket["expected_previous"] = log.signature_hash
+
+		documents_checked += 1
+		if not entry_result["chain_ok"]:
+			broken_chains += 1
+		if entry_result["signature_ok"] is False:
+			invalid_signatures += 1
+
+	for series_name, bucket in series_results.items():
+		bucket["total"] = len(bucket["entries"])
+		bucket["chain_ok"] = all(e["chain_ok"] for e in bucket["entries"])
+		bucket["signatures_ok"] = all(e["signature_ok"] for e in bucket["entries"])
+		del bucket["expected_previous"]
+
+	return {
+		"success": broken_chains == 0 and invalid_signatures == 0,
+		"series_checked": len(series_results),
+		"documents_checked": documents_checked,
+		"broken_chains": broken_chains,
+		"invalid_signatures": invalid_signatures,
+		"series": series_results,
+	}
+
+
+@frappe.whitelist()
+def export_signing_public_key():
+	"""
+	Exporta a chave pública correspondente à chave privada de
+	assinatura configurada, em PEM (Requisito 2.3 da auditoria de
+	certificação 2026-08-24). A chave pública não precisa de
+	armazenamento próprio - é sempre derivável da privada já
+	protegida em Portugal Auth Settings - mas o requisito pede um
+	artefacto que possa ser entregue a um auditor ou arquivado, daí
+	este utilitário em vez de um campo persistido (evita ter duas
+	cópias da mesma informação a poderem divergir).
+	"""
+	if not frappe.has_permission("Portugal Auth Settings", "read"):
+		frappe.throw(_("Sem permissão"), frappe.PermissionError)
+
+	public_key = _get_public_key()
+	pem_bytes = public_key.public_bytes(
+		encoding=serialization.Encoding.PEM,
+		format=serialization.PublicFormat.SubjectPublicKeyInfo,
+	)
+	settings = frappe.get_single("Portugal Auth Settings")
+	return {
+		"public_key_pem": pem_bytes.decode("ascii"),
+		"key_version": settings.get("invoice_signing_key_version") or "1",
+	}

@@ -593,6 +593,13 @@ class SAFTGenerator:
 		payments = []
 		for name in names:
 			pe = frappe.get_doc("Payment Entry", name)
+			# PaymentRefNo exige o mesmo formato "CODIGO SERIE/SEQUENCIA"
+			# que InvoiceNo (ver _format_invoice_no) - pe.name sozinho
+			# ("RC2026N0001") nao bate com o pattern do XSD
+			# ([^ ]+ [^/^ ]+/[0-9]+), confirmado ao validar contra o
+			# schema real (auditoria de certificacao 2026-08-24).
+			doc_code = "RC" if pe.payment_type == "Receive" else "RG"
+			pe.saft_ref_no = self._format_invoice_no(pe.name, None, doc_code)
 			pe.saft_references = []
 			for ref in pe.references:
 				invoice_date = frappe.db.get_value(ref.reference_doctype, ref.reference_name, "posting_date") \
@@ -761,6 +768,25 @@ def generate_saft_background(log_name):
 		export_log.file_size = len(saft_xml.encode('utf-8'))
 		export_log.file_hash = generator.generate_file_hash(saft_xml)
 		export_log.total_records = generator.get_records_count()
+
+		# Validacao XSD real contra o schema oficial da AT (Requisito 1.4
+		# da auditoria de certificacao 2026-08-24) - antes disto o ficheiro
+		# era sempre marcado "Completed" sem nunca ser validado contra o
+		# saftpt1.04_01.xsd bundled. Um ficheiro invalido agora fica
+		# "Failed" com os erros reais do schema, e download_saft_file (ver
+		# api/saft_api.py) ja recusa descarregar qualquer export que nao
+		# esteja "Completed".
+		is_valid = export_log.validate_xml_content(saft_xml)
+		if not is_valid:
+			export_log.status = "Failed"
+			export_log.save()
+
+			frappe.publish_realtime('saft_export_failed', {
+				'export_log_name': log_name,
+				'error': _('Ficheiro SAF-T gerado não é válido contra o schema XSD oficial - ver Erros de Validação XSD.')
+			})
+			return
+
 		export_log.status = "Completed"
 		export_log.save()
 

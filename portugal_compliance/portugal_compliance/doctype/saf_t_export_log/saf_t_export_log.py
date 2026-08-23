@@ -95,48 +95,41 @@ class SAFTExportLog(Document):
 			self.save()
 
 	def validate_xml_content(self, xml_content):
-		"""Valida conteúdo XML contra schema XSD"""
+		"""
+		Valida o XML contra o schema XSD oficial da AT
+		(xsd/saftpt1.04_01.xsd, já incluído no repositório), usando a
+		biblioteca xmlschema.
+
+		Substitui uma validação anterior que só verificava manualmente
+		2 elementos e 7 campos do Header com ElementTree - não tocava
+		no XSD real bundled, e nunca era sequer chamada pelo fluxo de
+		geração (auditoria de certificação 2026-08-24: confirmado com
+		grep total ao repositório - zero chamadores). Ver
+		saft_generator.generate_saft_background, que agora chama isto
+		antes de marcar o export como "Completed".
+		"""
+		import xmlschema
+
 		try:
-			# Parse XML
-			root = ET.fromstring(xml_content)
-
-			validation_errors = []
-
-			# Verificar namespace
-			expected_namespace = "urn:OECD:StandardAuditFile-Tax:PT_1.04_01"
-			if root.tag != f"{{{expected_namespace}}}AuditFile":
-				validation_errors.append("Invalid root element or namespace")
-
-			# Verificar elementos obrigatórios
-			required_elements = ["Header", "MasterFiles"]
-			for element in required_elements:
-				if root.find(f".//{{{expected_namespace}}}{element}") is None:
-					validation_errors.append(f"Required element {element} is missing")
-
-			# Verificar header obrigatório
-			header = root.find(f".//{{{expected_namespace}}}Header")
-			if header is not None:
-				required_header_fields = [
-					"AuditFileVersion", "CompanyID", "TaxRegistrationNumber",
-					"CompanyName", "FiscalYear", "StartDate", "EndDate"
-				]
-
-				for field in required_header_fields:
-					if header.find(f".//{{{expected_namespace}}}{field}") is None:
-						validation_errors.append(f"Required header field {field} is missing")
-
-			# Atualizar status de validação
-			if validation_errors:
-				self.xml_validation_status = "Invalid"
-				self.xsd_validation_errors = "\n".join(validation_errors)
-			else:
-				self.xml_validation_status = "Valid"
-				self.xsd_validation_errors = ""
-
+			xsd_path = frappe.get_app_path("portugal_compliance", "xsd", "saftpt1.04_01.xsd")
+			# XMLSchema11, nao XMLSchema (1.0): o XSD da AT declara
+			# vc:minVersion="1.1" (XML Schema 1.1) logo na raiz - sob um
+			# processador 1.0, esse atributo faz componentes do schema
+			# serem silenciosamente ignorados por incompatibilidade de
+			# versao, e ate o proprio elemento AuditFile deixava de ser
+			# reconhecido ("nao e um elemento do schema"), mascarando
+			# TODOS os erros reais de conteudo (confirmado ao testar:
+			# com XMLSchema 1.0 o unico erro era esse falso-negativo; com
+			# XMLSchema11 aparecem os erros reais de PaymentRefNo/Line).
+			schema = xmlschema.XMLSchema11(xsd_path)
+		except Exception as e:
+			self.xml_validation_status = "Validation Error"
+			self.xsd_validation_errors = f"Erro ao carregar o schema XSD: {str(e)}"
 			self.save()
+			return False
 
-			return len(validation_errors) == 0
-
+		try:
+			errors = list(schema.iter_errors(xml_content))
 		except ET.ParseError as e:
 			self.xml_validation_status = "Validation Error"
 			self.xsd_validation_errors = f"XML Parse Error: {str(e)}"
@@ -147,6 +140,24 @@ class SAFTExportLog(Document):
 			self.xsd_validation_errors = f"Validation Error: {str(e)}"
 			self.save()
 			return False
+
+		if errors:
+			self.xml_validation_status = "Invalid"
+			# Limitado a 50 erros / 5000 caracteres - um SAF-T com centenas
+			# de faturas pode repetir o mesmo erro estrutural centenas de
+			# vezes; o objetivo aqui e diagnosticar a causa, nao listar
+			# cada ocorrencia.
+			error_lines = [f"[{e.path}] {e.reason or str(e)}" for e in errors[:50]]
+			error_text = "\n".join(error_lines)
+			if len(errors) > 50:
+				error_text += f"\n... e mais {len(errors) - 50} erro(s)."
+			self.xsd_validation_errors = error_text[:5000]
+		else:
+			self.xml_validation_status = "Valid"
+			self.xsd_validation_errors = ""
+
+		self.save()
+		return len(errors) == 0
 
 	def submit_to_at(self):
 		"""Removido (Fase 5): nao estava whitelisted (inalcancavel via API)
