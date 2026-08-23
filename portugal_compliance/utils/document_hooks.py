@@ -59,7 +59,7 @@ class PortugalComplianceDocumentHooks:
 				"requires_atcud": True,
 				"fiscal_document": True,
 				"critical": True,
-				"code": "RC"
+				"code": "RG"
 			},
 			"Delivery Note": {
 				"prefixes": ["GT", "GR"],

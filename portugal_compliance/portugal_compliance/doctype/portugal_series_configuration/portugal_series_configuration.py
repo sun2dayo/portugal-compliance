@@ -141,7 +141,7 @@ class PortugalSeriesConfiguration(Document):
 		valid_prefixes = {
 			"Sales Invoice": ["FT", "FS", "FR", "NC", "ND"],
 			"Purchase Invoice": ["FC", "FR"],
-			"Payment Entry": ["RC", "RB"],
+			"Payment Entry": ["RG", "RC", "RB"],  # RG = default (ver get_document_prefix); RC só para regime de IVA de Caixa
 			"Delivery Note": ["GT", "GR"],
 			"Purchase Receipt": ["GR", "GT"],
 			"Journal Entry": ["JE", "LC"],
@@ -468,7 +468,16 @@ class PortugalSeriesConfiguration(Document):
 			prefix_mapping = {
 				"Sales Invoice": "FT",
 				"Purchase Invoice": "FC",
-				"Payment Entry": "RC",
+				# RG ("Outros recibos emitidos"), nao RC ("Recibo emitido no
+				# ambito do regime de IVA de Caixa" - SAFTPTPaymentType do
+				# XSD oficial). RC so e correto se a empresa estiver
+				# efetivamente no regime de IVA de Caixa (ver
+				# Portugal Auth Settings.cash_vat_scheme) - nao e o caso
+				# comum, e o default nunca deve assumir um regime fiscal
+				# especial (auditoria de certificacao 2026-08-24, apos
+				# a serie RC-2026-N-5b5cf7 ter sido registada e finalizada
+				# na AT com o codigo errado).
+				"Payment Entry": "RG",
 				"Delivery Note": "GT",
 				"Purchase Receipt": "GR",
 				"Journal Entry": "JE",

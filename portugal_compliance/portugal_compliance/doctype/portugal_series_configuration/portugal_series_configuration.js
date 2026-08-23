@@ -173,8 +173,13 @@ const PORTUGAL_DOCUMENT_TYPES = {
     },
 
     // ✅ DOCUMENTOS FINANCEIROS
+    // RG ("Outros recibos emitidos"), nao RC ("Recibo emitido no ambito
+    // do regime de IVA de Caixa" - SAFTPTPaymentType do XSD oficial) -
+    // RC so e correto se a empresa estiver no regime de IVA de Caixa
+    // (Portugal Auth Settings.cash_vat_scheme), auditoria de
+    // certificacao 2026-08-24.
     'Payment Entry': {
-        code: 'RC',
+        code: 'RG',
         name: 'Recibo',
         description: 'Recibo de pagamento/recebimento',
         communication_required: true,

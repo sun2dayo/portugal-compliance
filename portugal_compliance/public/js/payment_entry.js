@@ -547,24 +547,28 @@ function setup_automatic_naming_series(frm) {
         },
         callback: function(r) {
             if (r.message && r.message.success && r.message.series.length > 0) {
-                // ✅ PRIORIZAR SÉRIES COMUNICADAS RC/RB (formato SEM HÍFENS: RC2025NDX)
-                let rc_series = r.message.series.filter(s => s.prefix.startsWith('RC') || s.prefix.startsWith('RB'));
+                // ✅ PRIORIZAR SÉRIES COMUNICADAS RG/RC/RB (formato SEM HÍFENS: RG2025NDX)
+                // RG ("Outros recibos emitidos") é o código por omissão para
+                // Payment Entry - RC é só para regime de IVA de Caixa (ver
+                // Portugal Auth Settings.cash_vat_scheme), auditoria de
+                // certificação 2026-08-24.
+                let rc_series = r.message.series.filter(s => s.prefix.startsWith('RG') || s.prefix.startsWith('RC') || s.prefix.startsWith('RB'));
                 let communicated_series = rc_series.filter(s => s.is_communicated);
                 let series_to_use = communicated_series.length > 0 ? communicated_series : rc_series;
 
                 if (series_to_use.length > 0) {
-                    // ✅ AUTO-SELECIONAR PRIMEIRA SÉRIE RC/RB
+                    // ✅ AUTO-SELECIONAR PRIMEIRA SÉRIE RG/RC/RB
                     frm.set_value('naming_series', series_to_use[0].naming_series);
 
                     // ✅ MOSTRAR INFORMAÇÃO
                     if (communicated_series.length > 0) {
                         frappe.show_alert({
-                            message: __('Série RC comunicada selecionada automaticamente'),
+                            message: __('Série de recibo comunicada selecionada automaticamente'),
                             indicator: 'green'
                         });
                     } else {
                         frappe.show_alert({
-                            message: __('Série RC não comunicada selecionada. Comunique à AT antes de submeter.'),
+                            message: __('Série de recibo não comunicada selecionada. Comunique à AT antes de submeter.'),
                             indicator: 'orange'
                         });
                     }
@@ -593,12 +597,12 @@ function validate_portuguese_series(frm) {
 
     // ✅ VERIFICAR SE É SÉRIE DE RECIBO (formato SEM HÍFENS)
     let prefix = frm.doc.naming_series.replace('.####', '');
-    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: RC ou RB
+    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: RG, RC ou RB
 
-    if (!['RC', 'RB'].includes(doc_code)) {
+    if (!['RG', 'RC', 'RB'].includes(doc_code)) {
         frappe.msgprint({
             title: __('Série Incorreta'),
-            message: __('Para Payment Entry, use séries RC (Recibo) ou RB (Recibo Bancário)'),
+            message: __('Para Payment Entry, use séries RG (Outros Recibos), RC (regime de IVA de Caixa) ou RB (Recibo Bancário)'),
             indicator: 'orange'
         });
     }

@@ -253,7 +253,7 @@ class ATWebserviceClient:
 			valid_doc_codes = [
 				"FT", "FS", "FR", "NC", "ND",  # Faturas
 				"FC",  # Compras
-				"RC", "RB",  # Recibos
+				"RC", "RG", "RB",  # Recibos (RC = regime de IVA de Caixa, RG = outros - ver Portugal Auth Settings.cash_vat_scheme)
 				"GT", "GR", "GM",  # Guias
 				"JE", "LC",  # Lançamentos
 				"OR", "EC", "EF", "MR"  # Outros
