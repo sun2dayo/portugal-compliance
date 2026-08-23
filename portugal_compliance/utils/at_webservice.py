@@ -516,6 +516,67 @@ class ATWebserviceClient:
 			"raw_response": zeep.helpers.serialize_object(info) if info else None,
 		}
 
+	def consultar_serie(self, series_config_name, username=None, password=None):
+		"""
+		Consulta o estado real de uma série junto da AT (consultarSeries) -
+		usada pelo botão "Verificar Status AT". Antes só existia inline
+		dentro de register_naming_series (para idempotência); extraída
+		aqui como método autónomo porque o botão chamava um módulo
+		portugal_compliance.utils.at_communication que nunca existiu.
+		"""
+		series_config = frappe.get_doc("Portugal Series Configuration", series_config_name)
+
+		prefix = series_config.prefix
+		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})$'
+		match = re.match(pattern, prefix)
+		if not match:
+			return {"success": False, "error": _("Formato de prefixo inválido: {0}").format(prefix)}
+		doc_code, year, company_abbr = match.groups()
+		at_series_format = f"{doc_code}-{year}-{company_abbr}"
+
+		try:
+			service, wsse_header = get_series_webservice_client(username, password)
+			response = service.consultarSeries(
+				serie=at_series_format,
+				classeDoc=self._map_doc_code_to_class(doc_code),
+				tipoDoc=doc_code,
+				meioProcessamento="PI",
+				_soapheaders=[wsse_header],
+			)
+		except zeep.exceptions.Fault as e:
+			frappe.log_error(f"AT rejeitou a consulta da série (SOAP Fault): {str(e)}", "ATWebserviceClient")
+			return {"success": False, "error": _("AT rejeitou o pedido: {0}").format(str(e))}
+		except Exception as e:
+			frappe.log_error(f"Erro ao consultar série na AT: {str(e)}", "ATWebserviceClient")
+			return {"success": False, "error": _("Erro na comunicação com a AT: {0}").format(str(e))}
+
+		resp_body = getattr(response, "consultarSeriesResp", response)
+		info_list = getattr(resp_body, "InfoSerie", None) or getattr(resp_body, "infoSerie", None) or []
+
+		match_info = None
+		for info in info_list:
+			if getattr(info, "serie", None) == at_series_format:
+				match_info = info
+				break
+
+		if not match_info:
+			return {
+				"success": True,
+				"found": False,
+				"series_at_format": at_series_format,
+				"message": _("A AT não tem nenhum registo para esta série."),
+			}
+
+		return {
+			"success": True,
+			"found": True,
+			"series_at_format": at_series_format,
+			"status": getattr(match_info, "estado", None),
+			"validation_code": getattr(match_info, "codValidacaoSerie", None),
+			"last_check": getattr(match_info, "dataEstado", None),
+			"raw_response": zeep.helpers.serialize_object(match_info),
+		}
+
 	def finalizar_serie(self, series_config_name, seq_ultimo_doc_emitido=None, justificacao=None,
 						username=None, password=None):
 		"""
@@ -525,11 +586,12 @@ class ATWebserviceClient:
 		AT exige o código de validação já obtido em registarSerie e o
 		número do último documento efetivamente emitido nessa série.
 
-		Não assume um código de sucesso específico da AT para esta
-		operação (só registarSerie tem o "2001" confirmado por teste
-		real) - devolve sempre a mensagem/código reais da AT para o
-		administrador confirmar visualmente antes de considerar a série
-		encerrada.
+		Código de sucesso "2004" confirmado no Manual de Integração de
+		Software - Comunicação de Séries Documentais, Aspetos
+		Específicos (Portaria 195/2020, v1.1) e validado por teste real
+		em sandbox. Ao confirmar sucesso, desativa a série localmente
+		(is_active=0) para que o sistema deixe de a oferecer para novos
+		documentos - a AT já a considera encerrada.
 		"""
 		series_config = frappe.get_doc("Portugal Series Configuration", series_config_name)
 
@@ -572,16 +634,21 @@ class ATWebserviceClient:
 		oper_info = getattr(resp_body, "infoResultOper", None)
 		cod_result = getattr(oper_info, "codResultOper", None) if oper_info else None
 		msg_result = getattr(oper_info, "msgResultOper", None) if oper_info else ""
+		is_success = cod_result == 2004
+
+		if is_success:
+			frappe.db.set_value("Portugal Series Configuration", series_config_name, "is_active", 0)
+			frappe.db.commit()
 
 		return {
-			"success": True,
+			"success": is_success,
 			"series_at_format": at_series_format,
 			"at_result_code": cod_result,
 			"at_message": msg_result,
 			"raw_response": zeep.helpers.serialize_object(resp_body) if resp_body else None,
 		}
 
-	def anular_serie(self, series_config_name, motivo, declaracao_nao_emissao,
+	def anular_serie(self, series_config_name, declaracao_nao_emissao, motivo="ER",
 					  username=None, password=None):
 		"""
 		Anula junto da AT o registo de uma série mal configurada
@@ -590,6 +657,19 @@ class ATWebserviceClient:
 		sujeito passivo atestar explicitamente (declaracaoNaoEmissao)
 		que não emitiu documentos com essa série - por isso este
 		parâmetro é obrigatório e não tem default silencioso.
+
+		O campo "motivo" é um código fixo de 2 carateres, não texto
+		livre - "ER" (Anulação por erro de registo) é o único valor
+		documentado no Manual de Integração de Software (Comunicação de
+		Séries Documentais, Aspetos Específicos, secção 1.3.10) e cobre
+		o único cenário legítimo de anulação. Código de sucesso "2003"
+		também confirmado nesse manual e validado por teste real.
+
+		Regra da AT (secção 2.2.1 do mesmo manual): só é possível anular
+		uma série comunicada no próprio dia ou no dia imediatamente
+		anterior - validado aqui antes de gastar uma chamada ao
+		webservice, para devolver um erro claro em vez do 4004 genérico
+		da AT.
 		"""
 		if not declaracao_nao_emissao:
 			return {
@@ -607,6 +687,18 @@ class ATWebserviceClient:
 				"success": False,
 				"error": _("Esta série ainda não foi comunicada à AT (sem código de validação)."),
 			}
+
+		if series_config.communication_date:
+			dias_desde_comunicacao = (frappe.utils.now_datetime().date()
+									   - get_datetime(series_config.communication_date).date()).days
+			if dias_desde_comunicacao > 1:
+				return {
+					"success": False,
+					"error": _(
+						"Só é possível anular uma série comunicada no próprio dia ou no dia "
+						"imediatamente anterior (esta foi comunicada em {0})."
+					).format(frappe.utils.formatdate(series_config.communication_date)),
+				}
 
 		prefix = series_config.prefix
 		pattern = r'^([A-Z]{2,4})(\d{4})([A-Z0-9]{1,4})$'
@@ -638,9 +730,18 @@ class ATWebserviceClient:
 		oper_info = getattr(resp_body, "infoResultOper", None)
 		cod_result = getattr(oper_info, "codResultOper", None) if oper_info else None
 		msg_result = getattr(oper_info, "msgResultOper", None) if oper_info else ""
+		is_success = cod_result == 2003
+
+		if is_success:
+			frappe.db.set_value("Portugal Series Configuration", series_config_name, {
+				"is_active": 0,
+				"is_communicated": 0,
+				"validation_code": None,
+			})
+			frappe.db.commit()
 
 		return {
-			"success": True,
+			"success": is_success,
 			"series_at_format": at_series_format,
 			"at_result_code": cod_result,
 			"at_message": msg_result,
@@ -931,6 +1032,13 @@ def validate_naming_series_format(naming_series):
 # Chamadas por botões em Portugal Series Configuration (ver .js).
 
 @frappe.whitelist()
+def consultar_serie(series_config_name):
+	"""Verifica o estado real de uma série junto da AT."""
+	client = ATWebserviceClient()
+	return client.consultar_serie(series_config_name)
+
+
+@frappe.whitelist()
 def finalizar_serie(series_config_name, seq_ultimo_doc_emitido=None, justificacao=None):
 	"""Fecha formalmente uma série na AT (fim de ano fiscal, migração)."""
 	client = ATWebserviceClient()
@@ -938,8 +1046,8 @@ def finalizar_serie(series_config_name, seq_ultimo_doc_emitido=None, justificaca
 
 
 @frappe.whitelist()
-def anular_serie(series_config_name, motivo, declaracao_nao_emissao):
+def anular_serie(series_config_name, declaracao_nao_emissao, motivo="ER"):
 	"""Anula na AT o registo de uma série mal configurada."""
 	declaracao_nao_emissao = cint(declaracao_nao_emissao)
 	client = ATWebserviceClient()
-	return client.anular_serie(series_config_name, motivo, bool(declaracao_nao_emissao))
+	return client.anular_serie(series_config_name, bool(declaracao_nao_emissao), motivo)

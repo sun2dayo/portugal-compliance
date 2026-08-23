@@ -871,19 +871,19 @@ function anular_serie_na_at(frm) {
      * uma confirmação explícita de que a série nunca chegou a ser
      * usada para emitir documentos - por isso o checkbox não tem
      * default marcado.
+     *
+     * O motivo não é texto livre: a AT exige um código fixo de 2
+     * carateres, e "ER" (Anulação por erro de registo) é o único
+     * valor documentado no Manual de Integração de Software da AT
+     * para esta operação - cobre exatamente o cenário de anular uma
+     * série mal configurada, por isso é enviado automaticamente.
      */
     let dialog = new frappe.ui.Dialog({
         title: __('Anular Série na AT'),
         fields: [
             {
                 fieldtype: 'HTML',
-                options: `<div class="alert alert-warning">${__('A anulação desfaz o registo da série {0} (código {1}) na AT, como se nunca tivesse sido comunicada.', [frm.doc.series_name, frm.doc.validation_code])}</div>`
-            },
-            {
-                fieldtype: 'Small Text',
-                fieldname: 'motivo',
-                label: __('Motivo da Anulação'),
-                reqd: 1
+                options: `<div class="alert alert-warning">${__('A anulação desfaz o registo da série {0} (código {1}) na AT, como se nunca tivesse sido comunicada. Só é possível anular uma série no próprio dia da comunicação ou no dia seguinte, e apenas se nunca foram emitidos documentos com ela. O motivo reportado à AT será "ER - Anulação por erro de registo".', [frm.doc.series_name, frm.doc.validation_code])}</div>`
             },
             {
                 fieldtype: 'Check',
@@ -902,7 +902,6 @@ function anular_serie_na_at(frm) {
                 method: 'portugal_compliance.utils.at_webservice.anular_serie',
                 args: {
                     series_config_name: frm.doc.name,
-                    motivo: values.motivo,
                     declaracao_nao_emissao: 1
                 },
                 freeze: true,
@@ -1147,28 +1146,47 @@ function generate_series_report(frm) {
 
 function check_at_status(frm) {
     /**
-     * Verificar status na AT
+     * Verificar status real na AT (consultarSeries). Apontava para
+     * portugal_compliance.utils.at_communication - módulo que nunca
+     * existiu neste repositório (ver Auditoria de Certificação
+     * 2026-08-24). Corrigido para o endpoint real em at_webservice.py.
      */
 
     frappe.call({
-        method: 'portugal_compliance.utils.at_communication.check_series_status',
+        method: 'portugal_compliance.utils.at_webservice.consultar_serie',
         args: {
-            series_config: frm.doc.name
+            series_config_name: frm.doc.name
         },
+        freeze: true,
+        freeze_message: __('A consultar a AT...'),
         callback: function(r) {
-            if (r.message) {
+            if (!r.message || !r.message.success) {
+                frappe.msgprint({
+                    title: __('Erro'),
+                    message: (r.message && r.message.error) || __('Erro ao consultar série'),
+                    indicator: 'red'
+                });
+                return;
+            }
+            if (!r.message.found) {
                 frappe.msgprint({
                     title: __('Status na AT'),
-                    message: `
-                        <table class="table table-bordered">
-                            <tr><td><strong>Status:</strong></td><td>${r.message.status}</td></tr>
-                            <tr><td><strong>Última Verificação:</strong></td><td>${frappe.datetime.str_to_user(r.message.last_check)}</td></tr>
-                            <tr><td><strong>Código Validação:</strong></td><td>${r.message.validation_code}</td></tr>
-                        </table>
-                    `,
-                    indicator: r.message.valid ? 'green' : 'orange'
+                    message: r.message.message,
+                    indicator: 'orange'
                 });
+                return;
             }
+            frappe.msgprint({
+                title: __('Status na AT'),
+                message: `
+                    <table class="table table-bordered">
+                        <tr><td><strong>Estado:</strong></td><td>${frappe.utils.escape_html(r.message.status || '-')}</td></tr>
+                        <tr><td><strong>Última Alteração:</strong></td><td>${r.message.last_check ? frappe.datetime.str_to_user(r.message.last_check) : '-'}</td></tr>
+                        <tr><td><strong>Código Validação:</strong></td><td>${frappe.utils.escape_html(r.message.validation_code || '-')}</td></tr>
+                    </table>
+                `,
+                indicator: 'green'
+            });
         }
     });
 }
