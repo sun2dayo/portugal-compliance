@@ -186,26 +186,39 @@ Entry desde 2026-08-22. Dashboard AT, estatísticas e allowlists de APIs (`atcud
 ## 5. Limitações conhecidas (declaradas, não corrigidas nesta sessão)
 
 1. **`FT2026N0001`** — o primeiro documento fiscal desta instalação, criado antes de
-   `sign_document()` existir, não tem assinatura RSA real (apenas ATCUD). Todos os
-   documentos subsequentes (`FT2026N0002` em diante, todas as outras séries) verificam
-   corretamente.
-2. **`RC-2026-N-5b5cf7`** — série de Payment Entry real, comunicada e finalizada com
+   `sign_document()` existir, não tem assinatura RSA real (apenas ATCUD).
+2. **Referência estática na assinatura, corrigida em 2026-08-24** — até essa data,
+   `build_data_to_sign()` usava sempre o `doc_code` estático de `DOCUMENT_SIGNING_SPEC`
+   (por DocType do Frappe), nunca o `document_code` real da série efetivamente usada.
+   Corrigido para resolver sempre o valor real via `Portugal Series Configuration`. Impacto
+   medido (não estimado — `verify_signature_chain()` executado antes e depois da correção):
+   as 9 Notas de Crédito (`NC2026N0001`-`9`), as 3 Guias de Remessa (`GR2026N0001`-`3`) e o
+   recibo `RG2026N0001` foram assinados antes desta correção com o `doc_code` errado
+   embutido na `Referencia` (ex: `"FT NC2026N/1"` em vez de `"NC NC2026N/1"`). As assinaturas
+   permanecem matematicamente válidas contra o texto que foi realmente assinado na altura —
+   confirmado individualmente para cada documento — mas deixam de bater com a reconstrução
+   que o código corrigido produz hoje, pelo que `verify_signature_chain()` reporta-as
+   corretamente como não coincidentes com a lógica atual. Re-assinar estes documentos
+   retroativamente violaria a própria inviolabilidade que o módulo garante (Pilar 1); ficam
+   registados aqui como o mesmo tipo de gap histórico do ponto 1. Nenhum documento emitido a
+   partir de 2026-08-24 repete este defeito.
+3. **`RC-2026-N-5b5cf7`** — série de Payment Entry real, comunicada e finalizada com
    `tipoDoc="RC"` antes da correção do mapeamento por omissão (secção 3, Regime de IVA de
    Caixa). Não pode ser anulada retroativamente: está "Finalizada" (a AT só aceita anular
    séries "Ativas") e tem 3 documentos genuinamente emitidos (a declaração de não emissão
    exigida por `anularSerie` seria falsa). O código já não repete este erro — todas as
    séries novas usam "RG" por omissão.
-3. **Segundo gerador de QR Code** — `atcud_generator.py::_build_qr_data_optimized()`, ainda
+4. **Segundo gerador de QR Code** — `atcud_generator.py::_build_qr_data_optimized()`, ainda
    chamado em todo `before_save`/`after_insert` dos documentos fiscais, tem o mesmo defeito
    de mapeamento de campos já corrigido em `jinja_methods.get_qr_code_data()`. O valor que
    produz só é escrito em `ATCUD Log.qr_code_string` (trilha de auditoria interna) — não é
    lido pelo webservice da AT nem pelos Print Formats reais, que usam `get_qr_code_data()`
    diretamente. Sem impacto no que é comunicado à AT ou impresso; inconsistência a corrigir
    num commit dedicado.
-4. **`TaxCountryRegion` em `Payment/Line/Tax`** — mantido fixo em `"PT"` (o bloco é sempre a
+5. **`TaxCountryRegion` em `Payment/Line/Tax`** — mantido fixo em `"PT"` (o bloco é sempre a
    isenção fixa M99, sem taxa própria — o recibo herda o imposto já liquidado na fatura de
    origem). Herdar a região do documento de origem referenciado é uma alteração à parte.
-5. **Faturação por terceiros** (emissão em nome de outro sujeito passivo) — sem
+6. **Faturação por terceiros** (emissão em nome de outro sujeito passivo) — sem
    campo/suporte dedicado. Não confirmado se aplicável ao modelo de negócio da novadx.
 
 ---
