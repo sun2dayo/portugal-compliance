@@ -78,6 +78,13 @@
             "description": "Numero atribuido pela AT apos certificacao. 0 enquanto o software nao estiver certificado (campo R do QR code)."
         },
         {
+            "fieldname": "cash_vat_scheme",
+            "label": "Regime de IVA de Caixa (Artigo 78.º-A do CIVA)",
+            "fieldtype": "Check",
+            "default": "0",
+            "description": "Ativar apenas se a empresa estiver efetivamente enquadrada no regime de IVA de Caixa junto da AT. Determina o campo PaymentType dos recibos no SAF-T: RC (\"Recibo emitido no âmbito do regime de IVA de Caixa\") quando ativo, RG (\"Outros recibos emitidos\") caso contrário - distinção exigida pelo XSD oficial (SAFTPTPaymentType), sem relação com o sentido do pagamento (Receber/Pagar)."
+        },
+        {
             "fieldname": "webservice_credentials_section",
             "fieldtype": "Section Break",
             "label": "Credenciais do Webservice da AT (WS-Security)"

@@ -96,7 +96,7 @@
             <PaymentRefNo>{{ payment.saft_ref_no }}</PaymentRefNo>
             <ATCUD>{{ payment.atcud_code or '' }}</ATCUD>
             <TransactionDate>{{ payment.posting_date.strftime('%Y-%m-%d') }}</TransactionDate>
-            <PaymentType>{{ 'RC' if payment.payment_type == 'Receive' else 'RG' }}</PaymentType>
+            <PaymentType>{{ payment.saft_payment_type }}</PaymentType>
             <DocumentStatus>
                 <PaymentStatus>{{ 'N' if payment.docstatus == 1 else 'A' if payment.docstatus == 2 else 'T' }}</PaymentStatus>
                 <PaymentStatusDate>{{ payment.posting_date.strftime('%Y-%m-%dT00:00:00') }}</PaymentStatusDate>

@@ -629,6 +629,37 @@ class SAFTGenerator:
 								   ORDER BY posting_date, name
 								   """, (company, from_date, to_date))
 
+		# PaymentType (RC/RG) e um campo legal distinto de PaymentRefNo,
+		# sem qualquer relacao com o sentido do pagamento (Receber vs
+		# Pagar) - confirmado na documentacao do proprio XSD
+		# (SAFTPTPaymentType): "RC para Recibo emitido no ambito do
+		# regime de IVA de Caixa (...), RG para Outros recibos
+		# emitidos". Usar Receive/Pay aqui (versao anterior) reportava
+		# RC a qualquer recebimento normal, mesmo sem a empresa estar
+		# no regime de Caixa - auditoria de certificacao 2026-08-24,
+		# depois de comparar com o modulo l10n_pt_certification do
+		# Odoo/OCA e confirmar contra o texto oficial do XSD.
+		cash_vat_scheme = cint(frappe.db.get_single_value("Portugal Auth Settings", "cash_vat_scheme"))
+		saft_payment_type = "RC" if cash_vat_scheme else "RG"
+
+		series_code_cache = {}
+
+		def _payment_doc_code(naming_series):
+			"""
+			Codigo real da serie (Portugal Series Configuration.document_code),
+			nao Receive/Pay - mesma logica estrutural de
+			_document_code_for() usada para Sales Invoice/Nota de
+			Credito. Todas as series de Payment Entry sao "RC" neste
+			modulo (identificador da serie, nao classificacao fiscal do
+			regime - ver saft_payment_type acima, que e o campo
+			realmente ligado ao regime de IVA de Caixa).
+			"""
+			if naming_series not in series_code_cache:
+				series_code_cache[naming_series] = frappe.db.get_value(
+					"Portugal Series Configuration", {"naming_series": naming_series}, "document_code"
+				)
+			return series_code_cache[naming_series] or "RC"
+
 		payments = []
 		for name in names:
 			pe = frappe.get_doc("Payment Entry", name)
@@ -637,8 +668,8 @@ class SAFTGenerator:
 			# ("RC2026N0001") nao bate com o pattern do XSD
 			# ([^ ]+ [^/^ ]+/[0-9]+), confirmado ao validar contra o
 			# schema real (auditoria de certificacao 2026-08-24).
-			doc_code = "RC" if pe.payment_type == "Receive" else "RG"
-			pe.saft_ref_no = self._format_invoice_no(pe.name, None, doc_code)
+			pe.saft_ref_no = self._format_invoice_no(pe.name, None, _payment_doc_code(pe.naming_series))
+			pe.saft_payment_type = saft_payment_type
 			pe.saft_references = []
 			for ref in pe.references:
 				invoice_date = frappe.db.get_value(ref.reference_doctype, ref.reference_name, "posting_date") \
