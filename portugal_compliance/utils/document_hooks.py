@@ -1531,6 +1531,38 @@ def log_document_cancellation(doc, method=None):
 		frappe.log_error(f"Erro ao registar anulação de {doc.doctype} {doc.name}: {str(e)}")
 
 
+def log_document_print(doc, method=None, print_settings=None):
+	"""
+	Hook de before_print. Regista no Portugal Document Print Log quem
+	imprimiu o documento e quando (Requisito 4.3 da auditoria de
+	certificação 2026-08-24) - o doctype já existia no módulo mas não
+	era alimentado por nenhum hook (confirmado com grep total ao
+	repositório antes desta alteração) - a pista de auditoria cobria
+	emissão e anulação, mas não impressão/reimpressão.
+
+	before_print corre no mesmo caminho de renderização tanto na
+	pré-visualização de impressão como na geração de PDF/download
+	(ver frappe.www.printview.get_rendered_template) - cobre os dois
+	casos reais de "imprimir" no Frappe, não só um botão específico.
+	Nunca bloqueia a impressão em si, mesmo que o registo falhe.
+	"""
+	if doc.doctype not in FISCAL_IMMUTABLE_DOCTYPES:
+		return
+	try:
+		print_format = frappe.form_dict.get("format") or (print_settings or {}).get("print_format") or ""
+		frappe.get_doc({
+			"doctype": "Portugal Document Print Log",
+			"document_type": doc.doctype,
+			"document_name": doc.name,
+			"print_format": print_format,
+			"printed_by": frappe.session.user,
+			"print_datetime": frappe.utils.now_datetime(),
+			"atcud_code": getattr(doc, "atcud_code", None) or "",
+		}).insert(ignore_permissions=True)
+	except Exception as e:
+		frappe.log_error(f"Erro ao registar impressão de {doc.doctype} {doc.name}: {str(e)}")
+
+
 def force_track_changes_property_setters():
 	"""
 	Chamada em after_migrate (ver hooks.py). Garante via Property Setter

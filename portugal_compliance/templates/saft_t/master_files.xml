@@ -47,7 +47,7 @@
         {% for tax in tax_table %}
         <TaxTableEntry>
             <TaxType>IVA</TaxType>
-            <TaxCountryRegion>PT</TaxCountryRegion>
+            <TaxCountryRegion>{{ tax.region }}</TaxCountryRegion>
             <TaxCode>{{ tax.tax_code }}</TaxCode>
             <Description>{{ tax.description or tax.tax_code }}</Description>
             <TaxPercentage>{{ '%.2f'|format(tax.rate or 0) }}</TaxPercentage>

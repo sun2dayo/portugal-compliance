@@ -278,11 +278,17 @@ class SAFTGenerator:
 
 	def get_tax_table_data(self, company):
 		"""
-		Obtém tabela de impostos - com TaxCode real (RED/INT/NOR/ISE),
-		nao o nome livre da conta contabilistica.
+		Obtém tabela de impostos - com TaxCode real (RED/INT/NOR/ISE) e
+		praça fiscal real (a.at_tax_region), nao o nome livre da conta
+		contabilistica nem "PT" fixo. As contas SNC regionais (Açores/
+		Madeira, ver setup/tax_setup.py) já guardam a região desde a
+		criação - antes esta tabela mestra reportava sempre
+		TaxCountryRegion="PT" para qualquer taxa, mesmo uma conta
+		criada explicitamente para Madeira/Açores (auditoria de
+		certificação 2026-08-24).
 		"""
 		tax_rates = frappe.db.sql("""
-								  SELECT DISTINCT at.rate, at.description
+								  SELECT DISTINCT at.rate, at.description, a.at_tax_region AS region
 								  FROM `tabAccount` a
 										   INNER JOIN `tabSales Taxes and Charges` at
 								  ON at.account_head = a.name
@@ -294,6 +300,7 @@ class SAFTGenerator:
 
 		for row in tax_rates:
 			row["tax_code"] = self._get_line_tax_code(flt(row["rate"]))
+			row["region"] = row["region"] or "PT"
 
 		return tax_rates
 

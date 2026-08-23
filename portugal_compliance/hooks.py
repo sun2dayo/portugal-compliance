@@ -106,6 +106,7 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
 		"after_insert": [
 			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
 			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
@@ -133,6 +134,7 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
 		"after_insert": [
 			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
 			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
@@ -148,6 +150,7 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
 		"after_insert": [
 			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
 			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
@@ -165,6 +168,7 @@ doc_events = {
 		],
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
 		"after_insert": [
 			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
 			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"

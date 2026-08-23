@@ -231,6 +231,57 @@ def get_series_prefix(doc):
 		return ""
 
 
+def get_document_at_code(doc):
+	"""
+	Código AT real do documento (FT/NC/FS/RC/GT/...), extraído do
+	prefixo da série (naming_series) - não do doctype do Frappe.
+
+	Auditoria de certificação 2026-08-24: o campo D do QR Code usava
+	get_document_type_code(doc.doctype), que mapeia por DocType e por
+	isso é sempre "FT" para qualquer Sales Invoice, mesmo uma Nota de
+	Crédito (is_return=1, série NC) - confirmado ao vivo: uma NC real
+	imprimia "D:FT" no QR Code, uma afirmação legal falsa sobre o tipo
+	de documento. Uma série tem sempre o código no início do prefixo
+	(ex: "NC2026N" -> "NC"), a mesma convenção já usada em
+	at_webservice.py para separar série de ano/empresa.
+	"""
+	try:
+		prefix = get_series_prefix(doc)
+		match = re.match(r"^([A-Z]{2,4})", prefix)
+		if match:
+			return match.group(1)
+	except Exception:
+		pass
+	return get_document_type_code(doc.doctype)
+
+
+def get_document_ref_no(doc):
+	"""
+	Campo G do QR Code ("Identificação única do documento") e mesmo
+	formato usado em InvoiceNo/PaymentRefNo no SAF-T: "CÓDIGO
+	SÉRIE/SEQUÊNCIA" (ex: "FT FT2026N/19"), conforme especificação
+	técnica do código QR (Portaria 195/2020) e exemplos oficiais
+	("G:FT AB2019/0035"). Antes disto o campo G era só doc.name
+	("FT2026N0019"), sem espaço nem barra - não bate com o formato
+	exigido (auditoria de certificação 2026-08-24).
+	"""
+	try:
+		doc_code = get_document_at_code(doc)
+		prefix = get_series_prefix(doc)
+		name = getattr(doc, "name", "") or ""
+
+		match = re.match(r"^(.*?)(\d+)$", name)
+		if match:
+			series_part, digits = match.groups()
+			sequence_number = int(digits)
+		else:
+			series_part, sequence_number = name, 0
+
+		return f"{doc_code} {prefix or series_part}/{sequence_number}"
+	except Exception:
+		return getattr(doc, "name", "") or ""
+
+
 def get_portugal_series_info(doc):
 	"""
 	✅ CORRIGIDO: Obter informações da série portuguesa (formato SEM HÍFENS)
@@ -1072,14 +1123,14 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 		company_nif = get_company_nif(getattr(doc, 'company', ''))
 		customer_nif = get_customer_nif(doc) or get_supplier_nif(doc)
 
-		# Discriminação real de base/imposto por código AT (NOR/INT/RED/ISE)
-		# - antes I3-I8 estavam hardcoded a "0.00", dando um QR Code errado
-		# em qualquer documento com IVA a 6% ou 13% (Fase 7).
+		# Discriminação real de base/imposto por código AT e por praça
+		# fiscal (PT/PT-AC/PT-MA) - antes só existia uma praça implícita
+		# e os valores I3-I8 estavam hardcoded a "0.00" (Fase 7).
 		from portugal_compliance.utils.tax_breakdown import get_tax_breakdown_by_at_code
 		try:
-			tax_breakdown = get_tax_breakdown_by_at_code(doc)
+			regions = get_tax_breakdown_by_at_code(doc)
 		except Exception:
-			tax_breakdown = {code: {"base": 0.0, "tax": 0.0} for code in ("NOR", "INT", "RED", "ISE")}
+			regions = {"PT": {code: {"base": 0.0, "tax": 0.0} for code in ("NOR", "INT", "RED", "ISE")}}
 
 		# Payment Entry (Recibo) não tem grand_total - o valor do
 		# documento é paid_amount. Sem isto, N/O ficavam sempre "0.00"
@@ -1093,31 +1144,55 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 			"A": company_nif,  # NIF do emitente
 			"B": customer_nif,  # NIF do adquirente
 			"C": get_customer_country(doc),  # País do adquirente (não é o emitente - ver get_customer_country)
-			"D": get_document_type_code(doc.doctype),  # Tipo de documento
+			# D: código AT real do documento (FT/NC/FS/...), extraído da
+			# série - não get_document_type_code(doc.doctype), que não
+			# distingue uma Nota de Crédito (Sales Invoice, série NC) de
+			# uma Fatura normal (mesmo doctype, série FT).
+			"D": get_document_at_code(doc),
 			"E": "N",  # Estado do documento (N=Normal, A=Anulado)
 			"F": getdate(getattr(doc, 'posting_date', today())).strftime("%Y%m%d"),  # Data
-			"G": getattr(doc, 'name', ''),  # Número do documento
+			# G: "CÓDIGO SÉRIE/SEQUÊNCIA" (ex: "FT FT2026N/19"), formato
+			# exigido pela especificação e pelos exemplos oficiais - não
+			# doc.name sozinho.
+			"G": get_document_ref_no(doc),
 			"H": get_atcud_code(doc),  # ATCUD
-			"I1": f"{tax_breakdown['NOR']['base']:.2f}",  # Base tributável taxa normal
-			"I2": f"{tax_breakdown['NOR']['tax']:.2f}",  # IVA taxa normal
-			"I3": f"{tax_breakdown['INT']['base']:.2f}",  # Base tributável taxa intermédia
-			"I4": f"{tax_breakdown['INT']['tax']:.2f}",  # IVA taxa intermédia
-			"I5": f"{tax_breakdown['RED']['base']:.2f}",  # Base tributável taxa reduzida
-			"I6": f"{tax_breakdown['RED']['tax']:.2f}",  # IVA taxa reduzida
-			"I7": f"{tax_breakdown['ISE']['base']:.2f}",  # Base tributável taxa isenta
-			"I8": f"{tax_breakdown['ISE']['tax']:.2f}",  # IVA taxa isenta
-			"N": f"{document_total:.2f}",  # Total do documento
-			"O": f"{document_total:.2f}",  # Total com impostos
-			"P": "0",  # Retenção na fonte
-			# Q: 4 caracteres de controlo da assinatura RSA-SHA1 REAL do
-			# documento (ver utils/signature.py / ATCUD Log). A versão
-			# anterior calculava aqui um SHA1 de doc.name+ATCUD sem
-			# qualquer ligação à assinatura criptográfica real - o
-			# valor impresso no QR Code nunca correspondia à
-			# assinatura efetivamente gerada no submit.
-			"Q": get_signature_hash_control(doc) or "0",
-			"R": get_series_prefix(doc)  # Identificador da série
 		}
+
+		# I1-I8 / J1-J8 / K1-K8: uma praça fiscal por letra, na ordem
+		# Continente, depois as praças com dados reais (Açores/Madeira).
+		# I1 (etc.) é o CÓDIGO DA PRAÇA ("PT"), não um valor monetário -
+		# a versão anterior tinha os oito campos desalinhados um em
+		# relação ao outro (I1 continha a base da taxa normal em vez do
+		# espaço fiscal, e a própria ordem base/imposto por taxa batia
+		# com NOR/INT/RED/ISE em vez da ordem real do formulário AT
+		# isenta/reduzida/intermédia/normal) - confirmado contra a
+		# Especificação Técnica - Código QR (Portaria 195/2020, Outubro
+		# 2020), auditoria de certificação 2026-08-24.
+		region_letters = [("I", "PT"), ("J", "PT-AC"), ("K", "PT-MA")]
+		for letter, region in region_letters:
+			bucket = regions.get(region)
+			if not bucket:
+				continue
+			qr_data[f"{letter}1"] = region
+			qr_data[f"{letter}2"] = f"{bucket['ISE']['base']:.2f}"
+			qr_data[f"{letter}3"] = f"{bucket['RED']['base']:.2f}"
+			qr_data[f"{letter}4"] = f"{bucket['RED']['tax']:.2f}"
+			qr_data[f"{letter}5"] = f"{bucket['INT']['base']:.2f}"
+			qr_data[f"{letter}6"] = f"{bucket['INT']['tax']:.2f}"
+			qr_data[f"{letter}7"] = f"{bucket['NOR']['base']:.2f}"
+			qr_data[f"{letter}8"] = f"{bucket['NOR']['tax']:.2f}"
+
+		qr_data["N"] = f"{document_total:.2f}"  # Total do documento
+		qr_data["O"] = f"{document_total:.2f}"  # Total com impostos
+		qr_data["P"] = "0"  # Retenção na fonte
+		# Q: 4 caracteres de controlo da assinatura RSA-SHA1 REAL do
+		# documento (ver utils/signature.py / ATCUD Log). A versão
+		# anterior calculava aqui um SHA1 de doc.name+ATCUD sem
+		# qualquer ligação à assinatura criptográfica real - o
+		# valor impresso no QR Code nunca correspondia à
+		# assinatura efetivamente gerada no submit.
+		qr_data["Q"] = get_signature_hash_control(doc) or "0"
+		qr_data["R"] = get_series_prefix(doc)  # Identificador da série
 
 		# ✅ CONSTRUIR STRING QR CODE CONFORME FORMATO AT
 		qr_string = "*".join([f"{key}:{value}" for key, value in qr_data.items() if value])
