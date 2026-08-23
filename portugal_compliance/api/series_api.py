@@ -453,7 +453,7 @@ def get_atcud_statistics(company=None, date_from=None, date_to=None):
 				filters["creation"] = ["<=", date_to]
 
 		# ✅ DOCTYPES SUPORTADOS (apenas com campo atcud_code)
-		supported_doctypes = ["Sales Invoice", "Purchase Invoice", "POS Invoice", "Payment Entry"]
+		supported_doctypes = ["Sales Invoice", "POS Invoice", "Payment Entry"]
 
 		total_documents = 0
 		documents_with_atcud = 0
@@ -600,14 +600,6 @@ def get_available_document_types():
 				"code": "FT",
 				"name": "Fatura de Venda",
 				"description": "Documentos de venda a clientes",
-				"communication_required": True,
-				"atcud_required": True
-			},
-			{
-				"doctype": "Purchase Invoice",
-				"code": "FC",
-				"name": "Fatura de Compra",
-				"description": "Documentos de compra a fornecedores",
 				"communication_required": True,
 				"atcud_required": True
 			},

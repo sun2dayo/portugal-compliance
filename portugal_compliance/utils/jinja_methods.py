@@ -649,6 +649,48 @@ def get_supplier_nif(doc):
 		return ""
 
 
+def get_customer_country(doc):
+	"""
+	Campo C do QR Code (Especificações Técnicas - Código QR, Portaria
+	195/2020, secção 4): "País do adquirente", código de país (ex:
+	"PT"), de acordo com o campo Country da tabela de clientes do
+	SAF-T (PT) - NÃO é o nome da empresa emitente (auditoria de
+	certificação 2026-08-23 detetou este mapeamento errado).
+
+	Address.country guarda o nome completo ("Portugal"), não o código
+	ISO - por isso é preciso o lookup extra à tabela Country. Sem
+	morada associada ao documento/cliente, assume PT: a empresa é
+	portuguesa e a esmagadora maioria dos clientes também o são; não
+	há na especificação um valor de "adquirente desconhecido" para
+	este campo (ao contrário do NIF, que tem 999999990 para
+	Consumidor Final).
+	"""
+	try:
+		address_name = getattr(doc, 'customer_address', None)
+
+		if not address_name:
+			customer = getattr(doc, 'customer', None)
+			if not customer and getattr(doc, 'doctype', None) == "Payment Entry" and doc.party_type == "Customer":
+				customer = doc.party
+			if customer:
+				address_name = frappe.db.get_value(
+					"Dynamic Link",
+					{"link_doctype": "Customer", "link_name": customer, "parenttype": "Address"},
+					"parent",
+				)
+
+		if address_name:
+			country_name = frappe.db.get_value("Address", address_name, "country")
+			if country_name:
+				code = frappe.db.get_value("Country", country_name, "code")
+				if code:
+					return code.upper()
+
+		return "PT"
+	except Exception:
+		return "PT"
+
+
 def validate_nif_format(nif):
 	"""Validar formato do NIF"""
 	try:
@@ -1050,7 +1092,7 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 		qr_data = {
 			"A": company_nif,  # NIF do emitente
 			"B": customer_nif,  # NIF do adquirente
-			"C": getattr(doc, 'company', ''),  # Nome do emitente
+			"C": get_customer_country(doc),  # País do adquirente (não é o emitente - ver get_customer_country)
 			"D": get_document_type_code(doc.doctype),  # Tipo de documento
 			"E": "N",  # Estado do documento (N=Normal, A=Anulado)
 			"F": getdate(getattr(doc, 'posting_date', today())).strftime("%Y%m%d"),  # Data
@@ -1348,6 +1390,7 @@ JINJA_METHODS = [
 	get_company_nif,
 	get_customer_nif,
 	get_supplier_nif,
+	get_customer_country,
 	validate_nif_format,
 	get_nif_info,
 

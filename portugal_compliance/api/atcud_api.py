@@ -118,8 +118,7 @@ def regenerate_atcud(doctype, docname, force=False):
 		# ✅ ALLOWLIST: nao aceitar qualquer doctype/docname - so os que
 		# realmente suportam ATCUD (mesma lista de bulk_generate_atcud)
 		supported_doctypes = [
-			"Sales Invoice", "POS Invoice", "Purchase Invoice", "Payment Entry",
-			"Delivery Note", "Purchase Receipt", "Stock Entry", "Journal Entry",
+			"Sales Invoice", "POS Invoice", "Payment Entry", "Delivery Note",
 			"Quotation", "Sales Order", "Purchase Order", "Material Request"
 		]
 		if doctype not in supported_doctypes:
@@ -188,8 +187,7 @@ def bulk_generate_atcud(doctype, filters=None, limit=50):
 	try:
 		# ✅ VALIDAR DOCTYPE
 		supported_doctypes = [
-			"Sales Invoice", "POS Invoice", "Purchase Invoice", "Payment Entry",
-			"Delivery Note", "Purchase Receipt", "Stock Entry", "Journal Entry",
+			"Sales Invoice", "POS Invoice", "Payment Entry", "Delivery Note",
 			"Quotation", "Sales Order", "Purchase Order", "Material Request"
 		]
 
@@ -334,7 +332,7 @@ def get_atcud_statistics(company=None, date_from=None, date_to=None):
 		}
 
 		# ✅ DOCTYPES SUPORTADOS (apenas com campo atcud_code)
-		supported_doctypes = ["Sales Invoice", "Purchase Invoice", "POS Invoice", "Payment Entry"]
+		supported_doctypes = ["Sales Invoice", "POS Invoice", "Payment Entry"]
 
 		for doctype in supported_doctypes:
 			try:
@@ -430,8 +428,7 @@ def validate_document_for_atcud(doctype, docname):
 
 		# ✅ VERIFICAR SE É DOCTYPE SUPORTADO
 		supported_doctypes = [
-			"Sales Invoice", "POS Invoice", "Purchase Invoice", "Payment Entry",
-			"Delivery Note", "Purchase Receipt", "Stock Entry", "Journal Entry",
+			"Sales Invoice", "POS Invoice", "Payment Entry", "Delivery Note",
 			"Quotation", "Sales Order", "Purchase Order", "Material Request"
 		]
 
