@@ -167,6 +167,24 @@ def get_series_webservice_client(username=None, password=None):
 	return service, header
 
 
+def _refresh_naming_series_options(company):
+	"""
+	Reconstrói o Property Setter de opções do campo Naming Series para
+	todos os doctypes fiscais da empresa, para que uma série que acabou
+	de ser finalizada/anulada deixe de aparecer no dropdown de imediato
+	(auditoria de certificação 2026-08-24). O bloqueio real contra
+	emitir nessa série está em document_hooks._validate_series_not_inactive
+	(corre sempre, mesmo que este refresh falhe ou o cache do worker
+	ainda não tenha sido limpo) - isto é só para a UX não continuar a
+	oferecer uma opção já morta.
+	"""
+	try:
+		from portugal_compliance.utils.document_hooks import portugal_document_hooks
+		portugal_document_hooks._setup_automatic_property_setters(company)
+	except Exception as e:
+		frappe.log_error(f"Erro ao atualizar opções de naming_series para {company}: {str(e)}", "ATWebserviceClient")
+
+
 class ATWebserviceError(Exception):
 	pass
 
@@ -639,6 +657,7 @@ class ATWebserviceClient:
 		if is_success:
 			frappe.db.set_value("Portugal Series Configuration", series_config_name, "is_active", 0)
 			frappe.db.commit()
+			_refresh_naming_series_options(series_config.company)
 
 		return {
 			"success": is_success,
@@ -739,6 +758,7 @@ class ATWebserviceClient:
 				"validation_code": None,
 			})
 			frappe.db.commit()
+			_refresh_naming_series_options(series_config.company)
 
 		return {
 			"success": is_success,

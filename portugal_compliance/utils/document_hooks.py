@@ -314,22 +314,33 @@ class PortugalComplianceDocumentHooks:
 	# ========== PROPERTY SETTERS AUTOMÁTICOS ==========
 
 	def _setup_automatic_property_setters(self, company_name):
-		"""✅ OTIMIZADO: Configurar Property Setters automaticamente"""
+		"""
+		✅ OTIMIZADO: Configurar Property Setters automaticamente
+
+		Itera sobre TODOS os doctypes fiscais (self.supported_doctypes),
+		não só os que têm série ativa no momento - antes, um doctype que
+		descia a zero séries ativas (ex: a única série Payment Entry foi
+		finalizada/anulada) simplesmente não aparecia em
+		series_by_doctype, e o Property Setter antigo ficava esquecido
+		com a série morta ainda lá (auditoria de certificação
+		2026-08-24: confirmado ao vivo - uma série já anulada na AT
+		continuava selecionável no campo Naming Series do Payment
+		Entry). Agora cada doctype fiscal é sempre reescrito, mesmo que
+		fique com lista vazia.
+		"""
 		try:
 			company_series = frappe.get_all("Portugal Series Configuration",
 											filters={"company": company_name, "is_active": 1},
 											fields=["document_type", "naming_series"])
 
-			if not company_series:
-				return {"configured": 0, "message": "Nenhuma série encontrada"}
-
-			# Agrupar por document_type
-			series_by_doctype = {}
+			# Agrupar por document_type - inicializado com todos os
+			# doctypes fiscais (lista vazia por omissão) para que os que
+			# ficaram sem nenhuma série ativa também sejam reescritos.
+			series_by_doctype = {doctype: [] for doctype in self.supported_doctypes.keys()}
 			for serie in company_series:
 				doctype = serie.document_type
-				if doctype not in series_by_doctype:
-					series_by_doctype[doctype] = []
-				series_by_doctype[doctype].append(serie.naming_series)
+				if doctype in series_by_doctype:
+					series_by_doctype[doctype].append(serie.naming_series)
 
 			# Configurar Property Setters
 			configured_count = 0
@@ -439,6 +450,7 @@ class PortugalComplianceDocumentHooks:
 
 			if doc.doctype in self.supported_doctypes:
 				self._validate_critical_fields(doc)
+				self._validate_series_not_inactive(doc)
 				self._validate_atcud_uniqueness_certified(doc)
 				self._validate_document_sequence_certified(doc)
 				self._validate_portuguese_required_fields(doc)
@@ -523,6 +535,44 @@ class PortugalComplianceDocumentHooks:
 		config = self.supported_doctypes[doc.doctype]
 		if config.get("critical") and not getattr(doc, 'naming_series', None):
 			frappe.throw(_("Série portuguesa é obrigatória para {0}").format(_(doc.doctype)))
+
+	def _validate_series_not_inactive(self, doc):
+		"""
+		Bloqueio físico contra emitir um documento numa série que a AT já
+		considera fechada (Finalizada) ou nunca aconteceu (Anulada).
+
+		A opção deveria desaparecer do campo Naming Series assim que a
+		série fica inativa (ver _setup_automatic_property_setters), mas
+		esta validação é a rede de segurança real - não depende do
+		Property Setter já ter sido reconstruído nem do cache de meta do
+		worker estar atualizado (auditoria de certificação 2026-08-24:
+		confirmado ao vivo que uma série anulada continuava selecionável
+		até um refresh manual).
+
+		Só bloqueia documentos que ainda NÃO têm ATCUD - um documento já
+		assinado quando a série ainda estava ativa (ex: a cancelar
+		depois de a série ter sido finalizada mais tarde) nunca deve ser
+		bloqueado por esta verificação.
+		"""
+		if getattr(doc, 'atcud_code', None):
+			return
+
+		naming_series = getattr(doc, 'naming_series', None)
+		if not naming_series:
+			return
+
+		prefix = naming_series.replace('.####', '')
+		is_active = frappe.db.get_value(
+			"Portugal Series Configuration",
+			{"prefix": prefix, "company": doc.company},
+			"is_active",
+		)
+
+		if is_active is not None and not is_active:
+			frappe.throw(
+				_("A série {0} está Finalizada/Anulada. Comunique uma nova série à AT antes de faturar.").format(prefix),
+				title=_("Série Inativa"),
+			)
 
 	def before_submit_document(self, doc, method=None):
 		"""✅ OTIMIZADO: Hook before_submit"""

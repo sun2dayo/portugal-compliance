@@ -7,6 +7,33 @@ from frappe import _
 from frappe.utils import today, add_days, getdate, now, cint, flt
 from datetime import datetime, timedelta
 
+# Doctypes que efetivamente comunicam series/ATCUD a AT (mesmo escopo
+# autoritativo de FISCAL_IMMUTABLE_DOCTYPES em utils/document_hooks.py,
+# pos-expurgo de 2026-08-22). Portugal Series Configuration ainda tem
+# registos antigos de Purchase Invoice/Stock Entry/Journal Entry na
+# base de dados (nunca apagados, so deixaram de gerar ATCUD) - sem
+# este filtro o Dashboard AT continua a mostra-los como se fossem
+# series fiscais validas (auditoria de certificacao 2026-08-24).
+FISCAL_SERIES_DOCTYPES = ["Sales Invoice", "POS Invoice", "Payment Entry", "Delivery Note"]
+
+# Rotulo por codigo de documento AT (nao por DocType do Frappe) - uma
+# Nota de Credito e uma Sales Invoice com is_return=1, mas tem a sua
+# propria serie/prefixo (NC) e deve aparecer separada da Fatura (FT)
+# no dashboard, nao escondida dentro de "Sales Invoice" generico.
+AT_DOC_CODE_LABELS = {
+	"FT": _("Fatura"),
+	"FS": _("Fatura Simplificada"),
+	"FR": _("Fatura-Recibo"),
+	"NC": _("Nota de Crédito"),
+	"ND": _("Nota de Débito"),
+	"GT": _("Guia de Transporte"),
+	"GR": _("Guia de Remessa"),
+	"GD": _("Guia/Nota de Devolução"),
+	"GC": _("Guia de Consignação"),
+	"RC": _("Recibo"),
+	"RG": _("Outros Recibos"),
+}
+
 
 def get_data():
 	"""
@@ -119,7 +146,8 @@ class CompanyDashboard:
 			count = frappe.db.count('Portugal Series Configuration', {
 				'company': self.company_name,
 				'is_communicated': 0,
-				'is_active': 1
+				'is_active': 1,
+				'document_type': ['in', FISCAL_SERIES_DOCTYPES],
 			})
 			return count
 		except Exception:
@@ -256,15 +284,18 @@ class CompanyDashboard:
 		try:
 			stats = {
 				'total_series': frappe.db.count('Portugal Series Configuration', {
-					'company': self.company_name
+					'company': self.company_name,
+					'document_type': ['in', FISCAL_SERIES_DOCTYPES],
 				}),
 				'active_series': frappe.db.count('Portugal Series Configuration', {
 					'company': self.company_name,
-					'is_active': 1
+					'is_active': 1,
+					'document_type': ['in', FISCAL_SERIES_DOCTYPES],
 				}),
 				'communicated_series': frappe.db.count('Portugal Series Configuration', {
 					'company': self.company_name,
-					'is_communicated': 1
+					'is_communicated': 1,
+					'document_type': ['in', FISCAL_SERIES_DOCTYPES],
 				}),
 				'total_atcud_generated': frappe.db.count('ATCUD Log', {
 					'company': self.company_name
@@ -321,23 +352,37 @@ class CompanyDashboard:
 			# falhar sempre (SQL "unknown column"), caindo no except mais
 			# abaixo e devolvendo {} em silêncio - só ficou visível agora
 			# que este dashboard foi ligado a uma UI pela primeira vez.
+			#
+			# document_type filtrado a FISCAL_SERIES_DOCTYPES (auditoria de
+			# certificação 2026-08-24): Portugal Series Configuration ainda
+			# tem registos de Purchase Invoice/Stock Entry/Journal Entry de
+			# antes do expurgo de 2026-08-22 - sem este filtro apareciam
+			# aqui como se ainda fossem séries fiscais válidas.
 			series_data = frappe.db.get_all('Portugal Series Configuration',
-											filters={'company': self.company_name},
-											fields=['name', 'series_name', 'document_type',
+											filters={
+												'company': self.company_name,
+												'document_type': ['in', FISCAL_SERIES_DOCTYPES],
+											},
+											fields=['name', 'series_name', 'document_type', 'document_code',
 													'is_active', 'is_communicated',
 													'current_sequence', 'total_documents_issued'],
-											order_by='document_type, series_name'
+											order_by='document_code, series_name'
 											)
 
-			# Agrupar por tipo de documento
+			# Agrupar por código de documento AT (FT/NC/FS/RC/GT/...), não
+			# por DocType do Frappe - uma Nota de Crédito é uma Sales
+			# Invoice com is_return=1, mas tem série/prefixo próprios (NC)
+			# e deve aparecer distinta da Fatura (FT), não escondida
+			# dentro de um "Sales Invoice" genérico.
 			grouped_series = {}
 			for series in series_data:
-				doc_type = series['document_type']
-				if doc_type not in grouped_series:
-					grouped_series[doc_type] = []
+				doc_code = series['document_code']
+				label = AT_DOC_CODE_LABELS.get(doc_code, doc_code or series['document_type'])
+				if label not in grouped_series:
+					grouped_series[label] = []
 
 				series['status'] = self.get_series_status(series)
-				grouped_series[doc_type].append(series)
+				grouped_series[label].append(series)
 
 			return grouped_series
 
