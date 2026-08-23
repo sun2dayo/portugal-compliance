@@ -19,7 +19,7 @@ VALID_AT_CODES = ("NOR", "INT", "RED", "ISE")
 VALID_REGIONS = ("PT", "PT-AC", "PT-MA")
 
 
-def _get_account_at_info(account_names):
+def get_account_at_info(account_names):
 	"""
 	Uma só query para o código AT e a região fiscal (at_tax_region) de
 	um conjunto de contas. Contas anteriores ao campo at_tax_region
@@ -35,7 +35,7 @@ def _get_account_at_info(account_names):
 	return {r.name: {"code": r.at_tax_code, "region": r.at_tax_region or "PT"} for r in rows}
 
 
-def _get_item_tax_template_info(template_names, account_info_cache):
+def get_item_tax_template_info(template_names, account_info_cache):
 	"""
 	Uma só query às linhas de Item Tax Template Detail envolvidas;
 	reaproveita/estende o cache de código+região de Account já
@@ -50,7 +50,7 @@ def _get_item_tax_template_info(template_names, account_info_cache):
 	)
 	missing = {r.tax_type for r in detail_rows if r.tax_type and r.tax_type not in account_info_cache}
 	if missing:
-		account_info_cache.update(_get_account_at_info(missing))
+		account_info_cache.update(get_account_at_info(missing))
 
 	template_info = {}
 	for row in detail_rows:
@@ -77,7 +77,7 @@ def get_line_at_tax_info(doc):
 	tax_rows = getattr(doc, "taxes", None) or []
 	item_rows = getattr(doc, "items", None) or []
 
-	account_info = _get_account_at_info({r.account_head for r in tax_rows if r.account_head})
+	account_info = get_account_at_info({r.account_head for r in tax_rows if r.account_head})
 
 	header_fallback = None
 	for row in tax_rows:
@@ -87,7 +87,7 @@ def get_line_at_tax_info(doc):
 			break
 
 	template_names = {i.item_tax_template for i in item_rows if getattr(i, "item_tax_template", None)}
-	template_info = _get_item_tax_template_info(template_names, account_info)
+	template_info = get_item_tax_template_info(template_names, account_info)
 
 	default = {"code": "NOR", "region": "PT"}
 	result = {}
@@ -141,7 +141,7 @@ def get_tax_breakdown_by_at_code(doc):
 	tax_rows = getattr(doc, "taxes", None) or []
 	item_rows = getattr(doc, "items", None) or []
 
-	account_info = _get_account_at_info({r.account_head for r in tax_rows if r.account_head})
+	account_info = get_account_at_info({r.account_head for r in tax_rows if r.account_head})
 	for row in tax_rows:
 		info = account_info.get(row.account_head)
 		if not info or info["code"] not in VALID_AT_CODES:

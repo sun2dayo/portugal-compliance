@@ -62,7 +62,7 @@
                 {% endif %}
                 <Tax>
                     <TaxType>IVA</TaxType>
-                    <TaxCountryRegion>PT</TaxCountryRegion>
+                    <TaxCountryRegion>{{ item.tax_region or 'PT' }}</TaxCountryRegion>
                     <TaxCode>{{ item.tax_code }}</TaxCode>
                     <TaxPercentage>{{ '%.2f'|format(item.tax_percentage or 0) }}</TaxPercentage>
                 </Tax>

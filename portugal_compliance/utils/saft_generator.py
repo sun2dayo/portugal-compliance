@@ -410,13 +410,44 @@ class SAFTGenerator:
 		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}), doctype=doctype)
 		invoice_names = list({r.name for r in rows})
 		fallback_rates = {}
+		header_account = {}
 		if invoice_names:
 			for t in frappe.db.sql("""
-									SELECT parent, rate FROM `tabSales Taxes and Charges`
+									SELECT parent, rate, account_head FROM `tabSales Taxes and Charges`
 									WHERE parent IN %(names)s AND rate > 0
 									ORDER BY idx
 									""", {"names": invoice_names}, as_dict=True):
 				fallback_rates.setdefault(t.parent, t.rate)
+				header_account.setdefault(t.parent, t.account_head)
+
+		# Região fiscal (PT/PT-AC/PT-MA) por linha: mesma resolução
+		# estrutural (Account.at_tax_region) já usada no QR Code e na
+		# TaxTable mestra (tax_breakdown.py), não uma segunda lógica
+		# paralela baseada em faixas de percentagem - _get_line_tax_code
+		# já classifica NOR/INT/RED/ISE por faixa de taxa (aceitável
+		# para a categoria, que é sobre a taxa em si), mas a REGIÃO
+		# nunca deve ser adivinhada a partir de um número: duas praças
+		# fiscais podem partilhar a mesma percentagem hoje, ou convergir
+		# no futuro, e nada nessa faixa indica de que conta a taxa veio
+		# (auditoria de certificação 2026-08-24, questão levantada após
+		# comparação com InvoiceXpress/Odoo l10n_pt).
+		from portugal_compliance.utils.tax_breakdown import get_account_at_info, get_item_tax_template_info
+
+		template_names = {r.item_tax_template for r in rows if r.item_tax_template}
+		# account_info começa só com as contas do cabeçalho (fallback);
+		# get_item_tax_template_info() estende o mesmo cache com as
+		# contas dos templates conforme precisa (via Item Tax Template
+		# Detail.tax_type, que é o nome da Account real) - sem N+1.
+		account_info = get_account_at_info({a for a in header_account.values() if a})
+		template_info = get_item_tax_template_info(template_names, account_info)
+
+		def _line_region(item_tax_template, invoice_name):
+			info = template_info.get(item_tax_template)
+			if not info:
+				header_acc = header_account.get(invoice_name)
+				info = account_info.get(header_acc) if header_acc else None
+			region = (info or {}).get("region")
+			return region if region else "PT"
 
 		series_code_cache = {}
 
@@ -575,6 +606,7 @@ class SAFTGenerator:
 				"debit_credit": "D" if signed_amount < 0 else "C",
 				"tax_percentage": tax_rate,
 				"tax_code": self._get_line_tax_code(tax_rate),
+				"tax_region": _line_region(row.item_tax_template, row.name),
 				"tax_amount": abs_amount * tax_rate / 100,
 				"tax_exemption_code": row.at_exemption_reason or "",
 				"tax_exemption_reason": exemption_reason,
