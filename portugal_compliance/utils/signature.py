@@ -122,10 +122,22 @@ def get_signing_spec(doctype):
 	return DOCUMENT_SIGNING_SPEC.get(doctype)
 
 
-def build_data_to_sign(doc, spec, series_prefix, sequence_number, previous_hash):
+def build_data_to_sign(doc, spec, series_prefix, sequence_number, previous_hash, doc_code=None):
 	"""
 	Constroi a string "DataDoc;DataSistema;Referencia;Total;HashAnterior"
 	para o documento, seguindo a especificacao do tipo de documento.
+
+	doc_code (opcional) sobrepõe-se a spec["doc_code"] no campo
+	Referencia - deve ser sempre o document_code REAL da série
+	efetivamente usada (Portugal Series Configuration.document_code),
+	nunca o valor estático de DOCUMENT_SIGNING_SPEC. Uma Sales Invoice
+	é "FT" ou "NC" consoante a série (is_return), um Payment Entry é
+	"RG" ou "RC" consoante o regime de IVA de Caixa, uma Delivery Note
+	é "GR" neste sistema, nunca "GT" - o spec estático não tem como
+	saber qual das séries de um DocType foi realmente usada. Mantido
+	opcional (fallback a spec["doc_code"]) só para não partir chamadas
+	diretas a esta função sem series_configuration disponível (ex:
+	testes unitários que não montem uma série real).
 	"""
 	doc_date_raw = doc.get(spec["date_field"])
 	if not doc_date_raw:
@@ -139,7 +151,7 @@ def build_data_to_sign(doc, spec, series_prefix, sequence_number, previous_hash)
 	system_date_raw = doc.get(spec["system_date_field"]) or frappe.utils.now()
 	data_sistema = get_datetime(system_date_raw).strftime("%Y-%m-%dT%H:%M:%S")
 
-	referencia = f"{spec['doc_code']} {series_prefix}/{sequence_number}"
+	referencia = f"{doc_code or spec['doc_code']} {series_prefix}/{sequence_number}"
 
 	if spec["total_field"] is None:
 		total = "0.00"
@@ -277,8 +289,20 @@ def sign_document(doc, series_prefix, series_configuration, sequence_number):
 			_("Assinatura digital nao suportada para o tipo de documento {0}").format(doc.doctype)
 		)
 
+	# document_code REAL da serie - nao o doc_code estatico de
+	# DOCUMENT_SIGNING_SPEC (ver nota em build_data_to_sign). Resolvido
+	# aqui, nao dentro de build_data_to_sign, para que series_configuration
+	# continue a ser o unico ponto que sabe qual e a serie em uso.
+	real_doc_code = None
+	if series_configuration:
+		real_doc_code = frappe.db.get_value(
+			"Portugal Series Configuration", series_configuration, "document_code"
+		)
+
 	previous_hash = get_previous_signature_hash(series_configuration, sequence_number)
-	data_to_sign = build_data_to_sign(doc, spec, series_prefix, sequence_number, previous_hash)
+	data_to_sign = build_data_to_sign(
+		doc, spec, series_prefix, sequence_number, previous_hash, doc_code=real_doc_code
+	)
 
 	private_key = _load_private_key()
 
@@ -367,12 +391,24 @@ def _verify_single_entry(log, public_key, expected_previous_hash):
 		if not spec:
 			raise SignatureError(_("Doctype {0} sem especificação de assinatura").format(doc.doctype))
 
-		series_prefix = frappe.db.get_value("Portugal Series Configuration", log.series_used, "prefix")
-		if not series_prefix:
+		series_info = frappe.db.get_value(
+			"Portugal Series Configuration", log.series_used, ["prefix", "document_code"], as_dict=True
+		)
+		if not series_info or not series_info.prefix:
 			raise SignatureError(_("Série {0} não encontrada").format(log.series_used))
 
+		# Mesma resolucao de doc_code real usada em sign_document() - ver
+		# nota em build_data_to_sign(). Sem isto, esta verificacao ficava
+		# dessincronizada da assinatura real assim que sign_document()
+		# passou a resolver o codigo real da serie: documentos assinados
+		# ANTES dessa correcao usaram o doc_code estatico de
+		# DOCUMENT_SIGNING_SPEC (ex: "FT" para uma Nota de Credito), e
+		# reportam corretamente signature_ok=False aqui - nao e um falso
+		# positivo, e a prova de que a assinatura original nao usou o
+		# codigo real da serie (ver CERTIFICATION.md, limitacoes conhecidas).
 		data_to_sign = build_data_to_sign(
-			doc, spec, series_prefix, log.sequence_number, log.previous_signature_hash
+			doc, spec, series_info.prefix, log.sequence_number, log.previous_signature_hash,
+			doc_code=series_info.document_code,
 		)
 
 		signature_bytes = base64.b64decode(log.signature_hash)
