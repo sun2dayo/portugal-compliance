@@ -390,23 +390,38 @@ class PortugalComplianceDocumentHooks:
 
 	# ========== HOOKS DE DOCUMENTOS ==========
 
-	def generate_atcud_before_save(self, doc, method=None):
+	def generate_atcud_on_submit(self, doc, method=None):
 		"""
-		Hook principal para gerar ATCUD. Delega para ATCUDGenerator
-		(utils/atcud_generator.py), que e o unico gerador de ATCUD do
-		modulo - inclui assinatura digital RSA-SHA1, QR code com os
-		campos corretos, registo estruturado em ATCUD Log e sequencia
-		extraida da naming_series nativa do Frappe.
+		Hook de on_submit. Substitui a antiga combinação before_save +
+		after_insert (generate_atcud_before_save / generate_atcud_after_insert /
+		generate_and_attach_qr_code, removidas - ver hooks.py e a nota no
+		fundo deste ficheiro). O ATCUD, a assinatura RSA-SHA1 e o QR Code
+		só são gerados agora, no momento em que o documento se torna
+		definitivamente imutável (docstatus 0 -> 1) - nunca antes.
 
-		Existia anteriormente um segundo gerador aqui mesmo
-		(_generate_atcud_with_real_validation_code), com um contador de
-		sequencia proprio (o mesmo bug de dessincronizacao ja corrigido
-		em ATCUDGenerator) e sem assinatura/QR/log - nunca chamava
-		ATCUDGenerator, apesar de este ser claramente o gerador mais
-		completo e ser o que o proprio codigo diz estar alinhado com
-		document_hooks.py. Mantida como metodo nao utilizado para
-		referencia ate a Fase 3 (decisao sobre codigo morto) decidir se
-		vale a pena remover.
+		Corre por último na cadeia de on_submit deste doctype (listada
+		depois de qualquer outro hook nosso em hooks.py) e sempre depois
+		de: (1) qualquer lógica nativa do ERPNext para este evento - o
+		Frappe chama sempre o método da própria classe do documento antes
+		de disparar os doc_events de apps -, e (2) de before_submit_document
+		(validate_portugal_compliance / _validate_tax_exemption_hard, a
+		verificação de série comunicada e o formato da naming series), que
+		corre sempre antes de on_submit no ciclo de vida do Frappe. Se
+		qualquer uma destas validações anteriores rejeitar a submissão,
+		esta função nunca chega a correr e a transação inteira (incluindo
+		a própria mudança de docstatus) sofre rollback - nenhum ATCUD
+		chega a ser queimado.
+
+		Bug corrigido (2026-08-24, "rascunho zombie"): antes desta
+		correção, a assinatura corria em before_save/after_insert - ou
+		seja, em qualquer gravação de rascunho, muito antes de a
+		submissão poder ainda falhar por uma validação de negócio (ex:
+		falta do motivo de isenção de IVA, só verificada de forma rígida
+		em before_submit). Um rascunho que falhasse essa validação ficava
+		com um ATCUD/assinatura reais já gravados, e enforce_fiscal_field_lock
+		bloqueava depois qualquer tentativa de corrigir o campo em falta
+		("já tem ATCUD... campos fiscais não podem ser alterados") - um
+		rascunho preso, não editável nem submetível.
 		"""
 		try:
 			if not self._should_generate_atcud(doc):
@@ -414,26 +429,55 @@ class PortugalComplianceDocumentHooks:
 
 			if not getattr(doc, 'naming_series', None):
 				self._auto_select_communicated_series(doc)
+				if getattr(doc, 'naming_series', None):
+					doc.db_set('naming_series', doc.naming_series, update_modified=False)
 
 			if not getattr(doc, 'naming_series', None):
-				return
+				frappe.throw(_("Série portuguesa é obrigatória para {0}").format(_(doc.doctype)))
 
 			from portugal_compliance.utils.atcud_generator import ATCUDGenerator
-			result = ATCUDGenerator().generate_atcud_for_document(doc)
+			generator = ATCUDGenerator()
+			result = generator.generate_atcud_for_document(doc)
 
-			if result.get("success"):
-				doc.atcud_code = result["atcud_code"]
-				frappe.logger().info(f"✅ ATCUD gerado: {result['atcud_code']}")
-			else:
-				frappe.log_error(
-					f"Falha ao gerar ATCUD para {doc.doctype} {doc.name}: {result.get('error')}",
-					"generate_atcud_before_save",
+			if not result.get("success"):
+				frappe.throw(
+					_("Não foi possível gerar o ATCUD/assinatura fiscal: {0}").format(result.get("error")),
+					title=_("Falha na Assinatura Fiscal"),
 				)
 
-			self._update_portugal_compliance_fields(doc)
+			doc.db_set('atcud_code', result["atcud_code"], update_modified=False)
+			generator.persist_pending_atcud_log(doc)
+			frappe.logger().info(f"✅ ATCUD gerado no submit: {result['atcud_code']}")
 
-		except Exception as e:
-			frappe.log_error(f"Erro em generate_atcud_before_save: {str(e)}")
+			# Nao gravar portugal_compliance_status aqui: nunca existiu
+			# como coluna real em nenhum destes doctypes (confirmado
+			# contra fixtures/custom_field.json) - so era atribuido em
+			# memoria (doc.portugal_compliance_status = ...), nunca
+			# persistido. hasattr(doc, campo) e sempre True num Document
+			# do Frappe (__getattr__ nunca levanta AttributeError), por
+			# isso um db_set aqui rebentava sempre com "Unknown column"
+			# assim que se tentou persistir a serio (bug apanhado no
+			# teste ao vivo desta correcao, nunca chegou a produção).
+
+			if doc.doctype in FISCAL_IMMUTABLE_DOCTYPES:
+				try:
+					from portugal_compliance.utils.jinja_methods import get_qr_code_data, generate_qr_code_image
+					qr_string = get_qr_code_data(doc=doc)
+					if qr_string:
+						doc.db_set("qr_code", qr_string, update_modified=False)
+						qr_image = generate_qr_code_image(qr_string, 280)
+						if qr_image:
+							doc.db_set("qr_code_image", qr_image, update_modified=False)
+				except Exception as e:
+					frappe.log_error(f"Erro ao gerar QR Code para {doc.doctype} {doc.name}: {str(e)}")
+
+		except Exception:
+			# Ao contrario da antiga generate_atcud_before_save (que so
+			# registava o erro e deixava o rascunho seguir sem ATCUD), uma
+			# falha aqui tem de abortar a submissao: e o ultimo ponto onde
+			# um documento fiscal pode ainda ser rejeitado antes de ficar
+			# imutavel. Relancar garante rollback da transacao completa.
+			raise
 
 	def _should_generate_atcud(self, doc):
 		"""Verificar se deve gerar ATCUD"""
@@ -586,27 +630,33 @@ class PortugalComplianceDocumentHooks:
 			config = self.supported_doctypes[doc.doctype]
 
 			if config.get("fiscal_document") and config.get("requires_atcud"):
-				atcud_code = getattr(doc, 'atcud_code', None)
-				if not atcud_code:
-					frappe.throw(_("ATCUD é obrigatório para documentos fiscais portugueses"))
-
-				# Bloquear submissao com codigo de validacao temporario
-				# (gerado quando a serie ainda nao foi comunicada a AT -
-				# ver _generate_enhanced_temporary_code). Um documento
-				# submetido fica imutavel; deixar passar um ATCUD
-				# fabricado significa que a unica forma de corrigir e
-				# anular e reemitir, nunca corrigir. A validacao
-				# anterior so verificava que o campo nao estava vazio,
-				# nao que o codigo era real.
-				validation_code = atcud_code.split('-')[0] if '-' in atcud_code else atcud_code
-				if validation_code.startswith('TEMP'):
-					frappe.throw(
-						_(
-							"Este documento tem um ATCUD temporário ({0}), gerado porque a série "
-							"ainda não foi comunicada à AT. Comunique a série antes de submeter "
-							"documentos fiscais - ver Portugal Series Configuration."
-						).format(atcud_code)
+				# O ATCUD ainda nao existe nesta fase - so e gerado em
+				# on_submit, depois de todas as validacoes (incluindo
+				# esta) terem passado (ver generate_atcud_on_submit).
+				# Aqui verifica-se, ANTES de assinar, que a serie ja foi
+				# comunicada a AT: gerar e assinar um documento numa
+				# serie nao comunicada produziria um ATCUD com um codigo
+				# de validacao fabricado, e um documento submetido fica
+				# imutavel - nunca poderia ser corrigido, so anulado e
+				# reemitido. Substitui a antiga verificacao pos-hoc de
+				# "atcud_code comeca por TEMP", que so fazia sentido
+				# quando a assinatura ja tinha corrido antes de save.
+				naming_series = getattr(doc, 'naming_series', None)
+				if naming_series:
+					prefix = naming_series.replace('.####', '')
+					is_communicated = frappe.db.get_value(
+						"Portugal Series Configuration",
+						{"prefix": prefix, "company": doc.company},
+						"is_communicated",
 					)
+					if not is_communicated:
+						frappe.throw(
+							_(
+								"A série {0} ainda não foi comunicada à AT. Comunique a série "
+								"antes de submeter documentos fiscais - ver Portugal Series "
+								"Configuration."
+							).format(prefix)
+						)
 
 			if not self._is_portuguese_naming_series(getattr(doc, 'naming_series', '')):
 				frappe.throw(_("Naming series portuguesa é obrigatória"))
@@ -616,46 +666,6 @@ class PortugalComplianceDocumentHooks:
 			raise
 
 	# ========== HOOKS EM FALTA (referenciados em hooks.py, sem implementacao) ==========
-
-	def generate_atcud_after_insert(self, doc, method=None):
-		"""
-		Hook de after_insert. Duas responsabilidades:
-
-		1. Escrever o ATCUD Log estruturado (assinatura, QR, cadeia de
-		   hash) que generate_atcud_before_save calculou mas nao pode
-		   gravar ainda - o ATCUD Log tem uma Dynamic Link para este
-		   documento, que so existe de facto na BD a partir daqui
-		   (before_save corre antes do db_insert no ciclo de vida do
-		   Frappe).
-		2. Rede de seguranca: se por algum motivo o documento chegou
-		   aqui sem atcud_code (ex: fluxo de bulk insert que saltou
-		   before_save), gera agora.
-		"""
-		try:
-			if not self._should_generate_atcud(doc) and not getattr(doc, 'atcud_code', None):
-				return
-
-			if getattr(doc, '_portugal_atcud_pending_log', None):
-				from portugal_compliance.utils.atcud_generator import ATCUDGenerator
-				ATCUDGenerator().persist_pending_atcud_log(doc)
-				return
-
-			if getattr(doc, 'atcud_code', None):
-				return  # ja gerado e persistido, nada a fazer
-
-			frappe.logger().warning(
-				f"ATCUD nao encontrado apos insert para {doc.doctype} {doc.name} - "
-				"a gerar agora como rede de seguranca"
-			)
-			from portugal_compliance.utils.atcud_generator import ATCUDGenerator
-			generator = ATCUDGenerator()
-			result = generator.generate_atcud_for_document(doc)
-			if result.get("success"):
-				doc.db_set('atcud_code', result["atcud_code"], update_modified=False)
-				generator.persist_pending_atcud_log(doc)
-
-		except Exception as e:
-			frappe.log_error(f"Erro em generate_atcud_after_insert: {str(e)}")
 
 	def validate_portugal_compliance_light(self, doc, method=None):
 		"""
@@ -913,18 +923,13 @@ class PortugalComplianceDocumentHooks:
 			if not getattr(doc, 'customer', None):
 				frappe.throw(_("Cliente é obrigatório"))
 
-	def _update_portugal_compliance_fields(self, doc):
-		"""✅ OTIMIZADO: Atualizar campos de compliance"""
-		try:
-			if hasattr(doc, 'portugal_compliance_status'):
-				if getattr(doc, 'atcud_code', None):
-					doc.portugal_compliance_status = "Compliant"
-				elif getattr(doc, 'naming_series', None):
-					doc.portugal_compliance_status = "Pending"
-				else:
-					doc.portugal_compliance_status = "Non-Compliant"
-		except Exception as e:
-			frappe.log_error(f"Erro ao atualizar campos de compliance: {str(e)}")
+	# _update_portugal_compliance_fields removida (2026-08-24): unico
+	# chamador era generate_atcud_before_save (tambem removida). Ficou
+	# orfa - so escrevia portugal_compliance_status, um campo que nunca
+	# existiu como coluna real em nenhum doctype fiscal (confirmado
+	# contra fixtures/custom_field.json), so em memoria, nunca
+	# persistido - nao fazia nada de util mesmo antes de ficar sem
+	# chamador.
 
 	# ========== MÉTODOS DE CONFIGURAÇÃO ==========
 
@@ -1201,9 +1206,9 @@ def reset_fiscal_fields_on_return_clone(doc, method=None):
 			doc.naming_series = return_series
 
 
-def generate_atcud_before_save(doc, method=None):
-	"""Hook global para geração de ATCUD"""
-	return portugal_document_hooks.generate_atcud_before_save(doc, method)
+def generate_atcud_on_submit(doc, method=None):
+	"""Hook global para geração de ATCUD - só em on_submit, ver nota no método de classe"""
+	return portugal_document_hooks.generate_atcud_on_submit(doc, method)
 
 
 def validate_portugal_compliance(doc, method=None):
@@ -1224,11 +1229,6 @@ def setup_company_portugal_compliance(doc, method=None):
 	nao, crashava com AttributeError assim que a app estava instalada.
 	"""
 	return portugal_document_hooks.setup_company_portugal_compliance(doc, method)
-
-
-def generate_atcud_after_insert(doc, method=None):
-	"""Hook para after_insert de documentos fiscais"""
-	return portugal_document_hooks.generate_atcud_after_insert(doc, method)
 
 
 def validate_portugal_compliance_light(doc, method=None):
@@ -1383,43 +1383,13 @@ def sync_communication_settings(doc, method=None):
 # Conexao AT" removidos no mesmo commit).
 
 
-def generate_and_attach_qr_code(doc, method=None):
-	"""
-	Hook de after_insert (corre a seguir a generate_atcud_after_insert,
-	depois do ATCUD Log real estar persistido). Gera o QR Code (string
-	no formato AT + imagem PNG) e grava-o no proprio documento -
-	qr_code (novo) e qr_code_image existiam como campos ha muito, mas
-	nenhum codigo os preenchia de facto: o QR so era calculado em
-	memoria no momento da impressao, direto no template
-	(get_qr_code_data/generate_qr_code_image chamados inline). Isto
-	tornava invisivel para qualquer widget de estado que o documento
-	esta de facto conforme - o painel de compliance da POS Invoice
-	(public/js/pos_invoice.js) verifica frm.doc.qr_code, e mostrava
-	sempre "QR Code Pendente" mesmo num documento já assinado e com
-	ATCUD real, porque esse campo nunca existia.
-
-	Nao altera os print formats existentes (continuam a calcular o QR
-	fresco no momento da impressao, ja testado) - isto e apenas um
-	registo persistido, para o painel de estado e para qualquer
-	inspecao/auditoria futura ao documento.
-	"""
-	if doc.doctype not in FISCAL_IMMUTABLE_DOCTYPES:
-		return
-	if not getattr(doc, "atcud_code", None):
-		return
-	try:
-		from portugal_compliance.utils.jinja_methods import get_qr_code_data, generate_qr_code_image
-
-		qr_string = get_qr_code_data(doc=doc)
-		if not qr_string:
-			return
-		doc.db_set("qr_code", qr_string, update_modified=False)
-
-		qr_image = generate_qr_code_image(qr_string, 280)
-		if qr_image:
-			doc.db_set("qr_code_image", qr_image, update_modified=False)
-	except Exception as e:
-		frappe.log_error(f"Erro ao gerar QR Code para {doc.doctype} {doc.name}: {str(e)}")
+# Nota (2026-08-24): generate_and_attach_qr_code (hook de after_insert)
+# foi removida - a geracao do QR Code (qr_code/qr_code_image) passou a
+# correr dentro de generate_atcud_on_submit, logo a seguir a assinatura,
+# porque o QR depende do atcud_code que so existe a partir do submit
+# (ver nota "rascunho zombie" em generate_atcud_on_submit). Os print
+# formats continuam a calcular o QR fresco no momento da impressao,
+# nao dependem deste campo persistido.
 
 
 # ========== INVIOLABILIDADE (Portaria n.º 363/2010) ==========
@@ -1439,10 +1409,10 @@ def generate_and_attach_qr_code(doc, method=None):
 FISCAL_IMMUTABLE_DOCTYPES = ["Sales Invoice", "Delivery Note", "Payment Entry", "POS Invoice"]
 
 # Campos cuja alteracao depois de assinado invalidaria a assinatura
-# RSA-SHA1 ja calculada (generate_atcud_before_save so gera o ATCUD
-# uma vez, nunca regenera - sem este bloqueio seria possivel editar o
-# total/cliente/data de um rascunho DEPOIS de assinado e a assinatura
-# ficava a corresponder a dados que ja nao existem).
+# RSA-SHA1 ja calculada (generate_atcud_on_submit so gera o ATCUD uma
+# vez, no submit, nunca regenera - sem este bloqueio seria possivel
+# editar o total/cliente/data de um documento ja submetido/assinado e
+# a assinatura ficava a corresponder a dados que ja nao existem).
 FISCAL_LOCK_FIELDS = {
 	"Sales Invoice": ["customer", "posting_date", "grand_total", "net_total", "is_return", "naming_series", "atcud_code"],
 	"POS Invoice": ["customer", "posting_date", "grand_total", "net_total", "naming_series", "atcud_code"],
@@ -1482,11 +1452,12 @@ def block_fiscal_document_deletion(doc, method=None):
 
 def enforce_fiscal_field_lock(doc, method=None):
 	"""
-	Hook de before_save - tem de correr ANTES de
-	generate_atcud_before_save no mesmo evento (ver ordem em hooks.py).
-	Compara com get_doc_before_save() (estado na BD antes desta
-	gravacao); se o documento ja tinha ATCUD antes desta gravacao,
-	nenhum dos campos fiscais pode ter mudado.
+	Hook de before_save. Compara com get_doc_before_save() (estado na
+	BD antes desta gravacao); se o documento ja tinha ATCUD antes desta
+	gravacao, nenhum dos campos fiscais pode ter mudado. Na pratica so
+	dispara depois de o documento ter sido submetido (e o unico momento
+	em que atcud_code passa a existir - ver generate_atcud_on_submit),
+	nunca num rascunho ainda em edicao.
 	"""
 	if doc.doctype not in FISCAL_LOCK_FIELDS or doc.is_new():
 		return

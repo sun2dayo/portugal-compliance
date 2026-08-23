@@ -830,10 +830,14 @@ function validate_before_submit_portuguese(frm) {
             validations.push(__('Cliente é obrigatório para faturas de venda portuguesas'));
         }
 
-        // ✅ VALIDAR ATCUD OBRIGATÓRIO
-        if (!frm.doc.atcud_code) {
-            validations.push(__('ATCUD é obrigatório para faturas de venda portuguesas'));
-        }
+        // Nota (2026-08-24): removida a validacao "ATCUD obrigatorio"
+        // que existia aqui - o ATCUD so passou a ser gerado no proprio
+        // submit (servidor, generate_atcud_on_submit), nunca antes.
+        // Manter este bloqueio bloquearia SEMPRE a submissao, porque
+        // frm.doc.atcud_code nunca esta preenchido neste ponto
+        // (before_submit corre no cliente, antes do pedido chegar ao
+        // servidor). Ver document_hooks.py para a validacao real, que
+        // agora corre do lado do servidor depois desta.
 
         // ✅ VALIDAR SÉRIE COMUNICADA
         if (frm.doc.naming_series) {

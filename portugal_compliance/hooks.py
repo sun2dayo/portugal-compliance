@@ -98,20 +98,23 @@ after_migrate = [
 # Baseado nos testes bem-sucedidos com programação.teste_no_console
 doc_events = {
 	# ========== DOCUMENTOS FISCAIS CRÍTICOS ==========
+	# NOTA (2026-08-24, correcao "rascunho zombie"): o ATCUD/assinatura/
+	# QR Code deixaram de ser gerados em before_save/after_insert (ou
+	# seja, em qualquer gravacao de rascunho) e passaram a ser gerados
+	# so em on_submit, sempre listado por ultimo nesse evento - depois
+	# de qualquer logica nativa do ERPNext e de before_submit_document
+	# (validacoes rigidas) ja terem corrido sem erro. Ver
+	# document_hooks.generate_atcud_on_submit para o detalhe e o motivo.
 	"Sales Invoice": {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": [
-			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
-			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
-		],
+		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
-		"after_insert": [
-			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
-			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+		"on_submit": [
+			"portugal_compliance.utils.document_hooks.generate_atcud_on_submit",
+			"portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication"
 		],
-		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": [
 			"portugal_compliance.utils.document_hooks.log_document_cancellation",
@@ -128,33 +131,23 @@ doc_events = {
 	# supported_doctypes no mesmo commit.
 	"POS Invoice": {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": [
-			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
-			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
-		],
+		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
-		"after_insert": [
-			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
-			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+		"on_submit": [
+			"portugal_compliance.utils.document_hooks.generate_atcud_on_submit",
+			"portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication"
 		],
-		"on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
 	"Payment Entry": {
-		"before_save": [
-			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
-			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
-		],
+		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
-		"after_insert": [
-			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
-			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
-		],
+		"on_submit": "portugal_compliance.utils.document_hooks.generate_atcud_on_submit",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
@@ -162,18 +155,14 @@ doc_events = {
 	# ========== DOCUMENTOS DE TRANSPORTE ==========
 	"Delivery Note": {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-		"before_save": [
-			"portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
-			"portugal_compliance.utils.document_hooks.generate_atcud_before_save"
-		],
+		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
 		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
-		"after_insert": [
-			"portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
-			"portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+		"on_submit": [
+			"portugal_compliance.utils.document_hooks.generate_atcud_on_submit",
+			"portugal_compliance.utils.at_transport_webservice.enqueue_transport_communication"
 		],
-		"on_submit": "portugal_compliance.utils.at_transport_webservice.enqueue_transport_communication",
 		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
