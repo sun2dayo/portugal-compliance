@@ -186,16 +186,6 @@ sítios, sem que um substitua claramente o outro:
   `jinja_methods.get_qr_code_data()` (usada pelos Print Formats reais) — só escreve em
   `ATCUD Log.qr_code_string`, sem impacto no que é impresso ou comunicado à AT, mas
   inconsistente como pista de auditoria.
-* `DOCUMENT_SIGNING_SPEC["Delivery Note"]["doc_code"]` em `signature.py` está fixo em
-  `"GT"`, enquanto o `document_code` real da série de Delivery Note comunicada e usada neste
-  sistema é `"GR"` (confirmado em `at_transport_webservice.py::_document_code_for` e em todos
-  os testes reais em sandbox desta auditoria). O campo `Referencia` embutido na string
-  efetivamente assinada por RSA-SHA1 de cada Guia de Remessa contém, portanto,
-  `"GT GR2026N/<seq>"` — o código do documento e o prefixo da série não coincidem dentro da
-  própria assinatura. Não invalida a cadeia (a assinatura continua matematicamente
-  verificável, e `verify_signature_chain()` continua a confirmá-la corretamente, porque
-  reconstrói a mesma string com a mesma lógica), mas é uma inconsistência textual real dentro
-  do conteúdo assinado, encontrada ao escrever este manual e ainda não corrigida.
 
 **Regra prática**: antes de assumir que uma função é "a" implementação de uma
 funcionalidade, confirmar com `grep` que está de facto referenciada em `hooks.py` ou chamada
