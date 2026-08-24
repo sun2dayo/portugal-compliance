@@ -1,5 +1,7 @@
 # Manual de Funcionalidades e Arquitetura: Portugal Compliance
 
+**Versão:** 1.1.0
+
 Este manual documenta exaustivamente a arquitetura, as funcionalidades e o modelo de dados
 do módulo **`portugal_compliance`** para Frappe/ERPNext. A análise baseia-se na revisão
 código-a-código do módulo e em testes reais contra o webservice da Autoridade Tributária

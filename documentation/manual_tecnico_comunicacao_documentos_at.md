@@ -1,5 +1,7 @@
 # Manual Técnico: Comunicação de Documentos em Tempo Real (AT)
 
+**Versão:** 1.1.0
+
 Este documento descreve o canal alternativo, em tempo real, de comunicação de documentos
 fiscais à Autoridade Tributária — distinto e complementar ao SAF-T mensal (ver
 [manual_tecnico_exportacao_saft.md](manual_tecnico_exportacao_saft.md)). Cobre dois

@@ -1,5 +1,7 @@
 # Manual Técnico: Estrutura de Ficheiros e Arquitetura
 
+**Versão:** 1.1.0
+
 > Inventário técnico completo do módulo `portugal_compliance` (Frappe/ERPNext). Útil para
 > programadores que precisem de manter, estender ou auditar a solução. Cada entrada foi
 > confirmada por leitura direta do código, não por convenção assumida.

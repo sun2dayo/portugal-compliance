@@ -1,5 +1,7 @@
 # Manual Técnico: Exportação SAF-T (PT) v1.04_01
 
+**Versão:** 1.1.0
+
 O ficheiro SAF-T (Standard Audit File for Tax Purposes) é o documento XML normalizado que
 consolida toda a informação fiscal de um período (mensal ou anual), exigido pela Portaria
 n.º 302/2016 e pelo Despacho n.º 8632/2014. Este manual descreve o processo técnico completo

@@ -1,5 +1,7 @@
 # Manual Técnico: Séries Documentais, ATCUD e Assinatura Digital
 
+**Versão:** 1.1.0
+
 Este manual descreve o ciclo de vida completo de uma série documental — registo na AT,
 assinatura criptográfica de cada documento, encadeamento de hash, geração do ATCUD, e as
 operações de fecho (finalização e anulação). Complementa

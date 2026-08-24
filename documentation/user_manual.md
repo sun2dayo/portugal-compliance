@@ -1,5 +1,7 @@
 # Manual de Utilizador: Portugal Compliance
 
+**Versão:** 1.1.0
+
 Guia passo-a-passo para configurar a **NovaDX** (ou qualquer empresa portuguesa) no ERPNext
 com o módulo `portugal_compliance`, desde o registo da empresa até à primeira exportação
 SAF-T. Este manual fala de cliques, campos e ecrãs — não de código. Para a arquitetura

@@ -1,5 +1,7 @@
 # Manual Técnico para DevOps: Certificados, Chaves e Segredos
 
+**Versão:** 1.1.0
+
 Referência definitiva para a gestão de identidade digital e criptografia no módulo
 `portugal_compliance`. Destina-se a DevOps e Administradores de Sistema — não a
 programadores da lógica fiscal (ver

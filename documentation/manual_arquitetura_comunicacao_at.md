@@ -1,5 +1,7 @@
 # Manual: Arquitetura Lógica de Comunicação e Certificação
 
+**Versão:** 1.1.0
+
 Este documento apresenta a arquitetura lógica do módulo `portugal_compliance`, ilustrando o
 fluxo de dados, a gestão de chaves e o ciclo de vida da comunicação com a Autoridade
 Tributária (AT) — em diagramas Mermaid, fiéis ao mecanismo real de `hooks.py` do Frappe (não

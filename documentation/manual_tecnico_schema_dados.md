@@ -1,5 +1,7 @@
 # Manual Técnico: Estrutura de Dados (DocTypes)
 
+**Versão:** 1.1.0
+
 Referência completa do modelo de dados do módulo `portugal_compliance`. Ao contrário de um
 módulo que introduz tabelas SQL dedicadas fora do ORM da plataforma, cada entidade aqui é um
 **DocType nativo do Frappe** — herda automaticamente permissões por role, Track Changes,

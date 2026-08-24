@@ -1,5 +1,7 @@
 # Manual Técnico de Integração: Webservice de Séries Documentais (AT)
 
+**Versão:** 1.1.0
+
 Este documento detalha o contrato SOAP/WSDL do webservice `SeriesWSService` da Autoridade
 Tributária e a sua implementação em `portugal_compliance`. Complementa
 [manual_tecnico_series_atcud.md](manual_tecnico_series_atcud.md) (ciclo de vida completo,

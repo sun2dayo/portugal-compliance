@@ -1,5 +1,7 @@
 # Manual Técnico: Hashing e Assinatura Digital de Documentos
 
+**Versão:** 1.1.0
+
 > A integridade do ficheiro SAF-T e do ATCUD depende matematicamente da correção da hash.
 > Uma diferença de 1 segundo na data-sistema, ou 1 espaço a mais na referência, produz uma
 > assinatura diferente — sem invalidar a submissão, mas sem coincidir com o que um verificador

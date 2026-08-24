@@ -1,5 +1,7 @@
 # Manual Técnico: Código QR (Portaria n.º 195/2020)
 
+**Versão:** 1.1.0
+
 Este manual detalha a implementação do código de barras bidimensional (QR Code) legalmente
 obrigatório em documentos fiscais portugueses, conforme a Especificação Técnica — Código QR
 (Portaria n.º 195/2020, v1.1, Outubro 2020). Cobre a construção da string, o mapeamento exato
