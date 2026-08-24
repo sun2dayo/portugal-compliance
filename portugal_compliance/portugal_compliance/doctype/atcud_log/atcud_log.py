@@ -115,7 +115,13 @@ class ATCUDLog(Document):
 					frappe.utils.now(),
 					minutes=delay_minutes
 				)
-				self.save()
+				# ATCUD Log deixou de ter Write para qualquer role
+				# (2026-08-24, imutabilidade dos registos criptograficos) -
+				# este save() corre dentro de after_insert(), no mesmo
+				# fluxo do insert(ignore_permissions=True) original, mas
+				# explicito aqui para nao depender de o flag persistir
+				# implicitamente na instancia.
+				self.save(ignore_permissions=True)
 
 				# Agendar job para retry
 				frappe.enqueue(
@@ -200,8 +206,16 @@ class ATCUDLog(Document):
 			# O dispacho de metodos whitelisted do Frappe so exige permissao
 			# de LEITURA no documento antes de invocar este metodo - como
 			# isto escreve no log e no documento original, exige-se
-			# explicitamente permissao de escrita.
-			self.check_permission("write")
+			# explicitamente uma role privilegiada. Nao usa mais
+			# check_permission("write"): ATCUD Log deixou de ter Write
+			# concedido a qualquer role (2026-08-24, imutabilidade dos
+			# registos criptograficos) - manter essa verificacao aqui
+			# bloquearia este metodo para sempre. frappe.only_for()
+			# restringe pela mesma role (System Manager) que antes era a
+			# unica com Write, sem depender da permissao de escrita do
+			# DocType; os self.save() abaixo continuam seguros porque
+			# usam ignore_permissions=True explicitamente.
+			frappe.only_for("System Manager")
 
 			from portugal_compliance.utils.atcud_generator import ATCUDGenerator
 
@@ -224,7 +238,7 @@ class ATCUDLog(Document):
 			self.processing_time = processing_time
 			self.error_message = ""
 			self.error_traceback = ""
-			self.save()
+			self.save(ignore_permissions=True)
 
 			return {
 				"status": "success",
@@ -236,7 +250,7 @@ class ATCUDLog(Document):
 			# Atualizar log com novo erro
 			self.error_message = str(e)
 			self.last_retry_date = frappe.utils.now()
-			self.save()
+			self.save(ignore_permissions=True)
 
 			return {
 				"status": "error",

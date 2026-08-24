@@ -84,7 +84,7 @@
     "index_web_pages_for_search": 1,
     "is_submittable": 0,
     "links": [],
-    "modified": "2026-08-22 12:00:00.000000",
+    "modified": "2026-08-24 22:00:00.000000",
     "modified_by": "Administrator",
     "module": "Portugal Compliance",
     "name": "Portugal Document Print Log",
@@ -92,7 +92,7 @@
     "owner": "Administrator",
     "permissions": [
         {
-            "create": 1,
+            "create": 0,
             "delete": 0,
             "email": 1,
             "export": 1,

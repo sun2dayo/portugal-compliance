@@ -19,11 +19,16 @@ class PortugalInvoiceCommunicationLog(Document):
 	def retry_now(self):
 		"""
 		Tenta reenviar imediatamente, ignorando o agendamento da tarefa
-		horária. Mesmo padrao de permissao explicita de escrita usado em
-		ATCUD Log / SAF-T Export Log (o dispacho whitelisted so exige
-		leitura por omissao).
+		horária. Ja nao usa check_permission("write"): este DocType
+		deixou de ter Write concedido a qualquer role (2026-08-24,
+		imutabilidade dos registos de comunicacao AT) - manter essa
+		verificacao aqui bloquearia este metodo para sempre.
+		frappe.only_for() restringe pela mesma role (System Manager) que
+		antes era a unica com Write, sem depender da permissao de
+		escrita do DocType; register_invoice()/_write_log() continuam a
+		gravar com ignore_permissions=True explicito.
 		"""
-		self.check_permission("write")
+		frappe.only_for("System Manager")
 
 		from portugal_compliance.utils.at_invoice_webservice import register_invoice
 
