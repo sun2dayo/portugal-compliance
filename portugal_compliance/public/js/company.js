@@ -763,7 +763,12 @@ function add_custom_buttons(frm) {
      * ✅ CORRIGIDO: Botões completos com métodos whitelisted
      */
 
-    if (frm.doc.__islocal || !frm.doc.portugal_compliance_enabled) return;
+    // Os menus "Portugal Compliance" e "Comunicação AT" só fazem
+    // sentido para uma empresa portuguesa com o módulo ativo -
+    // portugal_compliance_enabled sozinho não garante country ===
+    // 'Portugal' (é um Check simples, sem depends_on no país; nada
+    // impede tecnicamente ficar marcado numa empresa doutro país).
+    if (frm.doc.__islocal || frm.doc.country !== 'Portugal' || !frm.doc.portugal_compliance_enabled) return;
 
     // ✅ GRUPO: Portugal Compliance (RESTAURADOS)
     frm.add_custom_button(__('Configurar Séries'), function() {
