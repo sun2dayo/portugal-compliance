@@ -1,0 +1,171 @@
+{
+ "app": "portugal_compliance",
+ "charts": [],
+ "content": "[{\"id\": \"b3c85c27f3\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Atalhos</b></span>\", \"col\": 12}}, {\"id\": \"cddashboardshortcut1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Dashboard AT\", \"col\": 3}}, {\"id\": \"e9fca4588c\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Portugal Auth Settings\", \"col\": 3}}, {\"id\": \"4e9e2ff051\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Portugal Series Configuration\", \"col\": 3}}, {\"id\": \"06d40be428\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"ATCUD Log\", \"col\": 3}}, {\"id\": \"30ca34f09f\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SAF-T Export Log\", \"col\": 3}}, {\"id\": \"d5f06bd21b\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Portugal Invoice Communication Log\", \"col\": 3}}, {\"id\": \"0ab4c2fc80\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"27341954c3\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Configura\\u00e7\\u00e3o e Auditoria</b></span>\", \"col\": 12}}, {\"id\": \"a0c0420366\", \"type\": \"card\", \"data\": {\"card_name\": \"Configura\\u00e7\\u00f5es\", \"col\": 4}}, {\"id\": \"6b954b1207\", \"type\": \"card\", \"data\": {\"card_name\": \"Auditoria e Logs\", \"col\": 4}}, {\"id\": \"b6ee770799\", \"type\": \"card\", \"data\": {\"card_name\": \"Comunica\\u00e7\\u00f5es AT\", \"col\": 4}}]",
+ "creation": "2026-08-24 22:34:14.398897",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "quality",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Portugal Compliance",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configura\u00e7\u00f5es",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Company",
+   "link_count": 0,
+   "link_to": "Company",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portugal Auth Settings",
+   "link_count": 0,
+   "link_to": "Portugal Auth Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portugal Series Configuration",
+   "link_count": 0,
+   "link_to": "Portugal Series Configuration",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "AT Tax Exemption",
+   "link_count": 0,
+   "link_to": "AT Tax Exemption",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Auditoria e Logs",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "ATCUD Log",
+   "link_count": 0,
+   "link_to": "ATCUD Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SAF-T Export Log",
+   "link_count": 0,
+   "link_to": "SAF-T Export Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Comunica\u00e7\u00f5es AT",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portugal Invoice Communication Log",
+   "link_count": 0,
+   "link_to": "Portugal Invoice Communication Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-08-23 00:33:33.385876",
+ "modified_by": "Administrator",
+ "module": "Portugal Compliance",
+ "name": "Portugal Compliance",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 99.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Portugal Auth Settings",
+   "link_to": "Portugal Auth Settings",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Portugal Series Configuration",
+   "link_to": "Portugal Series Configuration",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "ATCUD Log",
+   "link_to": "ATCUD Log",
+   "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "List",
+   "label": "SAF-T Export Log",
+   "link_to": "SAF-T Export Log",
+   "type": "DocType"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "List",
+   "label": "Portugal Invoice Communication Log",
+   "link_to": "Portugal Invoice Communication Log",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "",
+   "label": "Dashboard AT",
+   "link_to": "compliance-dashboard",
+   "type": "Page"
+  }
+ ],
+ "title": "Portugal Compliance",
+ "type": "Workspace"
+}
