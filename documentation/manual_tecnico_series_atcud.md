@@ -154,16 +154,18 @@ def _lock_series_for_signing(series_configuration):
 
 **Porquê é necessário**: a alocação do próprio número de sequência (`doc.name`) já é segura,
 via o contador atómico nativo do Frappe. O problema é especificamente a leitura da *hash
-anterior*: o `ATCUD Log` só é escrito em `after_insert`, não durante a assinatura em si — se
-dois documentos da mesma série forem submetidos quase em simultâneo, o segundo pode ler a
-"última hash" **antes** do primeiro ter terminado o commit da sua própria transação (pedidos
-Frappe correm em transações separadas, cada uma só visível às outras após commit), e os dois
-ficariam com a mesma `HashAnterior` — quebrando a cadeia sequencial exigida pela Portaria
-363/2010.
+anterior*: assinatura e persistência do `ATCUD Log` correm ambas dentro do mesmo hook
+`on_submit` (`generate_atcud_on_submit`, ver 3.7), mas isso não elimina a janela de corrida —
+se dois documentos da mesma série forem submetidos quase em simultâneo, o segundo pedido pode
+ler a "última hash" **antes** de o primeiro ter terminado o commit da sua própria transação
+(pedidos Frappe correm em transações separadas, cada uma só visível às outras após commit), e
+os dois ficariam com a mesma `HashAnterior` — quebrando a cadeia sequencial exigida pela
+Portaria 363/2010.
 
 Ao bloquear a linha da série logo no início da assinatura, e só a libertar no commit da
 transação (fim do pedido), o segundo pedido fica bloqueado na leitura até o primeiro terminar
-por completo — incluindo a escrita do seu próprio `ATCUD Log` em `after_insert`.
+por completo — incluindo a escrita do seu próprio `ATCUD Log`, feita pela mesma chamada a
+`generate_atcud_on_submit` que gerou a assinatura.
 
 ### 3.5. Hash Control (4 caracteres)
 
@@ -191,12 +193,29 @@ de mercado (Cegid Vendus, InvoiceXpress).
 
 ### 3.7. Persistência: `ATCUD Log`
 
-Hooks `before_save`/`after_insert` de cada DocType fiscal
+Hook `on_submit` de cada DocType fiscal
 ([document_hooks.py](portugal_compliance/utils/document_hooks.py),
-`generate_atcud_before_save` / `generate_atcud_after_insert`) delegam em
+`generate_atcud_on_submit`) delega em
 `ATCUDGenerator.generate_atcud_for_document(doc)`
-([utils/atcud_generator.py](portugal_compliance/utils/atcud_generator.py)), que grava um
-registo por documento:
+([utils/atcud_generator.py](portugal_compliance/utils/atcud_generator.py)) para calcular a
+assinatura, seguido de `persist_pending_atcud_log(doc)` para gravar o registo — ambos dentro da
+mesma chamada, já com o documento definitivamente submetido (`docstatus=1`):
+
+> **Nota histórica (correção de 2026-08-24)**: antes desta data, o cálculo da assinatura
+> (`generate_atcud_before_save`) e a persistência do `ATCUD Log` (`generate_atcud_after_insert`)
+> estavam divididos entre `before_save` e `after_insert` — ou seja, corriam em **qualquer**
+> gravação de rascunho, não só na submissão final. Um documento que falhasse depois uma
+> validação de negócio (ex.: motivo de isenção de IVA em falta, só verificado de forma rígida em
+> `before_submit`) ficava com um ATCUD/assinatura reais já gravados num rascunho que nunca
+> chegava a ser legalmente vinculativo — e `enforce_fiscal_field_lock` bloqueava depois qualquer
+> tentativa de corrigir o campo em falta, prendendo o rascunho ("rascunho zombie": nem editável
+> nem submetível). A divisão em duas fases existia apenas por uma restrição técnica do Frappe
+> (o `ATCUD Log` tem uma Dynamic Link para o documento, que só é válida depois de o `db_insert`
+> acontecer — e este só corre depois de `before_save`); como `on_submit` já corre sobre um
+> documento com registo na BD há muito estabelecido (inserido no momento do primeiro rascunho),
+> essa restrição deixou de se aplicar, e as duas fases foram unificadas numa só chamada.
+
+Grava um registo por documento:
 
 | Campo | Conteúdo |
 | :--- | :--- |
@@ -313,7 +332,7 @@ só atua sobre documentos sem `atcud_code` ainda.
 | [utils/signature.py](portugal_compliance/utils/signature.py) | Especificação de assinatura, `sign_document()`, `verify_signature_chain()`, `export_signing_public_key()`. |
 | [utils/atcud_generator.py](portugal_compliance/utils/atcud_generator.py) | `ATCUDGenerator` — orquestra assinatura + sequência + persistência em `ATCUD Log`. |
 | [utils/at_webservice.py](portugal_compliance/utils/at_webservice.py) | `registarSerie`, `consultarSeries`, `finalizarSerie`, `anularSerie` — `ATWebserviceClient`. |
-| [utils/document_hooks.py](portugal_compliance/utils/document_hooks.py) | Hooks `before_save`/`after_insert`/`validate` que disparam a geração e bloqueiam séries inativas. |
+| [utils/document_hooks.py](portugal_compliance/utils/document_hooks.py) | Hooks `on_submit`/`validate`/`before_submit` que disparam a geração (só em `on_submit`) e bloqueiam séries inativas/documentos com validações pendentes. |
 | [doctype/atcud_log/atcud_log.py](portugal_compliance/portugal_compliance/doctype/atcud_log/atcud_log.py) | Controller do log — retry de persistência pendente. |
 | [wsdl/Comunicacao_Series.wsdl](portugal_compliance/wsdl/Comunicacao_Series.wsdl) | Contrato SOAP oficial (`registarSerie`, `consultarSeries`, `finalizarSerie`, `anularSerie`). |
 

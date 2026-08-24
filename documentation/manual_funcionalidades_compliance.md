@@ -27,18 +27,14 @@ por DocType fiscal:
 doc_events = {
     "Sales Invoice": {
         "before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
-        "before_save": [
-            "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
-            "portugal_compliance.utils.document_hooks.generate_atcud_before_save"
-        ],
+        "before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
         "validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
         "before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
         "before_print": "portugal_compliance.utils.document_hooks.log_document_print",
-        "after_insert": [
-            "portugal_compliance.utils.document_hooks.generate_atcud_after_insert",
-            "portugal_compliance.utils.document_hooks.generate_and_attach_qr_code"
+        "on_submit": [
+            "portugal_compliance.utils.document_hooks.generate_atcud_on_submit",
+            "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication"
         ],
-        "on_submit": "portugal_compliance.utils.at_invoice_webservice.enqueue_invoice_communication",
         "on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
         "on_cancel": [
             "portugal_compliance.utils.document_hooks.log_document_cancellation",
@@ -53,6 +49,20 @@ Esta tabela é a fonte de verdade de tudo o que o módulo faz a um documento fis
 comportamento não wired aqui **não corre em produção**, independentemente de existir código
 Python correspondente algures no repositório — um princípio que se revelou crítico durante
 esta auditoria (ver secção 6, "Código Morto").
+
+> **Correção de arquitetura (2026-08-24)**: até esta data, a geração do ATCUD/assinatura corria
+> em `before_save`/`after_insert` — ou seja, em qualquer gravação de rascunho, muito antes de a
+> submissão poder ainda falhar por uma validação de negócio (ex.: falta do motivo de isenção de
+> IVA, só verificada de forma rígida em `before_submit`). Um rascunho que falhasse essa
+> validação ficava com um ATCUD/assinatura reais já gravados, e `enforce_fiscal_field_lock`
+> bloqueava depois qualquer tentativa de corrigir o campo em falta — um rascunho preso, não
+> editável nem submetível ("rascunho zombie"). `generate_atcud_on_submit` substitui as antigas
+> `generate_atcud_before_save`/`generate_atcud_after_insert`/`generate_and_attach_qr_code`
+> (removidas) e só corre em `on_submit` — sempre depois de qualquer lógica nativa do ERPNext
+> para o mesmo evento e de `before_submit_document` já terem passado sem erro. Se alguma
+> validação anterior rejeitar a submissão, esta função nunca chega a correr e a transação
+> inteira sofre rollback: nenhum ATCUD é queimado antes de o documento se tornar
+> definitivamente imutável.
 
 ### 1.2. Camadas do módulo
 
@@ -90,7 +100,9 @@ UI, API ou acesso direto à base de dados por um utilizador com privilégios ele
   `atcud_code` preenchido, ou já anulado (`docstatus=2`).
 * `enforce_fiscal_field_lock` (`before_save`) impede alterar campos fiscais (cliente, total,
   data, série) depois do ATCUD ter sido gerado — compara sempre com
-  `doc.get_doc_before_save()`.
+  `doc.get_doc_before_save()`. Como o ATCUD só existe a partir de `on_submit` (ver 1.1), este
+  bloqueio na prática só entra em ação a partir da primeira gravação **depois** de o documento
+  já estar submetido (ex.: uma tentativa de amendment) — nunca num rascunho ainda em edição.
 * `force_track_changes_property_setters` (`after_migrate`) garante, via Property Setter, que
   `track_changes` está sempre ativo nos DocTypes fiscais — não é uma preferência de UI que um
   utilizador possa desligar em Customize Form.
@@ -194,7 +206,7 @@ elementos `GeneralLedgerAccounts`/`GeneralLedgerEntries` são omitidos por desen
 | **Portugal Series Configuration** | Documento | Uma série documental por (empresa, DocType, prefixo). Guarda `document_code` (FT/NC/FS/RG/GR...), `naming_series`, `current_sequence`, `is_active`, `is_communicated`, `validation_code` (devolvido pela AT no registo). |
 | **ATCUD Log** | Documento (log) | Um registo por documento fiscal assinado: `atcud_code`, `signature_hash`, `previous_signature_hash`, `sequence_number`, `series_used`, `generation_status`. A fonte de dados para `verify_signature_chain()`. |
 | **SAF-T Export Log** | Documento (log) | Um registo por exportação SAF-T: período, tipo, `status` (Pending/In Progress/Completed/Failed), `xml_validation_status`, `xsd_validation_errors`, caminho e hash do ficheiro. |
-| **Portugal Invoice Communication Log** | Documento (log) | Um registo por tentativa de comunicação em tempo real (faturas e guias de transporte, ver `document_type`): `status`, `at_response_code`, `retry_count`, `next_retry_date`. |
+| **Portugal Invoice Communication Log** | Documento (log) | Um registo por tentativa de comunicação em tempo real (faturas e guias de transporte, ver `document_type`): `status`, `at_response_code`, `retry_count`, `next_retry_date`. Expõe o método whitelisted `retry_now()` no seu controller Python, que reenvia de imediato via `at_invoice_webservice.register_invoice(...)` — já usado pela tarefa horária de retry, e desde 2026-08-24 também acionável manualmente na interface (botão **"Reenviar Agora (Retry)"**, visível quando `status` é `Failed`/`Retrying`, definido em `portugal_invoice_communication_log.js`). |
 | **Portugal Document Print Log** | Documento (log) | Um registo por impressão/reimpressão de documento fiscal: `document_type`, `document_name`, `print_format`, `printed_by`, `print_datetime`, `atcud_code`. |
 | **AT Tax Exemption** | Documento (referência) | Taxonomia oficial de códigos de isenção de IVA (M01-M99), carregada como fixture. |
 

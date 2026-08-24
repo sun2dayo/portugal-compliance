@@ -81,9 +81,22 @@ sequenceDiagram
     AT-->>Frappe: codResultOper=2001, codValidacaoSerie="AAJFJ..."
     Frappe->>Frappe: db.set_value(is_communicated=1, validation_code=...)
 
-    note over Admin, AT: FASE 2 — Emissão de Fatura (runtime, dentro do mesmo pedido)
+    note over Admin, AT: FASE 2a — Rascunho (Save) - documento ainda editável, sem ATCUD
+    Admin->>Frappe: Gravar Sales Invoice (rascunho)
+    Frappe->>Hooks: before_save: enforce_fiscal_field_lock (nada a bloquear - sem ATCUD ainda)
+    Frappe->>Hooks: validate: validate_portugal_compliance (aviso brando se faltar isenção)
+    Frappe->>Frappe: COMMIT (rascunho gravado, sem atcud_code)
+
+    note over Admin, AT: FASE 2b — Submissão (Submit) - único momento em que assina
     Admin->>Frappe: Submeter Sales Invoice
-    Frappe->>Hooks: before_save: enforce_fiscal_field_lock, generate_atcud_before_save
+    Frappe->>Hooks: validate: validate_portugal_compliance (de novo)
+    Frappe->>Hooks: before_submit: before_submit_document
+    activate Hooks
+    Hooks->>Hooks: _validate_tax_exemption_hard (bloqueia se faltar isenção)
+    Hooks->>Hooks: verifica série comunicada (bloqueia se não)
+    deactivate Hooks
+    note right of Frappe: Se qualquer validação falhar aqui,<br/>toda a transação sofre rollback -<br/>nenhum ATCUD chega a ser gerado
+    Frappe->>Hooks: on_submit: generate_atcud_on_submit
     activate Hooks
     Hooks->>Sig: sign_document(doc, series_prefix, sequence_number)
     activate Sig
@@ -92,20 +105,24 @@ sequenceDiagram
     Sig->>Sig: build_data_to_sign() -> RSA-SHA1 -> Base64
     Sig-->>Hooks: signature_hash, hash_control, atcud_code
     deactivate Sig
-    Hooks->>Frappe: doc.atcud_code = "AAJFJ...-19"
+    Hooks->>Frappe: doc.db_set(atcud_code, qr_code, qr_code_image)
+    Hooks->>Frappe: ATCUD Log.insert()
     deactivate Hooks
-    Frappe->>Hooks: after_insert: generate_atcud_after_insert, generate_and_attach_qr_code
-    Hooks->>Frappe: ATCUD Log.insert() e doc.db_set(qr_code, qr_code_image)
-    Frappe->>Hooks: validate: _validate_series_not_inactive (bloqueia se série Finalizada/Anulada)
+    Frappe->>Hooks: on_submit: enqueue_invoice_communication (a seguir, mesma lista de hooks)
+    Hooks->>Frappe: frappe.enqueue(register_invoice, queue="short")
     Frappe->>Frappe: COMMIT
 
     note over Admin, AT: FASE 3 — Comunicação em Tempo Real (opcional, assíncrona)
-    Frappe->>Hooks: on_submit: enqueue_invoice_communication
-    Hooks->>Frappe: frappe.enqueue(register_invoice, queue="short")
     note right of Frappe: Fora da transação do pedido HTTP -<br/>uma AT lenta nunca bloqueia a submissão
     Frappe-->>AT: SOAP RegisterInvoice (background job)
     AT-->>Frappe: CodigoResposta=0/0000 (sucesso) ou -3/-10 (duplicado, idempotente)
 ```
+
+> **Correção de arquitetura (2026-08-24)**: até esta data, a assinatura corria em
+> `before_save`/`after_insert` (fase 2a), não em `on_submit` (fase 2b) — um documento podia
+> ficar com ATCUD/assinatura reais gravados num simples rascunho que nunca chegava a ser
+> submetido, e `enforce_fiscal_field_lock` bloqueava depois qualquer correção ("rascunho
+> zombie"). O diagrama acima já reflete a arquitetura corrigida.
 
 ---
 
@@ -174,8 +191,8 @@ classDiagram
 ```mermaid
 classDiagram
     class document_hooks {
-        +generate_atcud_before_save(doc)
-        +generate_atcud_after_insert(doc)
+        +generate_atcud_on_submit(doc)
+        +before_submit_document(doc)
         +validate_portugal_compliance(doc)
         +enforce_fiscal_field_lock(doc)
         +block_fiscal_document_deletion(doc)

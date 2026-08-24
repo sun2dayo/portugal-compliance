@@ -219,13 +219,17 @@ Se ainda não tiver itens/clientes de teste:
    lembra disto no próprio campo.
 4. Se quiser associar o recibo a uma fatura específica, clique em **Get Outstanding Invoices**
    na secção **Reference** para trazer automaticamente as faturas em aberto desse cliente.
-5. Grave e submeta. Tal como a fatura, o recibo fica assinado e com ATCUD no momento em que é
-   gravado pela primeira vez — inclusive, o sistema **bloqueia qualquer alteração posterior a
-   campos fiscais** (como a data) uma vez que o ATCUD já foi gerado, mesmo que o documento
-   ainda esteja em rascunho. Se precisar de corrigir um valor, a mensagem do sistema é clara:
-   *"Anule o documento e emita um novo em vez de corrigir os valores diretamente"* — este é o
-   princípio de inviolabilidade fiscal exigido pela Portaria 195/2020, aplicado desde o
-   primeiro instante, não só depois da submissão final.
+5. Grave o rascunho normalmente — pode corrigir qualquer campo à vontade nesta fase, incluindo
+   depois de gravar uma primeira vez; um recibo em rascunho ainda **não** tem ATCUD nem
+   assinatura, exatamente por ainda não ser definitivo. Só depois, ao clicar **Submit**, é que
+   o recibo fica assinado e com ATCUD atribuído — tal como a fatura (secção 6.2), este é o
+   único momento em que a assinatura é gerada.
+6. A partir da submissão, o documento é imutável: o sistema **bloqueia qualquer alteração
+   posterior a campos fiscais** (como a data ou o valor). Se precisar de corrigir um recibo já
+   submetido, a mensagem do sistema é clara: *"Anule o documento e emita um novo em vez de
+   corrigir os valores diretamente"* — este é o princípio de inviolabilidade fiscal exigido
+   pela Portaria 195/2020, aplicado a partir do momento em que o documento se torna
+   definitivo, nunca antes.
 
 ### 6.4. Fatura Simplificada (POS Invoice)
 
@@ -436,7 +440,49 @@ Passos:
 
 ---
 
-## 10. Resumo do fluxo completo
+## 10. Comunicação em Tempo Real e Reenvio Manual
+
+Além da exportação SAF-T mensal (Passo 6), a empresa pode optar por comunicar cada fatura
+individualmente à AT no momento em que é submetida — o chamado modo **"Tempo Real
+(Webservice)"**, configurável em **Portugal Auth Settings**, campo **Método de Comunicação de
+Faturas**. Com este modo ativo, cada submissão de Fatura ou Fatura Simplificada dispara, em
+segundo plano, uma chamada real à AT logo a seguir à assinatura do documento — sem atrasar a
+submissão em si (a chamada corre de forma assíncrona).
+
+### 10.1. Consultar o Estado das Comunicações
+
+Cada tentativa de comunicação fica registada em **Portugal Compliance › Portugal Invoice
+Communication Log** (também disponível como atalho no ecrã inicial do Workspace). Cada registo
+mostra:
+
+- **Status**: `Pending` (ainda por tentar), `Success` (a AT aceitou), `Failed` (a AT recusou ou
+  a ligação falhou) ou `Retrying` (falhou, mas está agendada uma nova tentativa automática).
+- **Código de Resposta** e **Mensagem**: a resposta literal devolvida pela AT.
+- **Tentativas** e **Próxima Tentativa**: quantas vezes já se tentou, e quando é a próxima
+  tentativa automática (o sistema usa um intervalo crescente entre tentativas, até um máximo de
+  4 horas, durante até 8 tentativas).
+
+### 10.2. Reenviar Manualmente uma Comunicação Falhada
+
+Se uma comunicação ficar em `Failed` ou `Retrying` e não quiser esperar pela próxima tentativa
+automática (por exemplo, depois de corrigir a causa do problema — uma credencial errada, uma
+falha de rede temporária), pode forçar o reenvio imediato:
+
+1. Abra o registo em **Portugal Invoice Communication Log**.
+2. Clique no botão **Reenviar Agora (Retry)**, visível apenas quando o estado é `Failed` ou
+   `Retrying`.
+3. Confirme na caixa de diálogo, que mostra também a data da próxima tentativa automática que
+   está a ser antecipada.
+4. O sistema mostra de imediato se o reenvio teve sucesso ou não, e o registo atualiza-se com o
+   novo estado e a resposta da AT.
+
+Isto não cria um novo documento nem uma nova tentativa "extra" fora do histórico — é
+exatamente a mesma operação que a tarefa automática horária executaria, apenas disparada por si
+de imediato em vez de esperar pelo agendamento.
+
+---
+
+## 11. Resumo do fluxo completo
 
 ```
 Criar Empresa (NIF + Morada)

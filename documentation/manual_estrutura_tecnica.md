@@ -128,17 +128,23 @@ estatísticas, alertas de expiração de certificado, tabela "Séries por tipo d
 ## 3. Fluxo de Dados Principal
 
 ```
-1. Emissão      Utilizador submete Sales Invoice/POS Invoice/Payment Entry/Delivery Note
+1. Rascunho     Utilizador grava Sales Invoice/POS Invoice/Payment Entry/Delivery Note
+                enforce_fiscal_field_lock (before_save) — nada a bloquear ainda (sem ATCUD)
+                Editável à vontade nesta fase - nenhuma assinatura foi gerada
                     │
-2. Bloqueio     enforce_fiscal_field_lock (before_save) — nada a bloquear ainda (1º save)
+2. Submissão    Utilizador clica Submit
+                validate + before_submit_document: isenção de IVA (rígida), série comunicada
+                Se qualquer validação falhar aqui, toda a transação sofre rollback -
+                nenhum ATCUD chega a ser queimado (correção de arquitetura, 2026-08-24)
                     │
-3. Assinatura   generate_atcud_before_save → ATCUDGenerator → signature.sign_document()
+3. Assinatura   on_submit: generate_atcud_on_submit → ATCUDGenerator → signature.sign_document()
                 RSA-SHA1 + SELECT FOR UPDATE na série + hash encadeada
                     │
-4. Persistência generate_atcud_after_insert → ATCUD Log (signature_hash, atcud_code, ...)
-                generate_and_attach_qr_code → doc.qr_code / doc.qr_code_image
+4. Persistência (mesma chamada) ATCUD Log (signature_hash, atcud_code, ...)
+                doc.db_set(atcud_code, qr_code, qr_code_image)
                     │
-5. Comunicação  on_submit → enqueue_invoice_communication / enqueue_transport_communication
+5. Comunicação  on_submit (a seguir, mesma lista de hooks) → enqueue_invoice_communication /
+                enqueue_transport_communication
                 (só se "Tempo Real" ativo; caso contrário aguarda o SAF-T mensal)
                     │
 6. Impressão    before_print → log_document_print (Portugal Document Print Log)

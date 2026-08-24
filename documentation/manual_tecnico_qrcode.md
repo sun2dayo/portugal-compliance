@@ -226,10 +226,13 @@ paralela baseada em faixas de percentagem.
 
 ## 5. Persistência: `qr_code` / `qr_code_image`
 
-`generate_and_attach_qr_code` (hook `after_insert`,
-[document_hooks.py](portugal_compliance/utils/document_hooks.py)) chama
-`get_qr_code_data(doc=doc)` e `generate_qr_code_image()` (biblioteca `qrcode`, PNG Base64) e
-grava ambos no próprio documento:
+A geração do QR Code persistido faz parte de `generate_atcud_on_submit` (hook `on_submit`,
+[document_hooks.py](portugal_compliance/utils/document_hooks.py) — até 2026-08-24 era uma
+função separada, `generate_and_attach_qr_code`, chamada em `after_insert`; foi absorvida na
+mesma função que assina o documento, já que ambas só fazem sentido depois de o ATCUD existir,
+e o ATCUD só existe a partir do submit). Chama `get_qr_code_data(doc=doc)` e
+`generate_qr_code_image()` (biblioteca `qrcode`, PNG Base64) e grava ambos no próprio
+documento:
 
 ```python
 qr_string = get_qr_code_data(doc=doc)
@@ -301,7 +304,7 @@ que um PDF gerado em testes nunca seja confundível com um documento fiscal real
 | :--- | :--- |
 | [utils/jinja_methods.py](portugal_compliance/utils/jinja_methods.py) | `get_qr_code_data()`, `generate_qr_code_image()`, `get_customer_country()`, `get_document_at_code()`, `get_document_ref_no()`. |
 | [utils/tax_breakdown.py](portugal_compliance/utils/tax_breakdown.py) | Discriminação por código de taxa e praça fiscal — fonte partilhada com o SAF-T. |
-| [utils/document_hooks.py](portugal_compliance/utils/document_hooks.py) | `generate_and_attach_qr_code` — persistência em `doc.qr_code`/`qr_code_image`. |
+| [utils/document_hooks.py](portugal_compliance/utils/document_hooks.py) | `generate_atcud_on_submit` (hook `on_submit`) — persistência em `doc.qr_code`/`qr_code_image`, a seguir à assinatura. |
 | [fixtures/print_format.json](portugal_compliance/fixtures/print_format.json) | Os Print Formats reais (`Factura PT`, `Fatura Simplificada PT`, `Fatura Simplificada PT (A4)`, `Recibo PT`, `Guia de Transporte PT`, `Talão POS PT`) — não os ficheiros em `templates/print_formats/*.html`, que não são referenciados por nenhum código (ver Nota Metodológica em [manual_funcionalidades_compliance.md](manual_funcionalidades_compliance.md)). |
 
 ---
