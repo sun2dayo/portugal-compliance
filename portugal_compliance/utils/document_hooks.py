@@ -820,10 +820,53 @@ class PortugalComplianceDocumentHooks:
 							"Desative-a antes de ativar esta."
 						).format(doc.document_type, getattr(doc, 'document_code', ''), doc.company, duplicate)
 					)
+
+			self._enforce_communicated_series_immutability(doc)
 		except frappe.ValidationError:
 			raise
 		except Exception as e:
 			frappe.log_error(f"Erro em validate_series_configuration: {str(e)}")
+
+	# Campos que identificam de forma inequivoca a serie perante a AT -
+	# alterar qualquer um deles depois de comunicada desalinha a
+	# geracao local do ATCUD com o que a AT validou, corrompendo a
+	# cadeia. is_active incluido por decisao explicita: o estado so
+	# deve mudar via finalizar_serie()/anular_serie() (at_webservice.py),
+	# que gravam com frappe.db.set_value() direto - nunca passam por
+	# esta validacao, por isso nao ficam bloqueados por este check.
+	COMMUNICATED_SERIES_LOCKED_FIELDS = (
+		"company", "document_type", "prefix", "naming_series",
+		"validation_code", "at_environment", "is_communicated",
+		"communication_date", "is_active",
+	)
+
+	def _enforce_communicated_series_immutability(self, doc):
+		"""
+		Bloqueio real (nao so client-side) para uma serie ja comunicada
+		a AT. So compara contra o estado ANTES desta gravacao - a
+		propria transicao de is_communicated de 0 para 1 (a comunicacao
+		em si, feita via .save() com validation_code preenchido - ver
+		validate() nativo do DocType) nunca e bloqueada, porque nesse
+		momento o valor anterior ainda e 0.
+		"""
+		if doc.is_new():
+			return
+
+		before = doc.get_doc_before_save()
+		if not before or not getattr(before, 'is_communicated', 0):
+			return
+
+		changed_fields = [
+			fieldname for fieldname in self.COMMUNICATED_SERIES_LOCKED_FIELDS
+			if getattr(doc, fieldname, None) != getattr(before, fieldname, None)
+		]
+		if changed_fields:
+			frappe.throw(
+				_(
+					"Esta série já foi comunicada à AT - os campos {0} são imutáveis. "
+					"Use \"Finalizar Série na AT\" ou \"Anular Série na AT\" para alterar o estado da série."
+				).format(", ".join(changed_fields))
+			)
 
 	def update_series_pattern(self, doc, method=None):
 		"""

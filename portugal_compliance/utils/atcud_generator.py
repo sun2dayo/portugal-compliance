@@ -17,6 +17,7 @@ from frappe.utils import getdate, now, today, cint, flt
 import re
 import hashlib
 import json
+import time
 from datetime import datetime, date
 import qrcode
 import base64
@@ -1135,6 +1136,63 @@ atcud_generator = ATCUDGenerator()
 def generate_atcud_for_document(doc):
 	"""✅ ATUALIZADO: Gerar ATCUD para documento"""
 	return atcud_generator.generate_atcud_for_document(doc)
+
+
+def retry_atcud_generation(log_name):
+	"""
+	Job de fundo agendado por ATCUD Log.handle_failure() (backoff
+	exponencial, ate 5 tentativas) para reprocessar um documento cuja
+	geracao de ATCUD falhou. Antes desta correcao (2026-08-24), o
+	frappe.enqueue() em handle_failure() apontava para esta mesma
+	rota (portugal_compliance.utils.atcud_generator.
+	retry_atcud_generation) mas a funcao nunca existiu - o
+	reagendamento automatico de falhas estava morto desde sempre,
+	so descoberto ao investigar a imutabilidade de ATCUD Log.
+
+	Contexto de sistema confiavel (job de fundo, nao invocado por um
+	utilizador) - grava com ignore_permissions=True, sem gate de
+	permissao, tal como o insert() original do log e o
+	handle_failure()/handle_success() que reutiliza abaixo.
+	"""
+	try:
+		log = frappe.get_doc("ATCUD Log", log_name)
+	except frappe.DoesNotExistError:
+		return
+
+	if log.generation_status == "Success":
+		# Resolvido entretanto por outra via (ex: retry manual do
+		# utilizador) - nada a fazer.
+		return
+
+	try:
+		doc = frappe.get_doc(log.document_type, log.document_name)
+	except frappe.DoesNotExistError:
+		log.error_message = _("Documento original {0} {1} já não existe").format(
+			log.document_type, log.document_name
+		)
+		log.save(ignore_permissions=True)
+		return
+
+	start_time = time.time()
+	result = atcud_generator.generate_atcud_for_document(doc)
+	processing_time = time.time() - start_time
+
+	if result.get("success"):
+		log.generation_status = "Success"
+		log.atcud_code = doc.atcud_code
+		log.processing_time = processing_time
+		log.error_message = ""
+		log.error_traceback = ""
+		log.save(ignore_permissions=True)
+		log.handle_success()
+	else:
+		log.error_message = result.get("error") or _("Falha ao gerar ATCUD")
+		log.last_retry_date = now()
+		log.save(ignore_permissions=True)
+		# Reutiliza a mesma logica de backoff/notificacao de
+		# handle_failure() - incrementa retry_count e reagenda a
+		# proxima tentativa se ainda nao atingiu o maximo de 5.
+		log.handle_failure()
 
 
 def validate_atcud_format(atcud_code):

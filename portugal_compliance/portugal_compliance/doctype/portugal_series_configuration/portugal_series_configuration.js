@@ -41,6 +41,9 @@ frappe.ui.form.on('Portugal Series Configuration', {
 
         // ✅ CONFIGURAR VALIDAÇÕES ESPECÍFICAS
         setup_series_validations(frm);
+
+        // ✅ IMUTABILIDADE DE SÉRIE COMUNICADA (2026-08-24)
+        enforce_communicated_series_immutability(frm);
     },
 
     // ========== EVENTOS DE CAMPOS ==========
@@ -1215,6 +1218,37 @@ function setup_series_validations(frm) {
             }
         });
     }
+}
+
+// Campos que identificam de forma inequívoca a série perante a AT -
+// alterar qualquer um deles depois de comunicada desalinha a geração
+// local do ATCUD com o que a AT validou, corrompendo a cadeia.
+// is_active incluído por decisão explícita: o estado só deve mudar
+// via "Finalizar Série na AT"/"Anular Série na AT" (chamadas de API
+// dedicadas, não afetadas por este read_only client-side).
+const COMMUNICATED_SERIES_LOCKED_FIELDS = [
+    'company', 'document_type', 'prefix', 'naming_series',
+    'validation_code', 'at_environment', 'is_communicated',
+    'communication_date', 'is_active'
+];
+
+function enforce_communicated_series_immutability(frm) {
+    /**
+     * Trava client-side (UX) para uma série já comunicada à AT. A
+     * autoridade real é o bloqueio server-side em
+     * document_hooks.py::validate_series_configuration - isto é só
+     * para o utilizador ver os campos como não-editáveis, não a
+     * única linha de defesa.
+     */
+    if (!frm.doc.is_communicated) {
+        return;
+    }
+
+    COMMUNICATED_SERIES_LOCKED_FIELDS.forEach(function(fieldname) {
+        if (frm.fields_dict[fieldname]) {
+            frm.set_df_property(fieldname, 'read_only', 1);
+        }
+    });
 }
 
 function handle_series_save(frm) {
