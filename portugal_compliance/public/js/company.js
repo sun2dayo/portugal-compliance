@@ -988,21 +988,51 @@ function view_series_list(frm) {
 
 function export_compliance_config(frm) {
     /**
-     * ✅ NOVO: Exportar configuração
+     * Exportar configuração de compliance como ficheiro .json (download
+     * direto) - antes mostrava o JSON cru num msgprint, o que assusta
+     * um utilizador comum e não serve para arquivo/partilha.
      */
     frappe.call({
         method: 'portugal_compliance.api.company_api.get_company_compliance_status',
         args: {
             company: frm.doc.name
         },
+        freeze: true,
+        freeze_message: __('A gerar ficheiro de configuração...'),
         callback: function(r) {
             if (r.message) {
+                let content = JSON.stringify(r.message, null, 4);
+                let blob = new Blob([content], { type: 'application/json' });
+                let url = URL.createObjectURL(blob);
+
+                let safe_company_name = (frm.doc.name || 'empresa').replace(/[^\w-]+/g, '_');
+                let link = document.createElement('a');
+                link.href = url;
+                link.download = `compliance_config_${safe_company_name}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                frappe.show_alert({
+                    message: __('Ficheiro de configuração transferido'),
+                    indicator: 'green'
+                });
+            } else {
                 frappe.msgprint({
-                    title: __('Configuração de Compliance'),
-                    message: `<pre>${JSON.stringify(r.message, null, 2)}</pre>`,
-                    indicator: 'blue'
+                    title: __('Erro'),
+                    message: __('Erro ao obter configuração de compliance'),
+                    indicator: 'red'
                 });
             }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao exportar configuração:', error);
+            frappe.msgprint({
+                title: __('Erro de Comunicação'),
+                message: __('Erro ao comunicar com servidor: {0}', [error]),
+                indicator: 'red'
+            });
         }
     });
 }
