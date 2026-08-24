@@ -97,36 +97,20 @@ DOCUMENT_SIGNING_SPEC = {
 | :--- | :--- | :--- | :--- |
 | **DataDoc** | `posting_date` → `YYYY-MM-DD` | `posting_date` → `YYYY-MM-DD` | `posting_date` → `YYYY-MM-DD` |
 | **DataSistema** | `creation` → `YYYY-MM-DDTHH:MM:SS` | `creation` → `YYYY-MM-DDTHH:MM:SS` | `creation` → `YYYY-MM-DDTHH:MM:SS` |
-| **Referencia** | `"FT SERIE/SEQ"` ou `"NC SERIE/SEQ"` (código real da série) | `"RC SERIE/SEQ"` (⚠️ ver Nota A) | `"GT SERIE/SEQ"` (⚠️ ver Nota B) |
+| **Referencia** | `"FT SERIE/SEQ"` ou `"NC SERIE/SEQ"` (código real da série) | `"RG SERIE/SEQ"` ou `"RC SERIE/SEQ"` (código real da série, conforme regime) | `"GR SERIE/SEQ"` (código real da série) |
 | **Total** | `abs(grand_total)`, 2 casas decimais | `abs(paid_amount)`, 2 casas decimais | Fixo `"0.00"` |
 | **HashAnterior** | Hash Base64 do documento anterior da mesma série | idem | idem |
-
-> **Nota A — `doc_code` estático "RC" para Payment Entry.** `DOCUMENT_SIGNING_SPEC` não
-> distingue RG (Outros recibos) de RC (Regime de IVA de Caixa) — usa sempre `"RC"` no campo
-> `Referencia` da string assinada, independentemente do `document_code` real da série
-> (`RG` por omissão desde a correção documentada em
-> [manual_tecnico_exportacao_saft.md](manual_tecnico_exportacao_saft.md), secção 5). O
-> `series_prefix` passado a `sign_document()` **é** sempre o real (ex: `"RG2026N"`) — só o
-> `doc_code` prefixado ao início da `Referencia` fica estático. Resultado: a `Referencia`
-> embutida na assinatura de um recibo real neste sistema é `"RC RG2026N/1"` — o código e o
-> prefixo da série não coincidem dentro do conteúdo assinado. Não invalida a assinatura (é só
-> texto de entrada), mas é uma inconsistência real a corrigir.
-
-> **Nota B — mesma classe de inconsistência em Delivery Note.** `doc_code` estático `"GT"`,
-> enquanto o `document_code` real da série de Delivery Note comunicada neste sistema é
-> `"GR"` (Guia de Remessa — ver `at_transport_webservice.py::_document_code_for`). A
-> `Referencia` assinada de uma Guia real é `"GT GR2026N/1"` — mesmo padrão de defeito da Nota
-> A, encontrado ao escrever este manual, ainda por corrigir.
 
 ### 3.2. Notas de Crédito
 
 Notas de Crédito (`Sales Invoice` com `is_return=1`) seguem exatamente a mesma lógica das
 Faturas — mesmo DocType, mesma tabela, mesma função de assinatura. O que muda é o `doc_code`
-usado na `Referencia`, que **neste caso está correto** porque `build_data_to_sign()` recebe
-`series_prefix` real e o chamador (`ATCUDGenerator`) já resolve o `doc_code` real via
-`Portugal Series Configuration` antes de invocar `sign_document()` para Sales Invoice — a
-inconsistência das Notas A/B acima é específica de Payment Entry/Delivery Note, não de Sales
-Invoice/Nota de Crédito.
+usado na `Referencia`, resolvido corretamente para todos os DocTypes assinados
+(`Sales Invoice`/`POS Invoice`, `Payment Entry`, `Delivery Note`): `sign_document()` resolve o
+`document_code` real via `Portugal Series Configuration` e passa-o a `build_data_to_sign()`
+como override explícito, em vez do valor estático de `DOCUMENT_SIGNING_SPEC` (ver
+[signature.py](portugal_compliance/utils/signature.py), correção documentada no histórico do
+repositório).
 
 > **Total sempre absoluto/positivo.** Uma Nota de Crédito tem valores negativos no ERPNext
 > (`grand_total < 0`); a assinatura usa sempre `abs()` — o sentido (crédito/estorno) é
