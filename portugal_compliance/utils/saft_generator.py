@@ -17,6 +17,15 @@ class SAFTGenerator:
 			"templates", "saft_t"
 		)
 		self.records_count = 0
+		# Contadores por categoria (2026-08-24): records_count sozinho ja
+		# alimentava SAF-T Export Log.total_records, mas as colunas
+		# sales_invoices_count/payment_entries_count do mesmo log nunca
+		# eram escritas em lado nenhum - ficavam sempre a 0 mesmo num
+		# export com faturas reais incluidas. Purchase Invoice/Journal
+		# Entry ficam de fora do ambito deste gerador (nunca contam aqui)
+		# e mantem-se corretamente a 0.
+		self.sales_invoices_count = 0
+		self.payments_count = 0
 
 	def _get_line_tax_rate(self, item_tax_template, invoice_tax_rate=None):
 		"""
@@ -613,6 +622,7 @@ class SAFTGenerator:
 			}))
 
 		self.records_count += len(invoices)
+		self.sales_invoices_count += len(invoices)
 		return list(invoices.values())
 
 	def get_payments_data(self, company, from_date, to_date):
@@ -694,6 +704,7 @@ class SAFTGenerator:
 			payments.append(pe)
 
 		self.records_count += len(payments)
+		self.payments_count += len(payments)
 		return payments
 
 	def render_template(self, context):
@@ -838,6 +849,13 @@ def generate_saft_background(log_name):
 		export_log.file_size = len(saft_xml.encode('utf-8'))
 		export_log.file_hash = generator.generate_file_hash(saft_xml)
 		export_log.total_records = generator.get_records_count()
+		# sales_invoices_count/payment_entries_count nunca eram escritos
+		# antes (2026-08-24) - a UI mostrava sempre 0 mesmo com faturas/
+		# recibos reais incluidos no ficheiro. purchase_invoices_count/
+		# journal_entries_count mantem-se corretamente a 0 (fora do
+		# ambito deste gerador).
+		export_log.sales_invoices_count = generator.sales_invoices_count
+		export_log.payment_entries_count = generator.payments_count
 
 		# Validacao XSD real contra o schema oficial da AT (Requisito 1.4
 		# da auditoria de certificacao 2026-08-24) - antes disto o ficheiro

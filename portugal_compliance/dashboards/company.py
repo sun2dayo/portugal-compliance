@@ -156,10 +156,15 @@ class CompanyDashboard:
 	def get_recent_atcud_logs(self):
 		"""Obtém logs ATCUD recentes da empresa"""
 		try:
+			# 'validation_status' nao existe em ATCUD Log (o campo real
+			# e 'generation_status', com valores "Success"/"Failed" - nao
+			# "Valid") - rebentava com "Unknown column" em todas as
+			# execucoes do scheduled job que chama isto, gerando centenas
+			# de Error Log (apanhado ao vivo, 2026-08-24).
 			logs = frappe.db.get_all('ATCUD Log',
 									 filters={'company': self.company_name},
 									 fields=['name', 'atcud_code', 'document_type',
-											 'document_name', 'creation', 'validation_status'],
+											 'document_name', 'creation', 'generation_status'],
 									 order_by='creation desc',
 									 limit=10
 									 )
@@ -167,7 +172,7 @@ class CompanyDashboard:
 			# Formatar dados
 			for log in logs:
 				log['creation_formatted'] = frappe.utils.format_datetime(log['creation'])
-				log['status_color'] = 'green' if log.get('validation_status') == 'Valid' else 'red'
+				log['status_color'] = 'green' if log.get('generation_status') == 'Success' else 'red'
 
 			return logs
 		except Exception as e:
@@ -330,7 +335,13 @@ class CompanyDashboard:
 			total_count = 0
 
 			for doc_type in document_types:
-				if frappe.db.table_exists(f'tab{doc_type}'):
+				# table_exists() ja acrescenta o prefixo "tab" por dentro -
+				# passar 'tab{doc_type}' verificava a existencia de uma
+				# tabela "tabtabSales Invoice" (que nunca existe), por isso
+				# esta guarda falhava sempre e o total ficava sempre a 0,
+				# independentemente de haver documentos reais no periodo
+				# (apanhado ao vivo: 5 documentos reais devolviam 0).
+				if frappe.db.table_exists(doc_type):
 					count = frappe.db.count(doc_type, {
 						'company': self.company_name,
 						'posting_date': ['>=', first_day],

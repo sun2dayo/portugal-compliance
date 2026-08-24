@@ -819,15 +819,26 @@ function setup_transport_validations(frm) {
 
     // ✅ VALIDAR PESO DOS ITENS
     if (frm.fields_dict.items && frm.fields_dict.items.grid) {
-        frm.fields_dict.items.grid.get_field('weight_per_unit').df.onchange = function() {
-            calculate_total_weight(frm);
-        };
+        // Guarda adicional em .df (2026-08-24): get_field() pode devolver
+        // um wrapper cujo .df ainda nao esta preenchido se o grid ainda
+        // nao renderizou por completo neste refresh - sem isto, atribuir
+        // .onchange rebentava com "Cannot set properties of undefined"
+        // (apanhado ao vivo, console sujo em todos os forms fiscais).
+        var weight_field = frm.fields_dict.items.grid.get_field('weight_per_unit');
+        if (weight_field && weight_field.df) {
+            weight_field.df.onchange = function() {
+                calculate_total_weight(frm);
+            };
+        }
 
         // ✅ VALIDAR QUANTIDADE
-        frm.fields_dict.items.grid.get_field('qty').df.onchange = function() {
-            calculate_total_weight(frm);
-            calculate_total_qty(frm);
-        };
+        var qty_field = frm.fields_dict.items.grid.get_field('qty');
+        if (qty_field && qty_field.df) {
+            qty_field.df.onchange = function() {
+                calculate_total_weight(frm);
+                calculate_total_qty(frm);
+            };
+        }
     }
 }
 

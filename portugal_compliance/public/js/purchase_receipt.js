@@ -874,14 +874,24 @@ function setup_receipt_validations(frm) {
 
     // ✅ VALIDAR QUANTIDADE DOS ITENS
     if (frm.fields_dict.items && frm.fields_dict.items.grid) {
-        frm.fields_dict.items.grid.get_field('qty').df.onchange = function() {
-            calculate_receipt_totals(frm);
-        };
+        // Guarda adicional em .df (2026-08-24): get_field() pode devolver
+        // um wrapper cujo .df ainda nao esta preenchido se o grid ainda
+        // nao renderizou por completo neste refresh - sem isto, atribuir
+        // .onchange rebentava com "Cannot set properties of undefined".
+        var qty_field = frm.fields_dict.items.grid.get_field('qty');
+        if (qty_field && qty_field.df) {
+            qty_field.df.onchange = function() {
+                calculate_receipt_totals(frm);
+            };
+        }
 
         // ✅ VALIDAR RATE
-        frm.fields_dict.items.grid.get_field('rate').df.onchange = function() {
-            calculate_receipt_totals(frm);
-        };
+        var rate_field = frm.fields_dict.items.grid.get_field('rate');
+        if (rate_field && rate_field.df) {
+            rate_field.df.onchange = function() {
+                calculate_receipt_totals(frm);
+            };
+        }
     }
 }
 

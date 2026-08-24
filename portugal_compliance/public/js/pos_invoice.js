@@ -845,9 +845,17 @@ function setup_pos_fiscal_validations(frm) {
 
     // ✅ VALIDAR IMPOSTOS QUANDO MUDAM
     if (frm.fields_dict.taxes && frm.fields_dict.taxes.grid) {
-        frm.fields_dict.taxes.grid.get_field('rate').df.onchange = function() {
-            validate_portuguese_taxes(frm);
-        };
+        // Guarda adicional em .df (2026-08-24): get_field() pode devolver
+        // um wrapper cujo .df ainda nao esta preenchido se o grid ainda
+        // nao renderizou por completo neste refresh - sem isto, atribuir
+        // .onchange rebentava com "Cannot set properties of undefined"
+        // (apanhado ao vivo, console sujo em todos os forms fiscais).
+        var rate_field = frm.fields_dict.taxes.grid.get_field('rate');
+        if (rate_field && rate_field.df) {
+            rate_field.df.onchange = function() {
+                validate_portuguese_taxes(frm);
+            };
+        }
     }
 
     // ✅ VALIDAR TOTAL QUANDO MUDA

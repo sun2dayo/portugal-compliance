@@ -1701,7 +1701,10 @@ function setup_company_validations(frm) {
      */
 
     // ✅ VALIDAÇÃO DE NIF
-    if (frm.fields_dict.tax_id) {
+    // Guarda adicional em .df (2026-08-24): field wrapper pode existir
+    // sem .df ainda preenchido nalguns refreshes - sem isto, atribuir
+    // .onchange rebentava com "Cannot set properties of undefined".
+    if (frm.fields_dict.tax_id && frm.fields_dict.tax_id.df) {
         frm.fields_dict.tax_id.df.onchange = function() {
             if (frm.doc.country === 'Portugal' && frm.doc.tax_id) {
                 validate_portuguese_nif(frm, frm.doc.tax_id);
@@ -1710,7 +1713,7 @@ function setup_company_validations(frm) {
     }
 
     // ✅ VALIDAÇÃO DE ABREVIATURA
-    if (frm.fields_dict.abbr) {
+    if (frm.fields_dict.abbr && frm.fields_dict.abbr.df) {
         frm.fields_dict.abbr.df.onchange = function() {
             if (frm.doc.abbr) {
                 validate_company_abbreviation(frm);

@@ -831,13 +831,23 @@ function setup_accounting_validations(frm) {
 
     // ✅ VALIDAR VALORES DOS LANÇAMENTOS
     if (frm.fields_dict.accounts && frm.fields_dict.accounts.grid) {
-        frm.fields_dict.accounts.grid.get_field('debit').df.onchange = function() {
-            validate_journal_balance(frm);
-        };
+        // Guarda adicional em .df (2026-08-24): get_field() pode devolver
+        // um wrapper cujo .df ainda nao esta preenchido se o grid ainda
+        // nao renderizou por completo neste refresh - sem isto, atribuir
+        // .onchange rebentava com "Cannot set properties of undefined".
+        var debit_field = frm.fields_dict.accounts.grid.get_field('debit');
+        if (debit_field && debit_field.df) {
+            debit_field.df.onchange = function() {
+                validate_journal_balance(frm);
+            };
+        }
 
-        frm.fields_dict.accounts.grid.get_field('credit').df.onchange = function() {
-            validate_journal_balance(frm);
-        };
+        var credit_field = frm.fields_dict.accounts.grid.get_field('credit');
+        if (credit_field && credit_field.df) {
+            credit_field.df.onchange = function() {
+                validate_journal_balance(frm);
+            };
+        }
     }
 }
 

@@ -78,10 +78,16 @@ def check_database_connectivity():
 		frappe.db.sql("SELECT 1")
 
 		# Verificar se tabelas críticas existem
+		# table_exists() ja acrescenta o prefixo "tab" por dentro - esta
+		# lista tinha o prefixo escrito a mais, pelo que a verificacao
+		# procurava por "tabtabPortugal Series Configuration" (nunca
+		# existe) e falhava sempre, gerando um "Critical table missing"
+		# falso a cada execucao do scheduler (apanhado ao vivo,
+		# 2026-08-24 - centenas de Error Log acumulados por isto).
 		critical_tables = [
-			"tabPortugal Series Configuration",
-			"tabATCUD Log",
-			"tabSAF-T Export Log"
+			"Portugal Series Configuration",
+			"ATCUD Log",
+			"SAF-T Export Log"
 		]
 
 		for table in critical_tables:

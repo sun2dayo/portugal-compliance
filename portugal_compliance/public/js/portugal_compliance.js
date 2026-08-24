@@ -769,7 +769,11 @@ window.portugal_compliance = {
 
 		setup_realtime_validations: function(frm) {
 			// ✅ USAR EVENTOS NATIVOS DO FRAPPE
-			if (frm.fields_dict.tax_id) {
+			// Guarda adicional em .df (2026-08-24): field wrapper pode
+			// existir sem .df ainda preenchido nalguns refreshes - sem
+			// isto, atribuir .onchange rebentava com "Cannot set
+			// properties of undefined".
+			if (frm.fields_dict.tax_id && frm.fields_dict.tax_id.df) {
 				frm.fields_dict.tax_id.df.onchange = function() {
 					if (frm.doc.tax_id && frm.doc.country === 'Portugal') {
 						portugal_compliance.validate_nif_realtime(frm);
@@ -777,7 +781,7 @@ window.portugal_compliance = {
 				};
 			}
 
-			if (frm.fields_dict.at_certificate_number) {
+			if (frm.fields_dict.at_certificate_number && frm.fields_dict.at_certificate_number.df) {
 				frm.fields_dict.at_certificate_number.df.onchange = function() {
 					if (frm.doc.at_certificate_number) {
 						portugal_compliance.validate_certificate_realtime(frm);
