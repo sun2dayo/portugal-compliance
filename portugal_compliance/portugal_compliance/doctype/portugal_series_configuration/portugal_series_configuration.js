@@ -385,26 +385,18 @@ function add_document_type_section(frm) {
     if (!doc_info) return;
 
     let doc_html = `
-        <div class="document-type-section" style="
-            background: #fff3e0;
-            border: 1px solid #ff9800;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #e65100;">
-                📄 Informações do Tipo de Documento
-            </h6>
+        <div class="document-type-section p-3 border rounded text-muted">
+            <h6 class="section-head" style="padding: 0; margin-bottom: 10px;">${__('Informações do Tipo de Documento')}</h6>
             <div class="row">
-                <div class="col-md-6">
-                    <strong>Código:</strong> ${doc_info.code}<br>
-                    <strong>Nome:</strong> ${doc_info.name}<br>
-                    <strong>Comunicação:</strong> ${doc_info.communication_required ? 'Obrigatória' : 'Opcional'}
+                <div class="col-sm-6">
+                    <strong>${__('Código')}:</strong> ${doc_info.code}<br>
+                    <strong>${__('Nome')}:</strong> ${doc_info.name}<br>
+                    <strong>${__('Comunicação')}:</strong> ${doc_info.communication_required ? __('Obrigatória') : __('Opcional')}
                 </div>
-                <div class="col-md-6">
-                    <strong>ATCUD:</strong> ${doc_info.atcud_required ? 'Obrigatório' : 'Opcional'}<br>
-                    <strong>Descrição:</strong> ${doc_info.description}<br>
-                    ${doc_info.nif_limit ? `<strong>Limite s/ NIF:</strong> €${doc_info.nif_limit}` : ''}
+                <div class="col-sm-6">
+                    <strong>ATCUD:</strong> ${doc_info.atcud_required ? __('Obrigatório') : __('Opcional')}<br>
+                    <strong>${__('Descrição')}:</strong> ${doc_info.description}<br>
+                    ${doc_info.nif_limit ? `<strong>${__('Limite s/ NIF')}:</strong> €${doc_info.nif_limit}` : ''}
                 </div>
             </div>
         </div>
@@ -493,12 +485,15 @@ function add_custom_buttons(frm) {
         }, __('Portugal Compliance'));
     }
 
-    // ✅ BOTÃO PARA TESTAR SÉRIE
-    if (frm.doc.naming_series) {
-        frm.add_custom_button(__('Testar Série'), function() {
-            test_series_generation(frm);
-        }, __('Testes'));
-    }
+    // Botão "Testar Série" (grupo "Testes") removido (2026-08-24):
+    // chamava portugal_compliance.utils.series_adapter.test_series_generation,
+    // função que nunca existiu nesse módulo (series_adapter.py é um dos
+    // ficheiros nunca executados desta app - ver
+    // manual_estrutura_tecnica.md, secção 5.A) - todo o clique
+    // resultava em "Failed to get method for command [...] has no
+    // attribute 'test_series_generation'". O motor fiscal já está
+    // selado e testado no core; não precisa de um botão de teste
+    // órfão na interface.
 
     // ✅ BOTÃO PARA VER DOCUMENTOS
     if (frm.doc.total_documents_issued > 0) {
@@ -936,63 +931,9 @@ function anular_serie_na_at(frm) {
     dialog.show();
 }
 
-function test_series_generation(frm) {
-    /**
-     * Testar geração da série
-     */
-
-    frappe.call({
-        method: 'portugal_compliance.utils.series_adapter.test_series_generation',
-        args: {
-            series_config: frm.doc.name
-        },
-        callback: function(r) {
-            if (r.message) {
-                show_test_results_dialog(frm, r.message);
-            }
-        }
-    });
-}
-
-function show_test_results_dialog(frm, test_results) {
-    /**
-     * Mostrar resultados do teste
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Resultados do Teste'),
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'test_results'
-            }
-        ]
-    });
-
-    let html = `
-        <div class="test-results">
-            <h5>Teste da Série: ${frm.doc.series_name}</h5>
-
-            <table class="table table-bordered">
-                <tr><td><strong>Prefixo:</strong></td><td>${frm.doc.prefix}</td></tr>
-                <tr><td><strong>Naming Series:</strong></td><td>${frm.doc.naming_series}</td></tr>
-                <tr><td><strong>Próximo Número:</strong></td><td>${test_results.next_number}</td></tr>
-                <tr><td><strong>ATCUD Exemplo:</strong></td><td>${test_results.sample_atcud}</td></tr>
-                <tr><td><strong>Status:</strong></td><td style="color: ${test_results.valid ? 'green' : 'red'}">${test_results.valid ? 'Válido' : 'Inválido'}</td></tr>
-            </table>
-
-            ${test_results.issues && test_results.issues.length > 0 ? `
-                <h6>Problemas Encontrados:</h6>
-                <ul>
-                    ${test_results.issues.map(issue => `<li style="color: red;">${issue}</li>`).join('')}
-                </ul>
-            ` : '<p style="color: green;">✅ Nenhum problema encontrado</p>'}
-        </div>
-    `;
-
-    dialog.fields_dict.test_results.$wrapper.html(html);
-    dialog.show();
-}
+// test_series_generation()/show_test_results_dialog() removidas
+// (2026-08-24) - único uso era o botão "Testar Série" e o atalho
+// Ctrl+T, ambos removidos (ver nota em add_custom_buttons).
 
 function view_series_documents(frm) {
     /**
@@ -1331,18 +1272,8 @@ function setup_keyboard_shortcuts(frm) {
      * Configurar atalhos de teclado
      */
 
-    // ✅ CTRL+T para testar série
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+t',
-        action: () => {
-            if (frm.doc.naming_series) {
-                test_series_generation(frm);
-            }
-        },
-        description: __('Testar Série'),
-        ignore_inputs: true,
-        page: frm.page
-    });
+    // Atalho Ctrl+T removido (2026-08-24) junto com o botão "Testar
+    // Série" - chamava a mesma função de backend inexistente.
 
     // ✅ CTRL+C para comunicar
     frappe.ui.keys.add_shortcut({
