@@ -771,7 +771,10 @@ function add_custom_buttons(frm) {
     if (frm.doc.__islocal || frm.doc.country !== 'Portugal' || !frm.doc.portugal_compliance_enabled) return;
 
     // ✅ GRUPO: Portugal Compliance (RESTAURADOS)
-    frm.add_custom_button(__('Configurar Séries'), function() {
+    // "Gerar Séries Base" (renomeado de "Configurar Séries" - 2026-08-24):
+    // o nome deixa claro que é uma ação de escrita (cria séries via API),
+    // distinta de "Ver Séries" (grupo Relatórios), que é navegação pura.
+    frm.add_custom_button(__('Gerar Séries Base'), function() {
         setup_portugal_series_manual(frm);
     }, __('Portugal Compliance'));
 
@@ -779,8 +782,12 @@ function add_custom_buttons(frm) {
         check_compliance_status(frm);
     }, __('Portugal Compliance'));
 
+    // "Estatísticas" passou a navegar direto para o Dashboard AT
+    // (2026-08-24) em vez de abrir um dialog próprio - evita manter
+    // duas vistas de estatísticas em paralelo (o Dashboard AT é mais
+    // rico e é o local central de informação fiscal).
     frm.add_custom_button(__('Estatísticas'), function() {
-        show_series_statistics(frm);
+        frappe.set_route('compliance-dashboard');
     }, __('Portugal Compliance'));
 
     // Configurações Avançadas: deixou de ser um dialog próprio nesta
@@ -1362,6 +1369,11 @@ function setup_portugal_series_manual(frm) {
                             indicator: 'green'
                         });
                         frm.reload_doc();
+                        // Navegar automaticamente para a lista filtrada -
+                        // une "criar" e "ver o que foi criado" num só clique.
+                        frappe.set_route('List', 'Portugal Series Configuration', {
+                            'company': frm.doc.name
+                        });
                     } else {
                         frappe.msgprint({
                             title: __('Erro'),
@@ -1464,130 +1476,10 @@ function show_compliance_dialog(frm, compliance_data) {
     dialog.show();
 }
 
-function show_series_statistics(frm) {
-    /**
-     * Mostrar estatísticas detalhadas das séries
-     */
-
-    frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-            doctype: 'Portugal Series Configuration',
-            filters: {
-                company: frm.doc.name
-            },
-            fields: ['document_type', 'prefix', 'is_active', 'is_communicated', 'total_documents_issued'],
-            order_by: 'document_type'
-        },
-        freeze: true,
-        freeze_message: __('Carregando estatísticas...'),
-        callback: function(r) {
-            if (r.message) {
-                show_statistics_dialog(frm, r.message);
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('Erro ao carregar estatísticas:', error);
-            frappe.msgprint({
-                title: __('Erro'),
-                message: __('Erro ao carregar estatísticas: {0}', [error]),
-                indicator: 'red'
-            });
-        }
-    });
-}
-
-function show_statistics_dialog(frm, series_data) {
-    /**
-     * Mostrar dialog com estatísticas detalhadas
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Estatísticas Detalhadas'),
-        size: 'large',
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'statistics_info'
-            }
-        ]
-    });
-
-    let total_series = series_data.length;
-    let active_series = series_data.filter(s => s.is_active).length;
-    let communicated_series = series_data.filter(s => s.is_communicated).length;
-    let total_documents = series_data.reduce((sum, s) => sum + (s.total_documents_issued || 0), 0);
-
-    let html = `
-        <div class="statistics-info">
-            <h5>Estatísticas da Empresa</h5>
-            <div class="row">
-                <div class="col-md-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h6>Total Séries</h6>
-                            <h3>${total_series}</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h6>Séries Ativas</h6>
-                            <h3>${active_series}</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h6>Comunicadas</h6>
-                            <h3>${communicated_series}</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h6>Documentos</h6>
-                            <h3>${total_documents}</h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <h6 class="mt-4">Detalhes por Série</h6>
-            <table class="table table-striped">
-                <thead>
-                    <tr><th>Prefixo</th><th>Tipo</th><th>Status</th><th>Comunicada</th><th>Documentos</th></tr>
-                </thead>
-                <tbody>
-    `;
-
-    series_data.forEach(function(series) {
-        let status = series.is_active ? '✅ Ativa' : '❌ Inativa';
-        let communicated = series.is_communicated ? '✅ Sim' : '⚠️ Não';
-
-        html += `
-            <tr>
-                <td><strong>${series.prefix}</strong></td>
-                <td>${get_document_type_display(series.document_type)}</td>
-                <td>${status}</td>
-                <td>${communicated}</td>
-                <td>${series.total_documents_issued || 0}</td>
-            </tr>
-        `;
-    });
-
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
-
-    dialog.fields_dict.statistics_info.$wrapper.html(html);
-    dialog.show();
-}
+// show_series_statistics()/show_statistics_dialog() removidas
+// (2026-08-24): o botão "Estatísticas" passou a navegar direto para
+// compliance-dashboard (Dashboard AT) em vez de abrir este dialog -
+// evita duas vistas de estatísticas em paralelo a manter.
 
 // show_advanced_settings()/save_advanced_settings() removidas
 // (2026-08-24): o dialog nunca funcionou de facto -
