@@ -42,6 +42,36 @@
             "default": 1
         },
         {
+            "fieldname": "series_validation_section",
+            "fieldtype": "Section Break",
+            "label": "Séries e Validação de NIF"
+        },
+        {
+            "fieldname": "auto_create_series",
+            "label": "Criar séries automaticamente",
+            "fieldtype": "Check",
+            "default": "1",
+            "description": "Ao ativar Portugal Compliance numa empresa, criar automaticamente as séries base (Fatura Venda, Fatura POS, Recibo, Guia de Transporte). Se desativado, as séries têm de ser criadas manualmente (botão \"Configurar Séries\" na Empresa)."
+        },
+        {
+            "fieldname": "validate_nif",
+            "label": "Validar NIF",
+            "fieldtype": "Check",
+            "default": "1",
+            "description": "Avisar (sem bloquear a gravação) quando o NIF de um Cliente ou Fornecedor português não passa o algoritmo de validação oficial (módulo 11)."
+        },
+        {
+            "fieldname": "series_validation_column_break",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "require_customer_nif",
+            "label": "Exigir NIF do Cliente",
+            "fieldtype": "Check",
+            "default": "0",
+            "description": "Bloquear a gravação de um Cliente português sem NIF preenchido. Mantenha desativado para permitir vendas a consumidor final sem NIF (retalho/POS) - nesses casos o sistema usa automaticamente o NIF genérico 999999990 no QR Code e no SAF-T."
+        },
+        {
             "fieldname": "session_tokens",
             "label": "Session Tokens",
             "fieldtype": "Table",

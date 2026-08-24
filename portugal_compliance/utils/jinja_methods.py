@@ -1121,7 +1121,16 @@ def get_qr_code_data(doctype=None, docname=None, doc=None):
 
 		# ✅ DADOS BÁSICOS DO QR CODE CONFORME LEGISLAÇÃO PORTUGUESA
 		company_nif = get_company_nif(getattr(doc, 'company', ''))
-		customer_nif = get_customer_nif(doc) or get_supplier_nif(doc)
+		# Campo B (NIF do adquirente): quando o cliente/fornecedor não
+		# tem NIF preenchido, a Especificação Técnica - Código QR
+		# (Portaria 195/2020) exige o NIF genérico "Consumidor Final"
+		# 999999990, nunca um campo vazio - mesma convenção já usada em
+		# saft_generator (CustomerTaxID) e em at_invoice_webservice.py/
+		# at_transport_webservice.py (CustomerTaxID no RegisterInvoice/
+		# envioDocumentoTransporte). Um NIF real já preenchido nunca é
+		# afetado (or só atua quando as duas chamadas anteriores
+		# devolvem "").
+		customer_nif = get_customer_nif(doc) or get_supplier_nif(doc) or "999999990"
 
 		# Discriminação real de base/imposto por código AT e por praça
 		# fiscal (PT/PT-AC/PT-MA) - antes só existia uma praça implícita

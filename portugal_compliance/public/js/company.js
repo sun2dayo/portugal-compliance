@@ -778,9 +778,16 @@ function add_custom_buttons(frm) {
         show_series_statistics(frm);
     }, __('Portugal Compliance'));
 
-    // ✅ RESTAURADO: Configurações Avançadas
+    // Configurações Avançadas: deixou de ser um dialog próprio nesta
+    // Company (2026-08-24) - o dialog nunca funcionou de facto
+    // (save_advanced_settings gravava num safe_fields que descartava
+    // as 4 checkboxes silenciosamente) e ficava condicionado a
+    // Portugal Compliance já estar ativo. As 3 configurações
+    // funcionais (série automática, validar NIF, exigir NIF) passaram
+    // a campos reais em Portugal Auth Settings - acessível mesmo antes
+    // de ativar compliance na Empresa.
     frm.add_custom_button(__('Configurações Avançadas'), function() {
-        show_advanced_settings(frm);
+        frappe.set_route('Form', 'Portugal Auth Settings');
     }, __('Portugal Compliance'));
 
     // ✅ GRUPO: Comunicação AT (CORRIGIDO)
@@ -1577,100 +1584,19 @@ function show_statistics_dialog(frm, series_data) {
     dialog.show();
 }
 
-function show_advanced_settings(frm) {
-    /**
-     * Mostrar configurações avançadas
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Configurações Avançadas Portugal Compliance'),
-        fields: [
-            {
-                fieldtype: 'Section Break',
-                label: __('Configurações de Séries')
-            },
-            {
-                fieldtype: 'Check',
-                fieldname: 'auto_create_series',
-                label: __('Criar séries automaticamente'),
-                default: 1,
-                description: __('Criar séries portuguesas automaticamente ao ativar compliance')
-            },
-            {
-                fieldtype: 'Check',
-                fieldname: 'auto_generate_atcud',
-                label: __('Gerar ATCUD automaticamente'),
-                default: 1,
-                description: __('Gerar ATCUD automaticamente para documentos')
-            },
-            {
-                fieldtype: 'Section Break',
-                label: __('Validações')
-            },
-            {
-                fieldtype: 'Check',
-                fieldname: 'validate_nif',
-                label: __('Validar NIF'),
-                default: 1,
-                description: __('Validar formato de NIF português')
-            },
-            {
-                fieldtype: 'Check',
-                fieldname: 'require_customer_nif',
-                label: __('Exigir NIF do cliente'),
-                default: 0,
-                description: __('Tornar NIF obrigatório para clientes')
-            }
-        ],
-        primary_action_label: __('Salvar Configurações'),
-        primary_action: function(values) {
-            save_advanced_settings(frm, values);
-            dialog.hide();
-        }
-    });
-
-    dialog.show();
-}
-
-function save_advanced_settings(frm, settings) {
-    /**
-     * ✅ CORRIGIDO: Salvar configurações avançadas usando API whitelisted
-     */
-
-    frappe.call({
-        method: 'portugal_compliance.api.company_api.save_company_settings',
-        args: {
-            company_settings: {
-                company: frm.doc.name,
-                ...settings
-            }
-        },
-        freeze: true,
-        freeze_message: __('Salvando configurações...'),
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frappe.show_alert({
-                    message: __('Configurações salvas com sucesso'),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint({
-                    title: __('Erro'),
-                    message: r.message ? r.message.error : __('Erro ao salvar configurações'),
-                    indicator: 'red'
-                });
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('Erro ao salvar configurações:', error);
-            frappe.msgprint({
-                title: __('Erro de Comunicação'),
-                message: __('Erro ao comunicar com servidor: {0}', [error]),
-                indicator: 'red'
-            });
-        }
-    });
-}
+// show_advanced_settings()/save_advanced_settings() removidas
+// (2026-08-24): o dialog nunca funcionou de facto -
+// save_company_settings > save_general_settings_safe tinha
+// safe_fields = ['portugal_compliance_enabled'], por isso as 4
+// checkboxes eram sempre descartadas silenciosamente e nenhuma delas
+// era lida em lado nenhum do backend; "Configurações salvas com
+// sucesso" era sempre um falso positivo. "Gerar ATCUD automaticamente"
+// foi eliminada por completo (nunca pode ser opcional - violaria a
+// Portaria 195/2020 e reabriria o bug do "rascunho zombie" corrigido
+// em generate_atcud_on_submit). As outras 3 passaram a campos reais
+// em Portugal Auth Settings (auto_create_series, validate_nif,
+// require_customer_nif), com lógica implementada em
+// document_hooks.py.
 
 // ========== FUNÇÕES AUXILIARES ==========
 

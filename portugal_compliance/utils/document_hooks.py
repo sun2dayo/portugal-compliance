@@ -256,8 +256,16 @@ class PortugalComplianceDocumentHooks:
 		"""Executar todas as configurações de compliance"""
 		results = {}
 
-		# 1. Criar séries
-		results['series'] = self._create_dynamic_portugal_series_certified(doc)
+		# 1. Criar séries (Portugal Auth Settings > "Criar séries
+		# automaticamente", default ativo - mantém o comportamento
+		# histórico incondicional; só passa a poder ser desligado pelo
+		# administrador, para pré-configurar o ambiente antes de criar
+		# séries manualmente via "Configurar Séries").
+		auth_settings = frappe.get_single("Portugal Auth Settings")
+		if cint(auth_settings.get("auto_create_series", 1)):
+			results['series'] = self._create_dynamic_portugal_series_certified(doc)
+		else:
+			results['series'] = {"success": True, "created": 0, "skipped": True}
 
 		# 2. Configurar naming series
 		if results['series'].get("success") and results['series'].get("created", 0) > 0:
@@ -690,17 +698,77 @@ class PortugalComplianceDocumentHooks:
 			frappe.log_error(f"Erro em validate_portugal_compliance_light: {str(e)}")
 
 	def validate_customer_nif(self, doc, method=None):
-		"""Valida o formato do NIF do cliente quando fornecido."""
+		"""Valida o formato do NIF do cliente quando fornecido e, se
+		Portugal Auth Settings > "Exigir NIF do Cliente" estiver ativo,
+		bloqueia a gravação de um Cliente português sem NIF."""
 		self._validate_party_nif(doc, "Customer")
+		self._enforce_required_customer_nif(doc)
 
 	def validate_supplier_nif(self, doc, method=None):
 		"""Valida o formato do NIF do fornecedor quando fornecido."""
 		self._validate_party_nif(doc, "Supplier")
 
+	def _is_portuguese_party(self, doc, party_type):
+		"""
+		Determina se um Customer/Supplier é português, para restringir a
+		validação de NIF a esses casos (Portugal Auth Settings >
+		"Validar NIF"/"Exigir NIF do Cliente").
+
+		Supplier tem campo `country` direto. Customer não tem - o país
+		só existe no endereço primário ligado (`customer_primary_address`
+		-> Address.country). Quando não é possível determinar (sem
+		endereço ainda, ex: cliente recém-criado), assume-se português
+		por omissão - preserva o comportamento anterior a esta alteração
+		(que corria sempre, sem qualquer filtro de país) em vez de deixar
+		de validar clientes portugueses só por ainda não terem morada.
+		"""
+		if party_type == "Supplier":
+			country = getattr(doc, 'country', None)
+			return not country or country == "Portugal"
+
+		address = getattr(doc, 'customer_primary_address', None)
+		if not address:
+			return True
+
+		country = frappe.db.get_value("Address", address, "country")
+		return not country or country == "Portugal"
+
+	def _enforce_required_customer_nif(self, doc):
+		auth_settings = frappe.get_single("Portugal Auth Settings")
+		if not cint(auth_settings.get("require_customer_nif")):
+			return
+
+		if getattr(doc, 'tax_id', None):
+			return
+
+		if not self._is_portuguese_party(doc, "Customer"):
+			return
+
+		frappe.throw(
+			_("NIF é obrigatório para clientes portugueses (Portugal Auth Settings > \"Exigir NIF do Cliente\")."),
+			title=_("NIF em Falta"),
+		)
+
 	def _validate_party_nif(self, doc, party_type):
 		try:
 			tax_id = getattr(doc, 'tax_id', None)
 			if not tax_id:
+				return
+
+			auth_settings = frappe.get_single("Portugal Auth Settings")
+			if not cint(auth_settings.get("validate_nif", 1)):
+				return
+
+			# 999999990 é o NIF genérico legal ("Consumidor Final") usado
+			# quando não há NIF real - já passa o módulo 11 por
+			# construção (confirmado: dígitos 9x8 dão resto 0, dígito de
+			# controlo 0), mas ignorado aqui explicitamente para não
+			# depender disso caso o algoritmo mude no futuro.
+			nif_clean = re.sub(r'\D', '', str(tax_id))
+			if nif_clean == '999999990':
+				return
+
+			if not self._is_portuguese_party(doc, party_type):
 				return
 
 			from portugal_compliance.regional.portugal import validate_portuguese_nif_safe
