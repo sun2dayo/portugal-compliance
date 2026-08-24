@@ -209,8 +209,13 @@ def update_active_series_cache():
 
 			series_by_company[company][doc_type].append(series)
 
-		# Armazenar no cache
-		frappe.cache.set("portugal_compliance_active_series", series_by_company,
+		# Armazenar no cache. frappe.cache.set() (cliente Redis cru,
+		# BasicKeyCommands.set()) so aceita str/int/float/bytes - nao
+		# serializa dicts/listas automaticamente. frappe.cache().set_value()
+		# e o wrapper de alto nivel que faz essa serializacao (o mesmo
+		# padrao ja usado em atcud_generator.py/overrides/sales_invoice.py/
+		# regional/portugal.py) - so ele aceita "expires_in_sec".
+		frappe.cache().set_value("portugal_compliance_active_series", series_by_company,
 						 expires_in_sec=3600)
 
 	except Exception as e:
@@ -231,7 +236,7 @@ def update_configurations_cache():
 													  fields=["name", "company_name", "tax_id"]
 													  )
 
-		frappe.cache.set("portugal_compliance_companies", companies_with_compliance,
+		frappe.cache().set_value("portugal_compliance_companies", companies_with_compliance,
 						 expires_in_sec=3600)
 
 		# Cache de configurações globais
@@ -241,7 +246,7 @@ def update_configurations_cache():
 			"system_status": "active"
 		}
 
-		frappe.cache.set("portugal_compliance_global_config", global_config, expires_in_sec=3600)
+		frappe.cache().set_value("portugal_compliance_global_config", global_config, expires_in_sec=3600)
 
 	except Exception as e:
 		frappe.log_error(f"Configurations cache update failed: {str(e)}")
@@ -276,7 +281,7 @@ def log_system_metrics():
 		}
 
 		# Armazenar métricas no cache (apenas para consulta rápida)
-		frappe.cache.set("portugal_compliance_daily_metrics", metrics, expires_in_sec=86400)
+		frappe.cache().set_value("portugal_compliance_daily_metrics", metrics, expires_in_sec=86400)
 
 		# Log apenas se houver atividade significativa
 		if metrics["atcud_generated_today"] > 0 or metrics["series_communicated_today"] > 0:

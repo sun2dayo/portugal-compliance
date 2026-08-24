@@ -1064,10 +1064,13 @@ def update_series_statistics(series_name):
 			"docstatus": ["!=", 2]
 		})
 
-		# Atualizar estatísticas
+		# Atualizar estatísticas. "last_statistics_update" nunca existiu
+		# como campo real em Portugal Series Configuration - estava a
+		# fazer todo este UPDATE falhar (MySQL rejeita a instrução
+		# inteira por causa da coluna inexistente), incluindo a escrita
+		# de total_documents_issued, que é um campo real.
 		frappe.db.set_value("Portugal Series Configuration", series_name, {
-			"total_documents_issued": total_docs,
-			"last_statistics_update": now()
+			"total_documents_issued": total_docs
 		}, update_modified=False)
 
 	except Exception as e:

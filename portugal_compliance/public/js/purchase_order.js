@@ -1384,15 +1384,6 @@ function prepare_portugal_compliance_data(frm) {
      * Preparar dados para compliance antes do save
      */
 
-    // ✅ DEFINIR CAMPOS DE COMPLIANCE
-    if (!frm.doc.portugal_compliance_status && frm.doc.naming_series) {
-        if (is_portuguese_naming_series(frm.doc.naming_series)) {
-            frm.doc.portugal_compliance_status = 'Pending';
-        } else {
-            frm.doc.portugal_compliance_status = 'Non-Compliant';
-        }
-    }
-
     // ✅ CALCULAR BREAKDOWN DE IMPOSTOS
     let tax_info = calculate_tax_breakdown(frm);
     if (tax_info.total_tax > 0) {
