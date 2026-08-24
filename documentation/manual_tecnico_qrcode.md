@@ -131,6 +131,31 @@ idêntico ao exemplo oficial da especificação (`G:FT AB2019/0035`). **Defeito 
 versão anterior usava `doc.name` diretamente (`"FT2026N0019"`), sem espaço nem barra — não
 batia com o formato exigido.
 
+### 3.4. Campo `B` — NIF do Adquirente e o Fallback para Consumidor Final (2026-08-24)
+
+```python
+customer_nif = get_customer_nif(doc) or get_supplier_nif(doc) or "999999990"
+```
+
+**Defeito corrigido**: `get_customer_nif(doc)`/`get_supplier_nif(doc)` devolvem `""` quando o
+Cliente/Fornecedor não tem `tax_id` preenchido — cenário comum em vendas de retalho/POS a
+consumidor final, onde pedir o NIF não é obrigatório. Antes desta correção, o campo `B` ficava
+vazio nesses casos; a Especificação Técnica - Código QR (Portaria 195/2020) exige o NIF
+genérico **"Consumidor Final" `999999990`**, nunca um campo vazio. O `or` só atua quando as
+duas chamadas anteriores devolvem `""` — um NIF real (B2B) nunca é substituído, testado ao vivo
+atribuindo temporariamente um NIF a um Customer e confirmando que o campo `B` refletia esse
+valor sem interferência do *fallback*.
+
+Mesma convenção já aplicada, de forma independente, em dois outros pontos do módulo:
+`CustomerTaxID` no SAF-T (`saft_generator.py`, via `{{ customer.tax_id or '999999990' }}` no
+template `master_files.xml`) e `CustomerTaxID` no registo em tempo real à AT
+(`at_invoice_webservice.py`/`at_transport_webservice.py`, via `doc.tax_id or "999999990"`).
+Note-se que `999999990` passa validamente o algoritmo de módulo 11 por construção (dígitos
+`9×8` somam um resto 0, dígito de controlo `0`) — não precisa de exceção no validador de NIF
+(`Portugal Auth Settings` › **Validar NIF**, ver
+[manual_tecnico_schema_dados.md](manual_tecnico_schema_dados.md)), que já o ignora
+explicitamente por comparação direta da string, não por confiar nesse resultado do cálculo.
+
 ---
 
 ## 4. Praça Fiscal: Continente, Açores, Madeira

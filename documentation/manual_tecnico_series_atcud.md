@@ -85,6 +85,30 @@ frappe.db.set_value("Portugal Series Configuration", doc.name, {
 > emitidos sob a mesma série partilham o mesmo `validation_code`; o que os distingue é a
 > sequência.
 
+### 2.5. Imutabilidade Pós-Comunicação (2026-08-24)
+
+Assim que `is_communicated` passa a `1`, os campos que identificam a série perante a AT ficam
+imutáveis — alterá-los depois de comunicada desalinharia a geração local do ATCUD do que a AT
+validou em `registarSerie`, corrompendo a cadeia de assinatura sem que a AT tivesse
+conhecimento da mudança. Bloqueio em duas camadas:
+
+- **Client-side** (`portugal_series_configuration.js::enforce_communicated_series_
+  immutability`, chamado no `refresh`): marca `read_only` os campos `company`,
+  `document_type`, `prefix`, `naming_series`, `validation_code`, `at_environment`,
+  `is_communicated`, `communication_date` e `is_active` quando `is_communicated === 1`. Só UX —
+  não é a autoridade real.
+- **Server-side** (`document_hooks.py::_enforce_communicated_series_immutability`, chamada a
+  partir de `validate_series_configuration`): compara os mesmos 9 campos contra o estado
+  imediatamente anterior à gravação (`doc.get_doc_before_save()`) e bloqueia com
+  `frappe.throw()` se algum mudou — mas só quando o valor *anterior* de `is_communicated` já
+  era `1`. A própria transição de `0` para `1` (a comunicação em si, feita pelo `frappe.db.
+  set_value()` acima) nunca é bloqueada, porque nesse momento o valor anterior ainda é `0`.
+
+`is_active` está incluído deliberadamente: o estado de uma série comunicada só deve mudar
+através de **Finalizar Série na AT** ou **Anular Série na AT** (secção 5) — ambos gravam com
+`frappe.db.set_value()` direto, nunca passam por `validate()`, por isso não ficam bloqueados
+por este mecanismo.
+
 ---
 
 ## 3. Fase 2 — Assinatura Digital e ATCUD (Emissão)

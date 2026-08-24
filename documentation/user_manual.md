@@ -79,21 +79,35 @@ Tributária: credenciais, certificados e o modo sandbox/produção.
      sistema nunca as mistura automaticamente.
    - **Sandbox Mode**: mantenha marcado enquanto estiver a testar. Isto garante que todas as
      comunicações com a AT vão para o ambiente de sandbox, não para produção.
-4. Na secção **Chave de Assinatura de Documentos (RSA-SHA1)**:
+4. Na secção **Séries e Validação de NIF** (opções transferidas do antigo diálogo
+   "Configurações Avançadas" da Company, que foi eliminado por nunca ter funcionado de facto —
+   ficam agora acessíveis aqui, mesmo antes de ativar o Portugal Compliance em qualquer
+   empresa):
+   - **Criar séries automaticamente** (ativo por omissão): ao ativar o Portugal Compliance
+     numa empresa, cria automaticamente as séries base (Fatura, Fatura Simplificada, Recibo,
+     Guia de Remessa). Se desativado, as séries têm de ser criadas manualmente (botão **Gerar
+     Séries Base** na Empresa, ver Passo 3).
+   - **Validar NIF** (ativo por omissão): avisa (sem bloquear a gravação) quando o NIF de um
+     Cliente ou Fornecedor português não passa o algoritmo de validação oficial (módulo 11).
+   - **Exigir NIF do Cliente** (inativo por omissão): bloqueia a gravação de um Cliente
+     português sem NIF preenchido. Mantenha desativado para permitir vendas a consumidor final
+     sem NIF (retalho/POS) — nesses casos o sistema usa automaticamente o NIF genérico
+     `999999990` no QR Code e no SAF-T (ver secção sobre o campo B do QR Code).
+5. Na secção **Chave de Assinatura de Documentos (RSA-SHA1)**:
    - **Caminho da Chave Privada (PEM)**: caminho da chave privada RSA usada para assinar
      digitalmente cada documento emitido. É distinta do certificado do webservice.
    - **Password da Chave Privada**: se a chave estiver protegida por password.
    - **Versão da Chave**: um identificador texto livre (ex. `TESTE-1`) usado para auditoria —
      permite saber, em cada documento assinado, com que versão da chave foi assinado, o que é
      essencial se algum dia rodar a chave.
-5. Na secção **Credenciais do Webservice da AT (WS-Security)**:
+6. Na secção **Credenciais do Webservice da AT (WS-Security)**:
    - **Utilizador AT (webservice)**: no formato `NIF/subutilizador` (ex. `518747832/1`).
    - **Password AT**: a password correspondente.
    - **Certificado Cliente mTLS (PEM)** e respetiva chave privada: os ficheiros usados para
      autenticação mútua TLS nas chamadas SOAP à AT.
    - **Certificado Público da AT**: o certificado público da própria AT, usado para cifrar
      partes da comunicação (WS-Security).
-6. Grave. Se todos os campos obrigatórios estiverem corretos, os indicadores no topo mudam
+7. Grave. Se todos os campos obrigatórios estiverem corretos, os indicadores no topo mudam
    para verde.
 
 > Nas empresas onde já existe outra instalação a funcionar (por exemplo, um ambiente de
@@ -125,6 +139,25 @@ Tributária: credenciais, certificados e o modo sandbox/produção.
 5. Feche a caixa de diálogo. Na própria ficha da empresa, uma caixa **"Séries Portuguesas
    Configuradas"** mostra a tabela com as 4 séries, o respetivo tipo de documento e o estado
    (Ativa/Inativa, Comunicada Sim/Não).
+
+### 4.1. Outras ações no menu Portugal Compliance da Empresa
+
+Depois de ativar o Portugal Compliance, a ficha da Empresa ganha um menu **Portugal
+Compliance** no topo, com mais ações além da criação automática de séries do passo anterior:
+
+- **Gerar Séries Base**: repete a criação das 4 séries base — útil se as tiver apagado, ou se
+  desativou a opção "Criar séries automaticamente" em Portugal Auth Settings (Passo 2). Pede
+  confirmação, mostra o progresso e, ao terminar com sucesso, navega automaticamente para a
+  lista de séries da empresa (**Portugal Series Configuration**), já filtrada — une "criar" e
+  "ver o resultado" num só clique. Distinto de **Ver Séries** (menu **Relatórios**), que é só
+  navegação, sem criar nada.
+- **Verificar Compliance**: mostra um resumo rápido do estado da empresa (NIF, moeda,
+  abreviatura, número de séries criadas e comunicadas).
+- **Estatísticas**: navega diretamente para o **Dashboard AT** (Passo 7) — o local central com
+  toda a informação estatística e fiscal da empresa. Deixou de abrir uma janela própria com
+  estatísticas resumidas, para não manter duas vistas da mesma informação.
+- **Configurações Avançadas**: navega para **Portugal Auth Settings** (Passo 2), onde vivem as
+  opções "Criar séries automaticamente", "Validar NIF" e "Exigir NIF do Cliente".
 
 ---
 

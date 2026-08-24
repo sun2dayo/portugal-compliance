@@ -38,6 +38,9 @@ fiscais — ver secção 8.
 | `certificate_password` | Password | Password do certificado acima |
 | `at_webservice_url` | Data | URL base do webservice (default sandbox) |
 | `sandbox_mode` | Check | `1` = ambiente de testes (default) |
+| `auto_create_series` | Check | `1` (default) = ao ativar Portugal Compliance numa Company, cria automaticamente as 4 séries base (comportamento histórico, preservado); `0` = requer criação manual ("Gerar Séries Base" na Company) |
+| `validate_nif` | Check | `1` (default) = avisa (sem bloquear) quando o NIF de um Customer/Supplier português falha o módulo 11; ignora explicitamente `999999990` |
+| `require_customer_nif` | Check | `0` (default) = bloqueia (`frappe.throw`) a gravação de um Customer português sem `tax_id`; mantido inativo por omissão para não impedir vendas a consumidor final (retalho/POS) |
 | `session_tokens` | Table (`Portugal Session Token`) | Tokens de sessão, se aplicável ao fluxo de autenticação |
 | `invoice_signing_key_path` | Data | Caminho da chave privada RSA de assinatura (PEM) |
 | `invoice_signing_key_password` | Password | Password da chave privada de assinatura |
@@ -110,6 +113,19 @@ fiscais — ver secção 8.
 **Fonte de dados de `verify_signature_chain()`** — só entradas com `generation_status =
 "Success"` participam na verificação.
 
+> **Nota de segurança arquitetural (2026-08-24) — imutabilidade nativa.** As permissões
+> `Create` e `Write` foram revogadas ao nível do DocType (`permissions` no JSON) para todos os
+> roles, incluindo `System Manager` — a única role que as tinha. Fica só `Read`/`Report`/
+> `Export`/`Print`/`Email`/`Share`. Isto não afeta o funcionamento real: este registo é sempre
+> criado e atualizado estritamente pelo backend, com `ignore_permissions=True` explícito
+> (`atcud_generator.py::_create_enhanced_audit_log` para a criação; `self.save(ignore_
+> permissions=True)` para as poucas atualizações pós-criação, ex. `handle_failure()`/
+> `handle_success()`), nunca por gravação manual via formulário. A exceção controlada é o botão
+> "Retry Generation", cujo método whitelisted (`ATCUD Log.retry_generation()`) usa `frappe.
+> only_for("System Manager")` como porta de entrada em vez de exigir Write do DocType — sem
+> essa troca, remover Write bloquearia também esta ação legítima. Mesmo modelo aplicado a
+> `Portugal Invoice Communication Log` (secção 6) e `Portugal Document Print Log` (secção 7).
+
 ---
 
 ## 5. `SAF-T Export Log`
@@ -149,6 +165,10 @@ do doctype ficou "Invoice" por ter sido o primeiro fluxo implementado.
 | `request_payload` | Code (JSON) | Payload enviado — para diagnóstico |
 | `raw_response` | Code | Resposta SOAP bruta (serializada) |
 
+> Imutável via UI (Create/Write revogados para todos os roles) — mesmo modelo e mesma
+> justificação de `ATCUD Log`, secção 4. O botão "Reenviar Agora" (`retry_now()`) usa `frappe.
+> only_for("System Manager")`, não Write do DocType.
+
 ---
 
 ## 7. `Portugal Document Print Log`
@@ -165,6 +185,10 @@ do doctype ficou "Invoice" por ter sido o primeiro fluxo implementado.
 
 Alimentado exclusivamente pelo hook `before_print` (`log_document_print`) — cobre tanto a
 pré-visualização como a geração de PDF/download, nunca editado depois de escrito.
+
+> Imutável via UI (Create/Write revogados para todos os roles) — mesmo modelo e mesma
+> justificação de `ATCUD Log`, secção 4. Sem exceções controladas aqui: este log nunca é
+> atualizado depois de criado (só `Create`, nunca `Write`, precisava de bloqueio).
 
 ---
 
