@@ -533,7 +533,7 @@ function add_compliance_section(frm) {
 
     let compliance_html = `
         <div class="portugal-compliance-info" id="portugal-compliance-status-block" style="margin: 15px 0;">
-            <h6 class="section-head" style="padding: 0; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">${frappe.utils.icon('shield-check', 'sm')} ${__('Portugal Compliance - Status')}</h6>
+            <h6 class="section-head" style="padding: 0; margin-bottom: 10px;">${__('Portugal Compliance - Status')}</h6>
             <div class="row">
                 <div class="col-md-6">
                     <strong>NIF:</strong> ${frm.doc.tax_id || __('Não definido')}<br>
@@ -573,7 +573,7 @@ function add_series_section(frm) {
 
     let series_html = `
         <div class="portugal-series-info" style="margin: 15px 0;">
-            <h6 class="section-head" style="padding: 0; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">${frappe.utils.icon('list', 'sm')} ${__('Séries Portuguesas Configuradas')}</h6>
+            <h6 class="section-head" style="padding: 0; margin-bottom: 10px;">${__('Séries Portuguesas Configuradas')}</h6>
             <div id="series-list">
                 <p class="text-muted">${__('Carregando séries...')}</p>
             </div>
