@@ -532,25 +532,17 @@ function add_compliance_section(frm) {
     }
 
     let compliance_html = `
-        <div class="portugal-compliance-info" style="
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Portugal Compliance - Status
-            </h6>
+        <div class="portugal-compliance-info" id="portugal-compliance-status-block" style="margin: 15px 0;">
+            <h6 class="section-head" style="padding: 0; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">${frappe.utils.icon('shield-check', 'sm')} ${__('Portugal Compliance - Status')}</h6>
             <div class="row">
                 <div class="col-md-6">
-                    <strong>NIF:</strong> ${frm.doc.tax_id || 'Não definido'}<br>
-                    <strong>Moeda:</strong> ${frm.doc.default_currency || 'Não definida'}<br>
-                    <strong>Abreviatura:</strong> ${frm.doc.abbr || 'Não definida'}
+                    <strong>NIF:</strong> ${frm.doc.tax_id || __('Não definido')}<br>
+                    <strong>${__('Moeda')}:</strong> ${frm.doc.default_currency || __('Não definida')}<br>
+                    <strong>${__('Abreviatura')}:</strong> ${frm.doc.abbr || __('Não definida')}
                 </div>
                 <div class="col-md-6">
-                    <strong>Séries Criadas:</strong> <span id="series-count">${series_count}</span><br>
-                    <strong>Séries Comunicadas:</strong> <span id="communicated-count">${communicated_series}</span><br>
+                    <strong>${__('Séries Criadas')}:</strong> <span id="series-count">${series_count}</span><br>
+                    <strong>${__('Séries Comunicadas')}:</strong> <span id="communicated-count">${communicated_series}</span><br>
                     <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span>
                 </div>
             </div>
@@ -580,25 +572,26 @@ function add_series_section(frm) {
     if (frm.doc.__islocal) return;
 
     let series_html = `
-        <div class="portugal-series-info" style="
-            background: #fff3e0;
-            border: 1px solid #ff9800;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #e65100;">
-                📋 Séries Portuguesas Configuradas
-            </h6>
+        <div class="portugal-series-info" style="margin: 15px 0;">
+            <h6 class="section-head" style="padding: 0; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">${frappe.utils.icon('list', 'sm')} ${__('Séries Portuguesas Configuradas')}</h6>
             <div id="series-list">
-                <p>Carregando séries...</p>
+                <p class="text-muted">${__('Carregando séries...')}</p>
             </div>
         </div>
     `;
 
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.series_section_added && frm.fields_dict.abbr) {
-        $(frm.fields_dict.abbr.wrapper).after(series_html);
+    // ✅ ADICIONAR HTML AO FORMULÁRIO, IMEDIATAMENTE ABAIXO DO BLOCO
+    // "Portugal Compliance - Status" (agrupar toda a informação fiscal
+    // no mesmo sítio visualmente). add_compliance_section() corre sempre
+    // primeiro (ver setup_portuguese_layout) e insere esse bloco de forma
+    // síncrona, por isso #portugal-compliance-status-block já existe aqui.
+    let $anchor = $('#portugal-compliance-status-block');
+    if (!$anchor.length && frm.fields_dict.portugal_compliance_enabled) {
+        $anchor = $(frm.fields_dict.portugal_compliance_enabled.wrapper);
+    }
+
+    if (!frm.series_section_added && $anchor.length) {
+        $anchor.after(series_html);
         frm.series_section_added = true;
 
         // ✅ CARREGAR SÉRIES
@@ -652,16 +645,21 @@ function display_company_series(frm, series_list) {
         return;
     }
 
-    let html = '<table class="table table-sm table-bordered">';
+    let html = '<div class="table-responsive"><table class="table table-bordered table-sm">';
     html += '<thead><tr><th>Prefixo</th><th>Tipo</th><th>Status</th><th>Comunicada</th></tr></thead><tbody>';
 
     series_list.forEach(function(series) {
-        let status = series.is_active ? '✅ Ativa' : '❌ Inativa';
+        let status = series.is_active
+            ? `<span class="indicator-pill green">${__('Ativa')}</span>`
+            : `<span class="indicator-pill red">${__('Inativa')}</span>`;
+
         let communicated;
         if (AT_CLIENT_FACING_DOCTYPES.includes(series.document_type)) {
-            communicated = series.is_communicated ? '✅ Sim' : '⚠️ Não';
+            communicated = series.is_communicated
+                ? `<span class="indicator-pill blue">${__('Sim')}</span>`
+                : `<span class="indicator-pill orange">${__('Não')}</span>`;
         } else {
-            communicated = '<span style="color:#888;">N/A - Uso Interno</span>';
+            communicated = `<span class="indicator-pill gray">${__('N/A - Uso Interno')}</span>`;
         }
 
         html += `<tr>
@@ -672,7 +670,7 @@ function display_company_series(frm, series_list) {
         </tr>`;
     });
 
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     $('#series-list').html(html);
 }
 
