@@ -1176,7 +1176,7 @@ def store_audit_results(audit_results):
 
 		# Armazenar no cache por 5 anos
 		cache_key = f"portugal_compliance_annual_audit_{audit_results['audit_year']}"
-		frappe.cache.set(cache_key, audit_results, expires_in_sec=157680000)  # 5 anos
+		frappe.cache().set_value(cache_key, audit_results, expires_in_sec=157680000)  # 5 anos
 
 		frappe.logger().info(f"Audit results stored for year {audit_results['audit_year']}")
 
@@ -1191,7 +1191,7 @@ def store_annual_report(annual_data):
 	try:
 		# Armazenar no cache por 10 anos
 		cache_key = f"portugal_compliance_annual_report_{annual_data['year']}"
-		frappe.cache.set(cache_key, annual_data, expires_in_sec=315360000)  # 10 anos
+		frappe.cache().set_value(cache_key, annual_data, expires_in_sec=315360000)  # 10 anos
 
 		# Criar ficheiro de backup
 		filename = f"portugal_compliance_annual_report_{annual_data['year']}.json"
@@ -1217,7 +1217,7 @@ def get_yearly_summary():
 		current_year = datetime.now().year
 		previous_year = current_year - 1
 
-		annual_report = frappe.cache.get(f"portugal_compliance_annual_report_{previous_year}")
+		annual_report = frappe.cache().get_value(f"portugal_compliance_annual_report_{previous_year}")
 
 		if annual_report:
 			return {

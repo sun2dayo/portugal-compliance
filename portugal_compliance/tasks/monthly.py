@@ -575,7 +575,7 @@ def get_regulatory_status():
 		}
 
 		# Verificar conectividade AT
-		at_connectivity = frappe.cache.get("portugal_compliance_at_connectivity")
+		at_connectivity = frappe.cache().get_value("portugal_compliance_at_connectivity")
 		if at_connectivity:
 			offline_services = [url for url, data in at_connectivity.items() if
 								data.get("status") != "online"]
@@ -1030,7 +1030,7 @@ def store_monthly_report(monthly_data):
 	try:
 		# Armazenar no cache por 12 meses
 		cache_key = f"portugal_compliance_monthly_report_{monthly_data['period']['end_date'].strftime('%Y_%m')}"
-		frappe.cache.set(cache_key, monthly_data, expires_in_sec=31536000)  # 1 ano
+		frappe.cache().set_value(cache_key, monthly_data, expires_in_sec=31536000)  # 1 ano
 
 		frappe.logger().info(f"Monthly report stored for {monthly_data['period']['month']}")
 
@@ -1050,7 +1050,7 @@ def get_monthly_summary():
 		last_month_end = get_first_day(today_date) - timedelta(days=1)
 		cache_key = f"portugal_compliance_monthly_report_{last_month_end.strftime('%Y_%m')}"
 
-		monthly_report = frappe.cache.get(cache_key)
+		monthly_report = frappe.cache().get_value(cache_key)
 
 		if monthly_report:
 			return {

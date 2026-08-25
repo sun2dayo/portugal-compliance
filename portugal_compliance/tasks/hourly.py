@@ -94,7 +94,7 @@ def check_at_connectivity():
 				}
 
 		# Armazenar status no cache
-		frappe.cache.set("portugal_compliance_at_connectivity", connectivity_status,
+		frappe.cache().set_value("portugal_compliance_at_connectivity", connectivity_status,
 						 expires_in_sec=3600)
 
 		# Log se houver problemas
@@ -271,7 +271,7 @@ def monitor_system_performance():
 		system_metrics.update(db_metrics)
 
 		# Armazenar métricas
-		frappe.cache.set("portugal_compliance_system_metrics", system_metrics, expires_in_sec=3600)
+		frappe.cache().set_value("portugal_compliance_system_metrics", system_metrics, expires_in_sec=3600)
 
 		# Alertar se performance estiver degradada
 		if system_metrics["cpu_percent"] > 80 or system_metrics["memory_percent"] > 85:
@@ -390,7 +390,7 @@ def update_real_time_cache():
 		active_series = frappe.db.get_all("Portugal Series Configuration",
 										  filters={"is_active": 1, "is_communicated": 1},
 										  fields=["name", "series_name", "prefix",
-												  "current_number", "company"]
+												  "current_sequence", "company"]
 										  )
 
 		# Organizar por empresa
@@ -401,7 +401,7 @@ def update_real_time_cache():
 				series_by_company[company] = []
 			series_by_company[company].append(series)
 
-		frappe.cache.set("portugal_compliance_active_series_realtime", series_by_company,
+		frappe.cache().set_value("portugal_compliance_active_series_realtime", series_by_company,
 						 expires_in_sec=3600)
 
 		# Cache de estatísticas horárias
@@ -416,7 +416,7 @@ def update_real_time_cache():
 			})
 		}
 
-		frappe.cache.set("portugal_compliance_hourly_stats", hourly_stats, expires_in_sec=3600)
+		frappe.cache().set_value("portugal_compliance_hourly_stats", hourly_stats, expires_in_sec=3600)
 
 	except Exception as e:
 		frappe.log_error(f"Error updating real-time cache: {str(e)}")
@@ -504,9 +504,9 @@ def get_hourly_summary():
 	try:
 		return {
 			"timestamp": now(),
-			"at_connectivity": frappe.cache.get("portugal_compliance_at_connectivity"),
-			"system_metrics": frappe.cache.get("portugal_compliance_system_metrics"),
-			"hourly_stats": frappe.cache.get("portugal_compliance_hourly_stats"),
+			"at_connectivity": frappe.cache().get_value("portugal_compliance_at_connectivity"),
+			"system_metrics": frappe.cache().get_value("portugal_compliance_system_metrics"),
+			"hourly_stats": frappe.cache().get_value("portugal_compliance_hourly_stats"),
 			"status": "healthy"
 		}
 	except Exception:
