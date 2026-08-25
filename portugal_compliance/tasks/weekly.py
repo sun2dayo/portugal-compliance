@@ -406,7 +406,7 @@ def store_weekly_report(report_data):
 	try:
 		# Armazenar no cache por 30 dias
 		cache_key = f"portugal_compliance_weekly_report_{report_data['period']['end_date']}"
-		frappe.cache.set(cache_key, report_data, expires_in_sec=2592000)
+		frappe.cache().set_value(cache_key, report_data, expires_in_sec=2592000)
 
 		# Criar entrada de log para histórico
 		frappe.get_doc({
@@ -478,7 +478,7 @@ def analyze_atcud_patterns():
 						  sorted(daily_pattern, key=lambda x: x.count, reverse=True)[:3]]
 		}
 
-		frappe.cache.set("portugal_compliance_atcud_patterns", patterns, expires_in_sec=604800)
+		frappe.cache().set_value("portugal_compliance_atcud_patterns", patterns, expires_in_sec=604800)
 
 	except Exception as e:
 		frappe.log_error(f"Error analyzing ATCUD patterns: {str(e)}")
@@ -505,7 +505,7 @@ def analyze_communication_patterns():
 			"success_rate_by_hour": {str(p.hour): p.count for p in success_patterns}
 		}
 
-		frappe.cache.set("portugal_compliance_communication_patterns", patterns,
+		frappe.cache().set_value("portugal_compliance_communication_patterns", patterns,
 						 expires_in_sec=604800)
 
 	except Exception as e:
@@ -534,7 +534,7 @@ def analyze_error_patterns():
 			"error_frequency": {e.title: e.count for e in error_patterns}
 		}
 
-		frappe.cache.set("portugal_compliance_error_patterns", patterns, expires_in_sec=604800)
+		frappe.cache().set_value("portugal_compliance_error_patterns", patterns, expires_in_sec=604800)
 
 	except Exception as e:
 		frappe.log_error(f"Error analyzing error patterns: {str(e)}")
@@ -559,7 +559,7 @@ def check_system_health_trends():
 		alerts = identify_trend_alerts(trends)
 
 		# Armazenar tendências
-		frappe.cache.set("portugal_compliance_health_trends", {
+		frappe.cache().set_value("portugal_compliance_health_trends", {
 			"trends": trends,
 			"alerts": alerts,
 			"last_updated": now()
@@ -941,7 +941,7 @@ def backup_active_series():
 		}
 
 		# Armazenar backup no cache por 30 dias
-		frappe.cache.set("portugal_compliance_series_backup", backup_data, expires_in_sec=2592000)
+		frappe.cache().set_value("portugal_compliance_series_backup", backup_data, expires_in_sec=2592000)
 
 		frappe.logger().info(f"Backed up {len(active_series)} active series")
 
@@ -967,7 +967,7 @@ def backup_company_configurations():
 			"companies_data": companies
 		}
 
-		frappe.cache.set("portugal_compliance_companies_backup", backup_data,
+		frappe.cache().set_value("portugal_compliance_companies_backup", backup_data,
 						 expires_in_sec=2592000)
 
 		frappe.logger().info(f"Backed up {len(companies)} company configurations")
@@ -992,7 +992,7 @@ def backup_auth_configurations():
 			"auth_data": auth_configs
 		}
 
-		frappe.cache.set("portugal_compliance_auth_backup", backup_data, expires_in_sec=2592000)
+		frappe.cache().set_value("portugal_compliance_auth_backup", backup_data, expires_in_sec=2592000)
 
 		frappe.logger().info(f"Backed up {len(auth_configs)} auth configurations")
 
@@ -1040,7 +1040,7 @@ def analyze_recurring_errors():
 			frappe.logger().warning(f"Found {len(recurring_errors)} recurring error patterns")
 
 			# Armazenar para análise
-			frappe.cache.set("portugal_compliance_recurring_errors", recurring_errors,
+			frappe.cache().set_value("portugal_compliance_recurring_errors", recurring_errors,
 							 expires_in_sec=604800)
 
 	except Exception as e:
@@ -1086,7 +1086,7 @@ def identify_bottlenecks():
 			})
 
 		if bottlenecks:
-			frappe.cache.set("portugal_compliance_bottlenecks", bottlenecks, expires_in_sec=604800)
+			frappe.cache().set_value("portugal_compliance_bottlenecks", bottlenecks, expires_in_sec=604800)
 			frappe.logger().warning(f"Identified {len(bottlenecks)} system bottlenecks")
 
 	except Exception as e:
@@ -1101,7 +1101,7 @@ def suggest_improvements():
 		improvements = []
 
 		# Sugestões baseadas em erros recorrentes
-		recurring_errors = frappe.cache.get("portugal_compliance_recurring_errors") or []
+		recurring_errors = frappe.cache().get_value("portugal_compliance_recurring_errors") or []
 		if len(recurring_errors) > 5:
 			improvements.append({
 				"category": "error_reduction",
@@ -1110,7 +1110,7 @@ def suggest_improvements():
 			})
 
 		# Sugestões baseadas em gargalos
-		bottlenecks = frappe.cache.get("portugal_compliance_bottlenecks") or []
+		bottlenecks = frappe.cache().get_value("portugal_compliance_bottlenecks") or []
 		if bottlenecks:
 			improvements.append({
 				"category": "performance",
@@ -1119,7 +1119,7 @@ def suggest_improvements():
 			})
 
 		# Sugestões baseadas em padrões de uso
-		atcud_patterns = frappe.cache.get("portugal_compliance_atcud_patterns") or {}
+		atcud_patterns = frappe.cache().get_value("portugal_compliance_atcud_patterns") or {}
 		if atcud_patterns.get("peak_hours"):
 			improvements.append({
 				"category": "optimization",
@@ -1128,7 +1128,7 @@ def suggest_improvements():
 			})
 
 		if improvements:
-			frappe.cache.set("portugal_compliance_improvement_suggestions", improvements,
+			frappe.cache().set_value("portugal_compliance_improvement_suggestions", improvements,
 							 expires_in_sec=604800)
 			frappe.logger().info(f"Generated {len(improvements)} improvement suggestions")
 
@@ -1191,7 +1191,7 @@ def analyze_series_usage():
 			"analysis_date": now()
 		}
 
-		frappe.cache.set("portugal_compliance_series_usage_analysis", usage_analysis,
+		frappe.cache().set_value("portugal_compliance_series_usage_analysis", usage_analysis,
 						 expires_in_sec=604800)
 
 	except Exception as e:
@@ -1203,7 +1203,7 @@ def recommend_series_optimizations():
 	Recomenda otimizações para séries
 	"""
 	try:
-		usage_analysis = frappe.cache.get("portugal_compliance_series_usage_analysis") or {}
+		usage_analysis = frappe.cache().get_value("portugal_compliance_series_usage_analysis") or {}
 		recommendations = []
 
 		# Recomendações para séries pouco utilizadas
@@ -1227,7 +1227,7 @@ def recommend_series_optimizations():
 			})
 
 		if recommendations:
-			frappe.cache.set("portugal_compliance_series_recommendations", recommendations,
+			frappe.cache().set_value("portugal_compliance_series_recommendations", recommendations,
 							 expires_in_sec=604800)
 			frappe.logger().info(f"Generated {len(recommendations)} series recommendations")
 
@@ -1276,7 +1276,7 @@ def archive_old_atcud_logs():
 				"logs_data": old_logs
 			}
 
-			frappe.cache.set(f"portugal_compliance_atcud_archive_{archive_date}", archive_data,
+			frappe.cache().set_value(f"portugal_compliance_atcud_archive_{archive_date}", archive_data,
 							 expires_in_sec=31536000)  # 1 ano
 
 			# Remover logs antigos
@@ -1329,7 +1329,7 @@ def generate_audit_trail():
 		}
 
 		# Armazenar trilha de auditoria
-		frappe.cache.set(f"portugal_compliance_audit_trail_{end_date}", audit_data,
+		frappe.cache().set_value(f"portugal_compliance_audit_trail_{end_date}", audit_data,
 						 expires_in_sec=31536000)  # 1 ano
 
 		frappe.logger().info(f"Generated audit trail for period {start_date} to {end_date}")
@@ -1434,7 +1434,7 @@ def send_weekly_summary():
 		frappe.logger().info("Sending weekly summary")
 
 		# Obter dados do relatório semanal
-		weekly_report = frappe.cache.get(f"portugal_compliance_weekly_report_{today()}")
+		weekly_report = frappe.cache().get_value(f"portugal_compliance_weekly_report_{today()}")
 
 		if not weekly_report:
 			frappe.logger().warning("No weekly report data available for summary")
@@ -1562,7 +1562,7 @@ def get_weekly_summary():
 	"""
 	try:
 		end_date = today()
-		weekly_report = frappe.cache.get(f"portugal_compliance_weekly_report_{end_date}")
+		weekly_report = frappe.cache().get_value(f"portugal_compliance_weekly_report_{end_date}")
 
 		if weekly_report:
 			return {
