@@ -123,14 +123,20 @@ isolada como evidência.
 ## Parte 2 — Backlog de Evolução (V1.2.0)
 
 **Origem:** lista de TODO trazida pelo utilizador em 2026-08-26, validada item a
-item contra o código atual em `develop` antes de ser aceite aqui. 3 itens da
-lista original já estavam implementados (removidos como pendências, ver
-"Já resolvido" abaixo) e 1 item (limpeza de código morto) foi corrigido: um
-dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
+item contra o código atual em `develop` antes de ser aceite aqui, e reorganizada
+em 2026-08-26 por assunto e prioridade a pedido do utilizador. 3 itens da lista
+original já estavam implementados (ver "Já resolvido" no fim) e 1 item (limpeza
+de código morto) foi corrigido: um dos 4 ficheiros apontados como "morto" está
+na verdade em uso ativo. O item "Faturação por Terceiros" foi removido do
+backlog (sem caso de uso concreto que o justifique).
 
-### Impostos e SAF-T (Prioridade Alta)
+Organização: agrupado por assunto; dentro de cada assunto, ordenado por
+prioridade (Alta → Média → Baixa), com a prioridade de cada item marcada
+explicitamente.
 
-- [ ] **Suporte a Imposto do Selo (IS)**
+### Impostos e SAF-T
+
+- [ ] **[Prioridade Alta] Suporte a Imposto do Selo (IS)**
   `utils/saft_generator.py` e os templates em `templates/saft_t/` só geram
   `<TaxType>IVA</TaxType>` — não existe nenhum ramo para `TaxType="IS"` em
   todo o gerador (confirmado por grep, zero ocorrências de `"IS"`/TGIS fora
@@ -151,7 +157,7 @@ dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
      `saf_t_export_log.py`) com pelo menos um documento real de Imposto do
      Selo antes de fechar.
 
-- [ ] **Granularidade de Impostos nos Recibos (Payment Entry) — taxa e base reais**
+- [ ] **[Prioridade Alta] Granularidade de Impostos nos Recibos (Payment Entry) — taxa e base reais**
   Confirmado: `templates/saft_t/source_documents.xml`, bloco
   `Payments/Payment/Line/Tax` (linhas ~118-124), tem `TaxCode` e
   `TaxPercentage` **fixos** (`NOR`, `0.00`) para todos os recibos, independente
@@ -169,7 +175,7 @@ dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
      fatura de origem também for isenta — não como valor universal.
   4. Testado em conjunto com o item seguinte (mesma função/template).
 
-- [ ] **Herdar Região Fiscal nos Recibos (`Payment/Line/Tax/TaxCountryRegion`)**
+- [ ] **[Prioridade Alta] Herdar Região Fiscal nos Recibos (`Payment/Line/Tax/TaxCountryRegion`)**
   Mesmo bloco do item anterior — `templates/saft_t/source_documents.xml:123`
   tem `<TaxCountryRegion>PT</TaxCountryRegion>` fixo.
   **Instruções de implementação:** no mesmo ponto do generator onde se
@@ -179,7 +185,7 @@ dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
   ~291-300) e passar `reference.tax_region` para o template, substituindo o
   `PT` fixo por `{{ reference.tax_region or 'PT' }}`.
 
-- [ ] **Mapeamento de Retenção na Fonte (`WithholdingTaxType`)**
+- [ ] **[Prioridade Média] Mapeamento de Retenção na Fonte (`WithholdingTaxType`)**
   Confirmado pendente — `utils/saft_generator.py` (comentário na função de
   `_withholding_tax_rows()`, ~linha 550-559) já mapeia valor e descrição mas
   omite deliberadamente `WithholdingTaxType` por falta de correspondência
@@ -196,27 +202,9 @@ dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
      `<WithholdingTaxType>{{ wh.withholding_tax_type }}</WithholdingTaxType>`
      apenas quando o campo estiver preenchido (é opcional no XSD).
 
-### ✅ Já resolvido (estava na lista original, removido daqui)
+### Sistema e Manutenção
 
-- ~~Refatoração do `TaxCountryRegion` nas linhas de fatura~~ — **já implementado.**
-  `templates/saft_t/source_documents.xml:65` usa
-  `{{ item.tax_region or 'PT' }}`, populado por `_line_region()` em
-  `utils/saft_generator.py` a partir de `Account.at_tax_region` — não há
-  nenhuma lógica de "adivinhar pela percentagem". Confirmado por leitura
-  direta do código atual em `develop`.
-- ~~Correção do Redis em `tasks/all.py`~~ — **já corrigido**, commit `a4c081d`
-  (2026-08-24) e reforçado no Hotfix v1.1.2 (`8b05308`) para os restantes
-  ficheiros de tarefas agendadas. `tasks/all.py` já usa
-  `frappe.cache().set_value(...)` em todos os pontos onde armazena
-  dicts/listas.
-- ~~Remover segundo gerador de QR Code (`_build_qr_data_optimized`)~~ — **já
-  eliminado**, commit `e29edc8` (Fase 1 da certificação v1.1.0). A função não
-  existe mais no código; as únicas ocorrências do nome são comentários a
-  explicar a remoção.
-
-### Tarefas de Sistema e Manutenção (Prioridade Média)
-
-- [ ] **Proteção de Cálculo de Métricas (TypeError data - NoneType)**
+- [ ] **[Prioridade Média] Proteção de Cálculo de Métricas (TypeError data - NoneType)**
   Corrigida a localização: o erro real
   (`unsupported operand type(s) for -: 'datetime.datetime' and 'NoneType'`,
   confirmado ao vivo no Error Log, recorrente a cada ciclo do scheduler) **não
@@ -240,15 +228,9 @@ dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
      ficam deliberadamente na API crua por guardarem só uma string) — não é
      a causa do bug, mas eliminaria de vez a possibilidade de `bytes`.
 
-### Funcionalidades de Nicho (Avaliação Contínua)
+### Limpeza e Refatoração
 
-- [ ] **Faturação por Terceiros** — confirmado pendente, sem suporte dedicado.
-  Avaliar necessidade real junto dos clientes SaaS antes de desenhar campos;
-  sem instruções de implementação até haver um caso de uso concreto.
-
-### Limpeza e Refatoração (Prioridade Baixa/Média — Higiene de Código)
-
-- [ ] **Limpeza de Código Morto — corrigido face à lista original**
+- [ ] **[Prioridade Baixa] Limpeza de Código Morto — corrigido face à lista original**
   Verificado com grep de importações reais (não comentários) em todo o
   repositório antes de validar esta tarefa:
   - `utils/series_manager.py` — **confirmado morto**, zero imports reais fora
@@ -275,8 +257,8 @@ dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
   suite de testes para confirmar que nada rebenta, só depois commitar.
   `series_adapter.py` fica de fora desta limpeza até à análise à parte.
 
-- [ ] **Renomear Log de Comunicação** (`Portugal Invoice Communication Log` →
-  algo como `Portugal AT Communication Log`)
+- [ ] **[Prioridade Baixa] Renomear Log de Comunicação** (`Portugal Invoice
+  Communication Log` → algo como `Portugal AT Communication Log`)
   Confirmado: `tasks/hourly.py:169-177` despacha para `register_invoice()`
   (faturas) ou `register_transport_document()` (Delivery Note) consoante
   `log.document_type` — o mesmo DocType serve ambos os fluxos, e o nome só
@@ -285,3 +267,21 @@ dos 4 ficheiros apontados como "morto" está na verdade em uso ativo.
   automaticamente todas as referências — baixo risco, mas requer testar a
   app depois (relatórios, dashboards e o próprio `tasks/hourly.py` referenciam
   o nome do DocType).
+
+### ✅ Já resolvido (estava na lista original, não fica pendente)
+
+- ~~Refatoração do `TaxCountryRegion` nas linhas de fatura~~ — **já implementado.**
+  `templates/saft_t/source_documents.xml:65` usa
+  `{{ item.tax_region or 'PT' }}`, populado por `_line_region()` em
+  `utils/saft_generator.py` a partir de `Account.at_tax_region` — não há
+  nenhuma lógica de "adivinhar pela percentagem". Confirmado por leitura
+  direta do código atual em `develop`.
+- ~~Correção do Redis em `tasks/all.py`~~ — **já corrigido**, commit `a4c081d`
+  (2026-08-24) e reforçado no Hotfix v1.1.2 (`8b05308`) para os restantes
+  ficheiros de tarefas agendadas. `tasks/all.py` já usa
+  `frappe.cache().set_value(...)` em todos os pontos onde armazena
+  dicts/listas.
+- ~~Remover segundo gerador de QR Code (`_build_qr_data_optimized`)~~ — **já
+  eliminado**, commit `e29edc8` (Fase 1 da certificação v1.1.0). A função não
+  existe mais no código; as únicas ocorrências do nome são comentários a
+  explicar a remoção.
