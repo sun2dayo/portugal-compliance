@@ -211,12 +211,21 @@ class ATCUDGenerator:
 			except Exception as e:
 				frappe.log_error(f"Erro inesperado na assinatura digital: {str(e)}", "ATCUDGenerator")
 
-			# ✅ GERAR QR CODE SE NECESSÁRIO (OTIMIZADO)
+			# QR Code: nao construido aqui. _build_qr_data_optimized()/
+			# _generate_qr_code_optimized() (removidas - eram um segundo
+			# gerador com o mesmo defeito de mapeamento de campos ja
+			# corrigido em jinja_methods.get_qr_code_data(), a unica
+			# funcao usada para o que e comunicado a AT e impresso)
+			# tambem nunca poderiam produzir um valor correto aqui -
+			# doc.atcud_code so existe depois desta funcao retornar (ver
+			# document_hooks.py::generate_atcud_on_submit, que faz
+			# doc.db_set('atcud_code', ...) so depois de chamar esta
+			# funcao). O valor real e calculado la, com o ATCUD ja
+			# gravado, e injetado em doc._portugal_atcud_pending_log
+			# antes de persist_pending_atcud_log() - single source of
+			# truth entre o QR impresso/comunicado e o que fica em
+			# ATCUD Log.qr_code_string.
 			qr_code_data = None
-			if self._requires_qr_code(doc.doctype):
-				qr_result = self._generate_qr_code_optimized(doc, atcud_code, series_info, signature_result)
-				if qr_result.get("success"):
-					qr_code_data = qr_result["qr_data"]
 
 			# NOTA: o ATCUD Log so e escrito em after_insert
 			# (ver document_hooks.generate_atcud_after_insert), nunca aqui.
@@ -708,235 +717,6 @@ class ATCUDGenerator:
 
 		except Exception:
 			return False
-
-	def _requires_qr_code(self, doctype):
-		"""✅ MANTIDO: Verificar se tipo de documento requer QR code"""
-		doc_config = self.supported_document_types.get(doctype, {})
-		return doc_config.get("requires_qr", False)
-
-	# ========== GERAÇÃO DE QR CODE OTIMIZADA ==========
-
-	def _generate_qr_code_optimized(self, doc, atcud_code, series_info, signature_result=None):
-		"""
-		Gerar imagem do QR code a partir da string de dados construida
-		por _build_qr_data_optimized (que agora recebe o resultado da
-		assinatura digital para o campo Q).
-		"""
-		try:
-			qr_data = self._build_qr_data_optimized(doc, atcud_code, series_info, signature_result)
-
-			# ✅ CONFIGURAÇÃO QR CODE OTIMIZADA
-			qr = qrcode.QRCode(
-				version=1,
-				error_correction=qrcode.constants.ERROR_CORRECT_M,
-				box_size=8,  # Reduzido para performance
-				border=4,
-			)
-			qr.add_data(qr_data)
-			qr.make(fit=True)
-
-			# ✅ CRIAR IMAGEM OTIMIZADA
-			qr_image = qr.make_image(fill_color="black", back_color="white")
-
-			# ✅ CONVERTER PARA BASE64 OTIMIZADO
-			buffer = BytesIO()
-			qr_image.save(buffer, format='PNG', optimize=True)
-			qr_base64 = base64.b64encode(buffer.getvalue()).decode()
-
-			return {
-				"success": True,
-				"qr_data": qr_data,
-				"qr_base64": qr_base64,
-				"qr_size": "30mm x 30mm (mínimo legal)",
-				"format": "PNG"
-			}
-
-		except Exception as e:
-			frappe.log_error(f"Erro ao gerar QR code: {str(e)}")
-			return {"success": False, "error": str(e)}
-
-	def _build_qr_data_optimized(self, doc, atcud_code, series_info, signature_result=None):
-		"""
-		Construir a string de dados do QR code conforme a Portaria
-		195/2020. Campos corrigidos nesta fase (estavam errados desde a
-		versao anterior - ver auditoria):
-
-		  C - pais do ADQUIRENTE (ISO 3166-1), nao o nome da empresa
-		  E - estado real do documento (N/A/S), nao fixo em "N"
-		  N - total de IMPOSTO isolado, nao duplicado do total geral
-		  Q - 4 caracteres da assinatura digital real (posicoes 1/11/21/31),
-		      nao um hash arbitrario sem relacao com o documento
-		  R - numero de certificado do software, nao o prefixo da serie
-		"""
-		try:
-			company_nif = self._get_cached_nif("Company", doc.company)
-			customer_nif = ""
-			customer_country = "PT"
-
-			if hasattr(doc, 'customer') and doc.customer:
-				customer_nif = self._get_cached_nif("Customer", doc.customer)
-				customer_country = self._get_party_country("Customer", doc.customer)
-			elif hasattr(doc, 'supplier') and doc.supplier:
-				customer_nif = self._get_cached_nif("Supplier", doc.supplier)
-				customer_country = self._get_party_country("Supplier", doc.supplier)
-
-			if not customer_nif:
-				customer_nif = "999999990"  # Consumidor final, conforme especificacao
-
-			tax_breakdown = self._get_qr_tax_breakdown(doc)
-
-			certificate_number = frappe.db.get_single_value(
-				"Portugal Auth Settings", "software_certificate_number"
-			) or "0"
-
-			if signature_result and signature_result.get("hash_control"):
-				hash_control = signature_result["hash_control"]
-			else:
-				# Sem assinatura configurada ainda: nao inventar um hash -
-				# deixar vazio e visivel como incompleto, em vez de um
-				# valor que parece uma assinatura real sem o ser.
-				hash_control = ""
-
-			qr_data = {
-				"A": company_nif,
-				"B": customer_nif,
-				"C": self._normalize_country_code(customer_country),
-				"D": self.supported_document_types.get(doc.doctype, {}).get("saft_type", "FT"),
-				"E": self._get_document_status_code(doc),
-				"F": getdate(getattr(doc, 'posting_date', today())).strftime('%Y%m%d'),
-				"G": f"{self.supported_document_types.get(doc.doctype, {}).get('saft_type', 'FT')} {series_info['prefix']}/{doc.name}",
-				"H": atcud_code,
-				**tax_breakdown,
-				"N": f"{flt(tax_breakdown.get('_total_tax', 0)):.2f}",
-				"O": f"{flt(getattr(doc, 'grand_total', 0)):.2f}",
-				"Q": hash_control,
-				"R": str(certificate_number),
-			}
-			qr_data.pop("_total_tax", None)
-
-			return "*".join([f"{key}:{value}" for key, value in qr_data.items() if value != ""])
-
-		except Exception as e:
-			frappe.log_error(f"Erro ao construir dados QR: {str(e)}")
-			return f"ERROR:{str(e)}"
-
-	def _get_party_country(self, doctype, name):
-		"""
-		Pais do cliente/fornecedor via o endereco default (padrao
-		correto do ERPNext - Customer/Supplier nao tem campo pais
-		proprio, vive no endereco ligado via Dynamic Link).
-		"""
-		try:
-			from frappe.contacts.doctype.address.address import get_default_address
-			address_name = get_default_address(doctype, name)
-			if address_name:
-				country = frappe.db.get_value("Address", address_name, "country")
-				if country:
-					return country
-		except Exception:
-			pass
-		return "Portugal"
-
-	def _normalize_country_code(self, country):
-		"""Converte nome de pais do Frappe (ex: 'Portugal') para ISO 3166-1 alpha-2."""
-		if not country:
-			return "PT"
-		if len(country) == 2:
-			return country.upper()
-		code = frappe.db.get_value("Country", country, "code")
-		return code.upper() if code else "PT"
-
-	def _get_document_status_code(self, doc):
-		"""N Normal, A Anulado, S Autofaturacao - conforme especificacao do QR."""
-		if getattr(doc, "docstatus", 1) == 2:
-			return "A"
-		if getattr(doc, "is_return", 0):
-			return "A"
-		if getattr(doc, "custom_is_self_billing", 0):
-			return "S"
-		return "N"
-
-	def _get_qr_tax_breakdown(self, doc):
-		"""
-		Agrega os totais tributaveis por taxa de IVA (campos I isento,
-		J reduzida, K intermedia, L normal) e devolve tambem o total de
-		imposto isolado (campo N, via chave interna _total_tax).
-		Le a taxa efetiva de cada linha via item_tax_template /
-		Sales Taxes and Charges, em vez de assumir uma taxa fixa.
-		"""
-		buckets = {"I": 0.0, "J": 0.0, "K": 0.0, "L": 0.0}
-		total_tax = 0.0
-
-		items = getattr(doc, "items", None) or []
-		tax_rows = getattr(doc, "taxes", None) or []
-		total_taxable = sum(flt(getattr(item, "net_amount", 0) or getattr(item, "amount", 0)) for item in items) or flt(getattr(doc, "net_total", 0))
-		total_tax = flt(getattr(doc, "total_taxes_and_charges", 0))
-
-		if not items:
-			buckets["L"] = flt(getattr(doc, "net_total", 0))
-			return {"I": f"{buckets['I']:.2f}", "J": f"{buckets['J']:.2f}", "K": f"{buckets['K']:.2f}", "L": f"{buckets['L']:.2f}", "_total_tax": total_tax}
-
-		for item in items:
-			rate = self._get_item_effective_tax_rate(item, tax_rows)
-			taxable_amount = flt(getattr(item, "net_amount", None) if getattr(item, "net_amount", None) is not None else getattr(item, "amount", 0))
-
-			if rate <= 0:
-				buckets["I"] += taxable_amount
-			elif rate < 10:
-				buckets["J"] += taxable_amount
-			elif rate < 20:
-				buckets["K"] += taxable_amount
-			else:
-				buckets["L"] += taxable_amount
-
-		return {
-			"I": f"{buckets['I']:.2f}",
-			"J": f"{buckets['J']:.2f}",
-			"K": f"{buckets['K']:.2f}",
-			"L": f"{buckets['L']:.2f}",
-			"_total_tax": total_tax,
-		}
-
-	def _get_item_effective_tax_rate(self, item, tax_rows):
-		"""
-		Obtem a taxa de IVA efetiva de uma linha. Prioridade:
-		1. item_tax_rate (JSON por conta fiscal, campo nativo do ERPNext)
-		2. taxa da primeira linha de Sales/Purchase Taxes and Charges
-		   aplicavel (fallback quando o item nao tem override proprio)
-		"""
-		item_tax_rate = getattr(item, "item_tax_rate", None)
-		if item_tax_rate:
-			try:
-				rates = json.loads(item_tax_rate) if isinstance(item_tax_rate, str) else item_tax_rate
-				if rates:
-					return flt(list(rates.values())[0])
-			except (ValueError, TypeError):
-				pass
-
-		for tax_row in tax_rows:
-			rate = getattr(tax_row, "rate", None)
-			if rate:
-				return flt(rate)
-
-		return 23.0  # taxa normal em Portugal continental, ultimo recurso
-
-	def _get_cached_nif(self, doctype, name):
-		"""
-		✅ OTIMIZADO: Obter NIF com cache
-		"""
-		try:
-			cache_key = f"nif_{doctype}_{name}"
-			cached_nif = frappe.cache().get_value(cache_key)
-
-			if cached_nif is None:
-				cached_nif = frappe.db.get_value(doctype, name, "tax_id") or ""
-				# Cache por 1 hora
-				frappe.cache().set_value(cache_key, cached_nif, expires_in_sec=3600)
-
-			return cached_nif
-
-		except Exception:
-			return ""
 
 	# ========== AUDITORIA MELHORADA ==========
 
