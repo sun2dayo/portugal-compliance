@@ -142,6 +142,13 @@ Tributária: credenciais, certificados e o modo sandbox/produção.
    Configuradas"** mostra a tabela com as 4 séries, o respetivo tipo de documento e o estado
    (Ativa/Inativa, Comunicada Sim/Não).
 
+> **Importante — a checkbox só cria as 4 séries transacionais base.** Marcar "Portugal
+> Compliance Enabled" cria automaticamente as séries de Fatura, Fatura Simplificada, Recibo e
+> Guia de Remessa — mas **não** cria a série de estorno (Nota de Crédito / NC), usada para
+> devoluções e notas de crédito. Depois de ativar a checkbox, clique sempre em **Gerar Séries
+> Base** (menu **Portugal Compliance**, ver 4.1) para provisionar também a série NC e deixar a
+> configuração fiscal da empresa 100% completa antes de emitir o primeiro documento.
+
 ### 4.1. Outras ações no menu Portugal Compliance da Empresa
 
 Depois de ativar o Portugal Compliance, a ficha da Empresa ganha um menu **Portugal
