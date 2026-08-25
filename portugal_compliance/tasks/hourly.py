@@ -230,18 +230,20 @@ def try_series_communication(series):
 		result = client.register_naming_series(series.naming_series, series.company)
 
 		if result.get("success"):
+			# Campos reais do DocType (ver portugal_series_configuration.json) -
+			# "communication_status"/"error_message" nunca existiram como
+			# colunas; is_communicated/communication_date/validation_code sao
+			# os mesmos campos que os botoes manuais (series_api.py) gravam.
 			frappe.db.set_value("Portugal Series Configuration", series.name, {
 				"is_communicated": 1,
 				"communication_date": now(),
 				"validation_code": result.get("validation_code"),
-				"communication_status": "Success"
 			})
 			frappe.logger().info(f"Successfully communicated series {series.name}")
 		else:
-			frappe.db.set_value("Portugal Series Configuration", series.name, {
-				"communication_status": "Failed",
-				"error_message": result.get("error")
-			})
+			# Sem coluna real para guardar o erro na propria serie - o
+			# contador/timestamp de tentativas ja foi gravado acima; o erro
+			# fica so no log, como o caminho manual tambem faz.
 			frappe.logger().error(
 				f"Failed to communicate series {series.name}: {result.get('error')}")
 
@@ -313,17 +315,21 @@ def process_failed_communications():
 	Processa comunicações falhadas
 	"""
 	try:
-		# Séries com comunicação falhada há mais de 1 hora
+		# Séries com comunicação falhada há mais de 1 hora - "falhada" aqui
+		# significa is_communicated=0 mas já com pelo menos uma tentativa
+		# registada (communication_attempts > 0); não existe coluna
+		# "communication_status"/"error_message" no DocType.
 		failed_series = frappe.db.get_all("Portugal Series Configuration",
 										  filters={
-											  "communication_status": "Failed",
+											  "is_communicated": 0,
 											  "is_active": 1,
+											  "communication_attempts": [">", 0],
 											  "last_communication_attempt": ["<",
 																			 add_to_date(now(),
 																						 hours=-1)]
 										  },
 										  fields=["name", "series_name", "company",
-												  "error_message", "communication_attempts"]
+												  "communication_attempts"]
 										  )
 
 		for series in failed_series:
@@ -331,12 +337,9 @@ def process_failed_communications():
 			if (series.communication_attempts or 0) < 3:
 				try_series_communication(series)
 			else:
-				# Marcar como necessita intervenção manual
-				frappe.db.set_value("Portugal Series Configuration", series.name, {
-					"communication_status": "Manual Intervention Required"
-				})
-
-				# Criar notificação para administradores
+				# Sem coluna "communication_status" para marcar - a
+				# notificação para os administradores é o próprio sinal de
+				# que a série precisa de intervenção manual.
 				create_manual_intervention_notification(series)
 
 		if failed_series:
@@ -409,7 +412,7 @@ def update_real_time_cache():
 				"is_communicated": 0, "is_active": 1
 			}),
 			"failed_communications": frappe.db.count("Portugal Series Configuration", {
-				"communication_status": "Failed"
+				"is_communicated": 0, "is_active": 1, "communication_attempts": [">", 0]
 			})
 		}
 
