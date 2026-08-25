@@ -454,6 +454,33 @@ class PortugalComplianceDocumentHooks:
 				)
 
 			doc.db_set('atcud_code', result["atcud_code"], update_modified=False)
+
+			# QR Code: gerado aqui, uma unica vez, com get_qr_code_data() -
+			# a MESMA funcao usada pelos Print Formats reais e pelo
+			# registo a AT. So agora e possivel, porque doc.atcud_code so
+			# passou a existir no db_set() acima. O valor e injetado em
+			# doc._portugal_atcud_pending_log ANTES de
+			# persist_pending_atcud_log(), para que ATCUD Log.
+			# qr_code_string grave exatamente a mesma string - single
+			# source of truth entre o que fica na trilha de auditoria e o
+			# que e comunicado/impresso (antes desta correcao,
+			# atcud_generator.py::_build_qr_data_optimized() construia um
+			# segundo QR, com o mesmo defeito de mapeamento de campos ja
+			# corrigido aqui, so para a trilha de auditoria - removida).
+			if doc.doctype in FISCAL_IMMUTABLE_DOCTYPES:
+				try:
+					from portugal_compliance.utils.jinja_methods import get_qr_code_data, generate_qr_code_image
+					qr_string = get_qr_code_data(doc=doc)
+					if qr_string:
+						doc.db_set("qr_code", qr_string, update_modified=False)
+						if hasattr(doc, "_portugal_atcud_pending_log"):
+							doc._portugal_atcud_pending_log["qr_code_data"] = qr_string
+						qr_image = generate_qr_code_image(qr_string, 280)
+						if qr_image:
+							doc.db_set("qr_code_image", qr_image, update_modified=False)
+				except Exception as e:
+					frappe.log_error(f"Erro ao gerar QR Code para {doc.doctype} {doc.name}: {str(e)}")
+
 			generator.persist_pending_atcud_log(doc)
 			frappe.logger().info(f"✅ ATCUD gerado no submit: {result['atcud_code']}")
 
@@ -466,18 +493,6 @@ class PortugalComplianceDocumentHooks:
 			# isso um db_set aqui rebentava sempre com "Unknown column"
 			# assim que se tentou persistir a serio (bug apanhado no
 			# teste ao vivo desta correcao, nunca chegou a produção).
-
-			if doc.doctype in FISCAL_IMMUTABLE_DOCTYPES:
-				try:
-					from portugal_compliance.utils.jinja_methods import get_qr_code_data, generate_qr_code_image
-					qr_string = get_qr_code_data(doc=doc)
-					if qr_string:
-						doc.db_set("qr_code", qr_string, update_modified=False)
-						qr_image = generate_qr_code_image(qr_string, 280)
-						if qr_image:
-							doc.db_set("qr_code_image", qr_image, update_modified=False)
-				except Exception as e:
-					frappe.log_error(f"Erro ao gerar QR Code para {doc.doctype} {doc.name}: {str(e)}")
 
 		except Exception:
 			# Ao contrario da antiga generate_atcud_before_save (que so

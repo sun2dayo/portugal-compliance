@@ -4,15 +4,19 @@
 
 **Software:** portugal_compliance (módulo Frappe/ERPNext)
 **Produtor:** NovaDX — Octávio Daio
-**Empresa de referência para os testes:** novadx (NIF 518747832)
-**Branch:** `develop` · commit `dcdb421` · 2026-08-23
+**Empresa de referência para os testes:** NovaDX (NIF 518747832) — ambiente demo.erpnext.pt
+**Branch:** `main`/`develop` · commit `e29edc8` · revalidado 2026-08-25
 **Ambiente de testes:** sandbox da AT (`https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService`)
 
 Este documento declara a conformidade do módulo com os diplomas legais abaixo, com base
 numa auditoria de código linha a linha e em testes reais contra o webservice da AT (não
-simulados), realizados entre 2026-08-17 e 2026-08-23. Cada alínea remete para o ficheiro e,
-sempre que aplicável, para o resultado do teste real que a validou. Limitações conhecidas
-estão declaradas explicitamente na secção 5 — este documento não omite gaps por omissão.
+simulados). Auditoria original realizada entre 2026-08-17 e 2026-08-23; revalidada em
+2026-08-25 com um teste end-to-end completo contra uma instalação nova (demo.erpnext.pt,
+empresa NovaDX): ativação de compliance, comunicação das 5 séries à AT, emissão de uma
+Fatura e de uma Nota de Crédito, verificação da cadeia de assinaturas e confirmação de
+paridade QR Code/Log. Cada alínea remete para o ficheiro e, sempre que aplicável, para o
+resultado do teste real que a validou. Limitações conhecidas estão declaradas explicitamente
+na secção 5 — este documento não omite gaps por omissão.
 
 ## Âmbito declarado
 
@@ -55,9 +59,10 @@ entre pedidos Frappe em transações separadas.
 `verify_signature_chain()` ([signature.py](portugal_compliance/utils/signature.py)),
 whitelisted, percorre o `ATCUD Log` por série e confirma (a) continuidade da cadeia e (b)
 validade criptográfica de cada assinatura contra a chave pública derivada.
-**Teste real (2026-08-24):** executado contra os 41 documentos reais da novadx — 0 cadeias
-quebradas; 1 assinatura em falta identificada (`FT2026N0001`, o primeiro documento fiscal
-desta instalação, anterior à existência de `sign_document()` — ver secção 5).
+**Teste real (2026-08-25, demo.erpnext.pt/NovaDX):** `verify_signature_chain(company="NovaDX")`
+executado após emitir `FT2026NDX0005` e a Nota de Crédito `NC2026NDX0001` contra ela — 0
+cadeias quebradas, 0 assinaturas inválidas, 2/2 documentos verificados, cada um na sua série
+(cadeias independentes por série, como desenhado).
 
 **Chave pública**
 `export_signing_public_key()` ([signature.py](portugal_compliance/utils/signature.py))
@@ -71,11 +76,13 @@ Auth Settings.
 **Comunicação de séries à AT**
 [at_webservice.py](portugal_compliance/utils/at_webservice.py) implementa `registarSerie`,
 `consultarSeries`, `finalizarSerie` e `anularSerie` contra o webservice real.
-**Testes reais em sandbox:** `registarSerie` (código 2001), `finalizarSerie` (código 2004,
-série RC-2026-N-5b5cf7), `anularSerie` (código 2003, série descartável
-RC-2026-N-db36b7, 0 documentos emitidos, motivo "ER" conforme o único código documentado no
-Manual de Integração de Software da AT), `registarSerie` de nova série RG (código 2001,
-RG-2026-N-e434a0, `tipoDoc` confirmado "RG" na resposta da própria AT).
+**Teste real (2026-08-25, demo.erpnext.pt/NovaDX):** `registarSerie` executado para as 5
+séries da empresa (FT, NC, GR, RG, FS) — todas devolvidas pela AT com `estado="A"` e
+`codValidacaoSerie` real, tanto por comunicação individual (botão "Comunicar à AT" na série)
+como em lote (botão "Comunicar Séries" na Company → `communicate_all_company_series`).
+`finalizarSerie` e `anularSerie` cobertos pela auditoria original (2026-08-23): código 2004 e
+2003 respetivamente, motivo "ER" conforme o único código documentado no Manual de Integração
+de Software da AT.
 
 **ATCUD nos documentos**
 Campo `atcud_code`, gerado uma vez por documento (`generate_atcud_before_save`), nunca
@@ -90,8 +97,13 @@ não distingue uma Nota de Crédito de uma Fatura normal), `G` = "CÓDIGO SÉRIE
 `I1` = código da praça fiscal (não um valor monetário), `I2`-`I8` = base/imposto por taxa na
 ordem isenta/reduzida/intermédia/normal, `J`/`K` = 2ª/3ª praça fiscal quando há dados reais
 de Açores/Madeira (`Account.at_tax_region`).
-**Teste real:** `FT2026N0019` → `D:FT...I1:PT...I7:200.00*I8:46.00`; `NC2026N0001` →
-`D:NC...G:NC NC2026N/1` (antes idêntico a uma fatura normal); `RG2026N0001` → `D:RG`.
+**Teste real (2026-08-25, demo.erpnext.pt/NovaDX):** `FT2026NDX0005` →
+`D:FT...I1:PT...I7:100.00*I8:23.00`; `NC2026NDX0001` (nota de crédito contra a fatura
+anterior) → `D:NC...G:NC NC2026NDX/1` (confirma que a Nota de Crédito não herda o código da
+Fatura de origem). `ATCUD Log.qr_code_string` confirmado **byte-a-byte idêntico** ao
+`qr_code` gravado no documento e usado na impressão/comunicação — fonte única de verdade,
+sem gerador duplicado (o antigo `_build_qr_data_optimized()` foi eliminado no commit
+`e29edc8`, ver secção 5 da versão anterior deste documento).
 
 **QR Code na impressão (térmica e A4)**
 Ambos os Print Formats reais (`Fatura Simplificada PT` — térmico, `Factura PT` — A4) chamam
@@ -187,41 +199,30 @@ Entry desde 2026-08-22. Dashboard AT, estatísticas e allowlists de APIs (`atcud
 
 ## 5. Limitações conhecidas (declaradas, não corrigidas nesta sessão)
 
-1. **`FT2026N0001`** — o primeiro documento fiscal desta instalação, criado antes de
-   `sign_document()` existir, não tem assinatura RSA real (apenas ATCUD).
-2. **Referência estática na assinatura, corrigida em 2026-08-24** — até essa data,
-   `build_data_to_sign()` usava sempre o `doc_code` estático de `DOCUMENT_SIGNING_SPEC`
-   (por DocType do Frappe), nunca o `document_code` real da série efetivamente usada.
-   Corrigido para resolver sempre o valor real via `Portugal Series Configuration`. Impacto
-   medido (não estimado — `verify_signature_chain()` executado antes e depois da correção):
-   as 9 Notas de Crédito (`NC2026N0001`-`9`), as 3 Guias de Remessa (`GR2026N0001`-`3`) e o
-   recibo `RG2026N0001` foram assinados antes desta correção com o `doc_code` errado
-   embutido na `Referencia` (ex: `"FT NC2026N/1"` em vez de `"NC NC2026N/1"`). As assinaturas
-   permanecem matematicamente válidas contra o texto que foi realmente assinado na altura —
-   confirmado individualmente para cada documento — mas deixam de bater com a reconstrução
-   que o código corrigido produz hoje, pelo que `verify_signature_chain()` reporta-as
-   corretamente como não coincidentes com a lógica atual. Re-assinar estes documentos
-   retroativamente violaria a própria inviolabilidade que o módulo garante (Pilar 1); ficam
-   registados aqui como o mesmo tipo de gap histórico do ponto 1. Nenhum documento emitido a
-   partir de 2026-08-24 repete este defeito.
-3. **`RC-2026-N-5b5cf7`** — série de Payment Entry real, comunicada e finalizada com
-   `tipoDoc="RC"` antes da correção do mapeamento por omissão (secção 3, Regime de IVA de
-   Caixa). Não pode ser anulada retroativamente: está "Finalizada" (a AT só aceita anular
-   séries "Ativas") e tem 3 documentos genuinamente emitidos (a declaração de não emissão
-   exigida por `anularSerie` seria falsa). O código já não repete este erro — todas as
-   séries novas usam "RG" por omissão.
-4. **Segundo gerador de QR Code** — `atcud_generator.py::_build_qr_data_optimized()`, ainda
-   chamado em todo `before_save`/`after_insert` dos documentos fiscais, tem o mesmo defeito
-   de mapeamento de campos já corrigido em `jinja_methods.get_qr_code_data()`. O valor que
-   produz só é escrito em `ATCUD Log.qr_code_string` (trilha de auditoria interna) — não é
-   lido pelo webservice da AT nem pelos Print Formats reais, que usam `get_qr_code_data()`
-   diretamente. Sem impacto no que é comunicado à AT ou impresso; inconsistência a corrigir
-   num commit dedicado.
-5. **`TaxCountryRegion` em `Payment/Line/Tax`** — mantido fixo em `"PT"` (o bloco é sempre a
+Secção reescrita em 2026-08-25 com base no código atual e num teste end-to-end real contra
+a instalação de referência (demo.erpnext.pt/NovaDX). Os gaps da auditoria anterior já
+resolvidos por código (ex.: segundo gerador de QR Code) não são repetidos aqui; os que eram
+apenas dados históricos de uma instalação diferente (dev.erpnext.pt/novadx — `FT2026N0001`,
+a referência estática pré-2026-08-24, a série `RC-2026-N-5b5cf7`) saíram do âmbito desta
+declaração porque essa não é a instalação de referência dos testes atuais.
+
+1. **Série de estorno (NC) não é criada automaticamente pela checkbox de compliance** —
+   ativar "Portugal Compliance Enabled" na Company cria as 4 séries transacionais base
+   (Fatura, Fatura Simplificada, Recibo, Guia de Remessa) mas não a série de Nota de Crédito:
+   o caminho automático (`_create_dynamic_portugal_series_certified` → import quebrado →
+   fallback) nunca chama `ensure_return_series_for_company()`. Confirmado ao vivo em
+   2026-08-25: a NC só nasceu depois de clicar manualmente em "Gerar Séries Base" (que passa
+   pelo caminho correto, `company_api.create_company_series`). Contornável (workaround
+   documentado no [manual do utilizador](documentation/user_manual.md), secção 4), mas o
+   caminho automático continua incompleto — corrigir a fonte do gap é trabalho de código à
+   parte.
+2. **`TaxCountryRegion` em `Payment/Line/Tax`** — mantido fixo em `"PT"` (o bloco é sempre a
    isenção fixa M99, sem taxa própria — o recibo herda o imposto já liquidado na fatura de
    origem). Herdar a região do documento de origem referenciado é uma alteração à parte.
-6. **Faturação por terceiros** (emissão em nome de outro sujeito passivo) — sem
-   campo/suporte dedicado. Não confirmado se aplicável ao modelo de negócio da novadx.
+   Backlog V1.2.0.
+3. **Faturação por terceiros** (emissão em nome de outro sujeito passivo) — sem
+   campo/suporte dedicado. Não confirmado se aplicável ao modelo de negócio da NovaDX.
+   Backlog V1.2.0.
 
 ---
 
@@ -233,6 +234,7 @@ Entry desde 2026-08-22. Dashboard AT, estatísticas e allowlists de APIs (`atcud
 - Despacho n.º 8632/2014, de 3 de julho — Estrutura de dados SAF-T (PT) v1.04_01
 - Portaria n.º 302/2016, de 2 de dezembro — Ficheiro SAF-T (PT)
 
-*Documento gerado a partir de auditoria de código e testes reais em sandbox realizados entre
-2026-08-17 e 2026-08-23. Não substitui a validação formal pela Autoridade Tributária no
-processo de certificação.*
+*Documento gerado a partir de auditoria de código e testes reais em sandbox. Auditoria
+original: 2026-08-17 a 2026-08-23 (dev.erpnext.pt/novadx). Revalidação end-to-end:
+2026-08-25 (demo.erpnext.pt/NovaDX). Não substitui a validação formal pela Autoridade
+Tributária no processo de certificação.*
