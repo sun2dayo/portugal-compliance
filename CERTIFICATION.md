@@ -1,5 +1,7 @@
 # Declaração de Conformidade — `portugal_compliance`
 
+**Versão:** 1.1.0
+
 **Software:** portugal_compliance (módulo Frappe/ERPNext)
 **Produtor:** NovaDX — Octávio Daio
 **Empresa de referência para os testes:** novadx (NIF 518747832)
