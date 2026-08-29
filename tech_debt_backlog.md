@@ -2,7 +2,11 @@
 
 **Versão:** 1.1.2
 **Origem:** smoke test isolado de `weekly.execute()`, `monthly.execute()` e `yearly.execute()` em demo.erpnext.pt/NovaDX, 2026-08-25, durante a preparação do Hotfix v1.1.2.
-**Estado:** nenhum destes itens foi corrigido — mapeados aqui exatamente como descobertos, para o V1.2.0.
+**Estado:** a Parte 1 (34 erros de tarefas agendadas) continua totalmente por
+corrigir. A Parte 2 teve 4 itens corrigidos em 2026-08-29 (3x Alta + 1x Média
+de Impostos e SAF-T/Sistema, ver checkboxes abaixo e commit `8fe8a30` em
+`develop`) — os restantes continuam mapeados aqui exatamente como
+descobertos, para o V1.2.0.
 
 ## Parte 1 — Tarefas Agendadas (weekly/monthly/yearly)
 
@@ -136,51 +140,35 @@ explicitamente.
 
 ### Impostos e SAF-T
 
-- [ ] **[Prioridade Alta] Suporte a Imposto do Selo (IS)**
-  `utils/saft_generator.py` e os templates em `templates/saft_t/` só geram
-  `<TaxType>IVA</TaxType>` — não existe nenhum ramo para `TaxType="IS"` em
-  todo o gerador (confirmado por grep, zero ocorrências de `"IS"`/TGIS fora
-  de um comentário sobre retenção na fonte).
-  **Instruções de implementação:**
-  1. Adicionar uma tabela de mapeamento (novo ficheiro ou dicionário em
-     `saft_generator.py`) com os códigos e taxas da Tabela Geral do Imposto
-     do Selo (TGIS) relevantes ao negócio (verba aplicável, taxa, código).
-  2. Nas queries que populam as linhas de fatura (`_line_region` e a função
-     que monta `item.tax_*` — ver `utils/saft_generator.py` em torno da
-     linha 618), detetar quando o item usa uma verba de Imposto do Selo em
-     vez de IVA (via `Item Tax Template` ou conta contabilística dedicada) e
-     popular `TaxType="IS"` + o código da verba em vez de `TaxCode`/`IVA`.
-  3. Atualizar `templates/saft_t/source_documents.xml` (bloco `<Tax>` dentro
-     de `<Line>`, linha ~62-66) para que `TaxType` também seja dinâmico
-     (`{{ item.tax_type or 'IVA' }}`), não fixo.
-  4. Validar contra o XSD (`xmlschema.XMLSchema11`, já usado em
-     `saf_t_export_log.py`) com pelo menos um documento real de Imposto do
-     Selo antes de fechar.
+- [x] **[Prioridade Alta] Suporte a Imposto do Selo (IS) — parcial (mecanismo pronto, sem verba real)**
+  Corrigido em `8fe8a30` (2026-08-29): `TaxType` dinâmico em
+  `source_documents.xml`, deteção via `Account.at_tax_type`/`at_tax_code`,
+  novo campo `at_stamp_duty_verba` em `setup/tax_setup.py`. **Não** foi
+  criada nenhuma tabela de verbas/taxas da TGIS — não havia dados reais do
+  negócio disponíveis e um código fiscal fabricado seria pior do que
+  nenhum. Falta: criar a(s) conta(s) de Imposto do Selo reais
+  (`at_tax_type="IS"` + `at_stamp_duty_verba` com a verba aplicável) e
+  validar um documento real de IS contra o XSD antes de considerar
+  fechado por completo.
 
-- [ ] **[Prioridade Alta] Granularidade de Impostos nos Recibos (Payment Entry) — taxa e base reais**
-  Confirmado: `templates/saft_t/source_documents.xml`, bloco
-  `Payments/Payment/Line/Tax` (linhas ~118-124), tem `TaxCode` e
-  `TaxPercentage` **fixos** (`NOR`, `0.00`) para todos os recibos, independente
-  da taxa real da fatura que estão a liquidar.
-  **Instruções de implementação:**
-  1. Em `utils/saft_generator.py`, na função que monta `payment.saft_references`
-     (o loop que gera `reference.reference_name`/`allocated_amount`), ir
-     buscar a(s) taxa(s) de IVA reais da fatura referenciada
-     (`Sales Invoice Taxes and Charges` da fatura em `reference_name`) — se a
-     fatura tiver mais de uma taxa, pode ser necessário desdobrar em múltiplas
-     `<Line>` por referência, uma por taxa.
-  2. Substituir os literais `NOR`/`0.00` no template por `{{ reference.tax_code }}`
-     /`{{ '%.2f'|format(reference.tax_percentage or 0) }}`.
-  3. Manter `TaxExemptionReason`/`TaxExemptionCode` = M99 **apenas** quando a
-     fatura de origem também for isenta — não como valor universal.
-  4. Testado em conjunto com o item seguinte (mesma função/template).
+- [x] **[Prioridade Alta] Granularidade de Impostos nos Recibos (Payment Entry) — taxa e base reais**
+  Corrigido em `8fe8a30` (2026-08-29): `utils/saft_generator.py` calcula
+  agora os grupos reais de imposto (região+código+base) da fatura
+  referenciada por cada `Payment Entry Reference`, com split proporcional
+  do `allocated_amount` quando a fatura tem taxas mistas — cada grupo vira
+  uma `<Line>` própria em `source_documents.xml`. `TaxExemptionReason`/
+  `TaxExemptionCode` = M99 passou a só aparecer quando o grupo é isento
+  (`ISE`), não como valor universal. Validado ao vivo: XML real gerado
+  para `novadx` com recibos a 23% (`FT2026N0012`/`0013`) mostra
+  `TaxPercentage=23.00` sem exemption, e passa a validação XSD completa.
 
-- [ ] **[Prioridade Alta] Herdar Região Fiscal nos Recibos (`Payment/Line/Tax/TaxCountryRegion`)**
-  Mesmo bloco do item anterior — `templates/saft_t/source_documents.xml:123`
-  tem `<TaxCountryRegion>PT</TaxCountryRegion>` fixo.
-  **Instruções de implementação:** no mesmo ponto do generator onde se
-  resolve a taxa real da fatura (item acima), ler também
-  `Account.at_tax_region` da conta de IVA da fatura de origem (mesma lógica
+- [x] **[Prioridade Alta] Herdar Região Fiscal nos Recibos (`Payment/Line/Tax/TaxCountryRegion`)**
+  Corrigido junto com o item anterior (mesma função/template) em `8fe8a30`
+  — `reference.tax_region` já vem do grupo de imposto real da fatura
+  (`Account.at_tax_region`), substituindo o `PT` fixo. Ainda não exercitado
+  ao vivo com uma fatura de Madeira/Açores (essas contas só passaram a
+  existir hoje via a correção da Taxa de IVA Regional — ver nota no fim
+  desta secção), mas a lógica é a mesma já validada para faturas.
   já usada para faturas em `_line_region`, `utils/saft_generator.py` linha
   ~291-300) e passar `reference.tax_region` para o template, substituindo o
   `PT` fixo por `{{ reference.tax_region or 'PT' }}`.
@@ -202,31 +190,50 @@ explicitamente.
      `<WithholdingTaxType>{{ wh.withholding_tax_type }}</WithholdingTaxType>`
      apenas quando o campo estiver preenchido (é opcional no XSD).
 
+### Correções adicionais (fora deste backlog, encontradas em 2026-08-29)
+
+Não estavam mapeadas aqui — descobertas durante a investigação/implementação
+dos itens acima e corrigidas no mesmo commit `8fe8a30`.
+
+- [x] **Taxa de IVA Regional nunca gerada para Madeira/Açores**
+  `setup/tax_setup.py::_execute_compliance_setup` chamava
+  `setup_tax_templates_for_company(company, region="PT")` com a região fixa
+  em Continente — a própria taxonomia (`AT_TAX_TAXONOMY`) já tinha os dados
+  completos das 3 regiões, e o ficheiro documentava
+  `create_regional_tax_setup_for_company()` no topo, mas essa função nunca
+  chegou a ser implementada (confirmado por grep a todo o repositório).
+  Implementada e ligada à ativação automática + novo botão manual "Gerar
+  Séries/Taxas Regionais". Validado ao vivo: 12 templates + 12 contas SNC
+  (2433x/2434x/2435x) na `novadx`.
+- [x] **Bug de idempotência em `setup_tax_templates_for_company`**
+  A verificação `frappe.db.exists(doctype, template_title)` comparava o
+  título contra a chave primária, mas `Sales Taxes and Charges Template`/
+  `Item Tax Template` sobrescrevem `autoname()` para
+  `name = título + " - " + abreviatura_empresa` — nunca batia certo. Ficou
+  dormant por a função só correr uma vez (ativação); expôs-se como
+  `IntegrityError` ao testar a via de reexecução acima. Corrigido para
+  filtrar por `{title, company}`.
+- [x] **`tax_code` do SAF-T ignorava a região (faturas e tabela mestra)**
+  `_get_line_tax_code()` classificava NOR/INT/RED/ISE só por faixa de
+  percentagem — a taxa Normal dos Açores (16%) caía na faixa "Intermédia"
+  (<20%) do Continente. Ficou dormant por nunca terem existido contas dos
+  Açores/Madeira; o item acima ativou-o. Corrigido em
+  `utils/saft_generator.py` (`get_sales_invoices_data` e
+  `get_tax_table_data`) para usar o código real da conta (`at_tax_code`,
+  já correto por região) quando disponível.
+
 ### Sistema e Manutenção
 
-- [ ] **[Prioridade Média] Proteção de Cálculo de Métricas (TypeError data - NoneType)**
-  Corrigida a localização: o erro real
-  (`unsupported operand type(s) for -: 'datetime.datetime' and 'NoneType'`,
-  confirmado ao vivo no Error Log, recorrente a cada ciclo do scheduler) **não
-  está em `log_system_metrics()`** (essa função não faz subtração de datas) —
-  está em `tasks/all.py::update_cache_if_needed()`, linha ~172:
-  `(current_time - get_datetime(last_cache_update)).seconds > 300`. A guarda
-  `not last_cache_update or (...)` protege contra `last_cache_update` vazio,
-  mas não protege contra `get_datetime(last_cache_update)` devolver `None`
-  quando o valor lido do cache (`frappe.cache.get(...)`, cliente cru, pode
-  devolver `bytes` em vez de `str`) não é parseável.
-  **Instruções de implementação:**
-  1. Em `tasks/all.py:163-184` (`update_cache_if_needed`), calcular
-     `parsed = get_datetime(last_cache_update) if last_cache_update else None`
-     numa variável antes do `if`.
-  2. Mudar a condição para
-     `if not parsed or (current_time - parsed).seconds > 300:` — protege
-     explicitamente contra o `None` devolvido pelo parse falhado, não só
-     contra o valor original vazio.
-  3. Opcional: decidir se `last_cache_update`/linha 169 e 181 devem migrar
-     para `frappe.cache().get_value()`/`set_value()` por consistência (hoje
-     ficam deliberadamente na API crua por guardarem só uma string) — não é
-     a causa do bug, mas eliminaria de vez a possibilidade de `bytes`.
+- [x] **[Prioridade Média] Proteção de Cálculo de Métricas (TypeError data - NoneType)**
+  Corrigido em `8fe8a30` (2026-08-29): `tasks/all.py::update_cache_if_needed()`
+  agora calcula `parsed_last_cache_update = get_datetime(last_cache_update)
+  if last_cache_update else None` antes do `if`, protegendo contra o `None`
+  devolvido por um parse falhado (valor `bytes` corrompido no cache), não só
+  contra o valor original vazio. Testado ao vivo com o cenário exato do
+  bug (valor `bytes` inválido forçado no cache) — sem novo erro no Error
+  Log. O item opcional (migrar para `frappe.cache().get_value()`/
+  `set_value()`) não foi feito — não é a causa do bug, fica em aberto se
+  se quiser eliminar de vez a possibilidade de `bytes`.
 
 ### Limpeza e Refatoração
 
