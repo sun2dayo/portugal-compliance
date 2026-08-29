@@ -11,9 +11,11 @@ from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 # ========== TAXONOMIA (região, taxa, código AT) ==========
-# Só "Continente" é criado automaticamente na ativação (zero-touch);
-# Madeira/Açores ficam disponíveis para criação a pedido via
-# create_regional_tax_setup_for_company().
+# As 3 regiões (Continente, Madeira, Açores) são criadas automaticamente
+# na ativação do compliance via create_regional_tax_setup_for_company(),
+# que itera esta taxonomia chamando setup_tax_templates_for_company por
+# região. Também disponível sob pedido (botão "Gerar Séries/Taxas
+# Regionais") para empresas já ativas antes desta correção.
 AT_TAX_TAXONOMY = {
 	"PT": [
 		{"rate": 23, "code": "NOR", "label": "Normal", "account_suffix": "1"},
@@ -63,6 +65,23 @@ ACCOUNT_CUSTOM_FIELDS = [
 		"options": "\nNOR\nINT\nRED\nISE",
 		"insert_after": "at_tax_region",
 		"module": "Portugal Compliance",
+		"depends_on": "eval:doc.at_tax_type=='IVA'",
+	},
+	{
+		# Verba da Tabela Geral do Imposto do Selo (TGIS) - código livre
+		# (ex: "1.1", "17.3.1"), nunca a classificação NOR/INT/RED/ISE de
+		# IVA (at_tax_code acima, que só se aplica a contas at_tax_type=
+		# "IVA"). Sem tabela de verbas pré-carregada: cada conta de
+		# Imposto do Selo tem de ser configurada manualmente com a verba
+		# real aplicável ao negócio - nenhum código fiscal é assumido
+		# automaticamente (ver saft_generator.py::_line_tax_code, usa
+		# "OUT" como reserva só quando este campo fica vazio).
+		"fieldname": "at_stamp_duty_verba",
+		"label": "Verba TGIS (Imposto do Selo)",
+		"fieldtype": "Data",
+		"insert_after": "at_tax_code",
+		"module": "Portugal Compliance",
+		"depends_on": "eval:doc.at_tax_type=='IS'",
 	},
 ]
 
@@ -172,7 +191,19 @@ def setup_tax_templates_for_company(company, region="PT"):
 		region_suffix = "" if region == "PT" else f" {region}"
 		template_title = f"IVA {spec['rate']}% {spec['label']}{region_suffix} - {company}"
 
-		if not frappe.db.exists("Sales Taxes and Charges Template", template_title):
+		# frappe.db.exists(doctype, name) verificaria pela CHAVE PRIMÁRIA -
+		# mas Sales Taxes and Charges Template/Item Tax Template sobrescrevem
+		# autoname() para name = f"{title} - {company_abbr}" (ver
+		# erpnext/accounts/doctype/.../*.py), nunca == title sozinho. Um
+		# exists() por name comparado com template_title (sem abbr) nunca
+		# encontra o registo já criado - ficava sempre False e tentava
+		# reinserir, só não rebentando à primeira chamada (ativação,
+		# corre uma única vez) porque nunca havia colisão ainda; expôs-se
+		# como IntegrityError assim que passou a haver uma via de
+		# reexecução real (botão manual / reativação de Madeira-Açores,
+		# 2026-08-29). Filtrar pelo campo title (não pela chave) é
+		# imune ao sufixo de abbr gerado no autoname.
+		if not frappe.db.exists("Sales Taxes and Charges Template", {"title": template_title, "company": company}):
 			frappe.get_doc({
 				"doctype": "Sales Taxes and Charges Template",
 				"title": template_title,
@@ -186,7 +217,7 @@ def setup_tax_templates_for_company(company, region="PT"):
 			}).insert(ignore_permissions=True)
 			created.append(template_title)
 
-		if not frappe.db.exists("Item Tax Template", template_title):
+		if not frappe.db.exists("Item Tax Template", {"title": template_title, "company": company}):
 			frappe.get_doc({
 				"doctype": "Item Tax Template",
 				"title": template_title,
@@ -195,4 +226,27 @@ def setup_tax_templates_for_company(company, region="PT"):
 			}).insert(ignore_permissions=True)
 
 	frappe.db.commit()
+	return created
+
+
+def create_regional_tax_setup_for_company(company):
+	"""
+	Cria os templates fiscais das 3 regiões AT (Continente, Madeira,
+	Açores) para uma empresa - reutiliza setup_tax_templates_for_company,
+	só remove a limitação anterior de "Continente incondicional". Chamada
+	tanto pela ativação automática do compliance (_execute_compliance_setup)
+	como pelo botão manual "Gerar Séries/Taxas Regionais" (para empresas
+	já ativas que só tenham os 4 templates de Continente). Idempotente -
+	seguro reexecutar em qualquer estado.
+	"""
+	created = {}
+	for region in AT_TAX_TAXONOMY:
+		try:
+			created[region] = setup_tax_templates_for_company(company, region=region)
+		except Exception as e:
+			frappe.log_error(
+				f"Erro ao configurar taxonomia AT de IVA ({region}) para {company}: {str(e)}",
+				"Portugal Compliance - Tax Setup",
+			)
+			created[region] = {"error": str(e)}
 	return created

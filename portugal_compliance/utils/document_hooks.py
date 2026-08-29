@@ -279,12 +279,15 @@ class PortugalComplianceDocumentHooks:
 		# 2. Custom fields
 		self._ensure_custom_fields_exist()
 
-		# 3. Templates de impostos + contas SNC 2433x por taxa (Fase 7:
-		# taxonomia AT completa, substitui a conta generica "Duties and
-		# Taxes" pela conta real do Plano de Contas SNC português)
-		from portugal_compliance.setup.tax_setup import setup_tax_templates_for_company
+		# 3. Templates de impostos + contas SNC 2433x/2434x/2435x por
+		# região+taxa (Fase 7: taxonomia AT completa, substitui a conta
+		# generica "Duties and Taxes" pela conta real do Plano de Contas
+		# SNC português; até aqui só "Continente" era criado - Madeira/
+		# Açores ficavam apenas documentados mas nunca gerados, ver
+		# create_regional_tax_setup_for_company)
+		from portugal_compliance.setup.tax_setup import create_regional_tax_setup_for_company
 		try:
-			results['tax_templates'] = setup_tax_templates_for_company(doc.name, region="PT")
+			results['tax_templates'] = create_regional_tax_setup_for_company(doc.name)
 		except Exception as e:
 			frappe.log_error(f"Erro ao configurar taxonomia AT de IVA para {doc.name}: {str(e)}")
 
@@ -1111,9 +1114,10 @@ class PortugalComplianceDocumentHooks:
 	# 2026-08-26): nenhuma das três tinha qualquer chamador em todo o
 	# repositório (confirmado por grep) - código morto dentro de um
 	# ficheiro vivo. O caminho real e ativo para templates de impostos
-	# é portugal_compliance.setup.tax_setup.setup_tax_templates_for_company
-	# (chamado em _execute_compliance_setup acima), que usa a
-	# taxonomia SNC 2433x real por taxa, não a conta genérica "IVA"
+	# é portugal_compliance.setup.tax_setup.create_regional_tax_setup_for_company
+	# (chamado em _execute_compliance_setup acima, itera as 3 regiões via
+	# setup_tax_templates_for_company), que usa a taxonomia SNC 2433x/
+	# 2434x/2435x real por taxa e região, não a conta genérica "IVA"
 	# que este código morto criava - mantê-lo teria sido um risco real
 	# se algum dia fosse reativado por engano.
 

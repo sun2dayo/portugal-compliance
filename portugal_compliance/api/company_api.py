@@ -597,6 +597,51 @@ def create_company_series(company, document_types=None):
 
 
 @frappe.whitelist()
+def generate_regional_tax_setup(company):
+	"""
+	✅ NOVA: Botão manual "Gerar Séries/Taxas Regionais" - gera os
+	templates de IVA (Sales Taxes and Charges Template + Item Tax
+	Template + contas SNC 2433x/2434x/2435x) das 3 regiões AT
+	(Continente, Madeira, Açores) para uma empresa já ativa que só
+	tenha os templates de Continente (criados antes desta correção -
+	ver create_regional_tax_setup_for_company). Idempotente, seguro
+	reexecutar em qualquer estado.
+	"""
+	try:
+		if not company:
+			return {'success': False, 'error': 'Nome da empresa é obrigatório'}
+
+		if not frappe.db.exists('Company', company):
+			return {'success': False, 'error': f'Empresa "{company}" não encontrada'}
+
+		if not frappe.has_permission("Company", "write", company):
+			frappe.throw(_("Sem permissão para configurar esta empresa"), frappe.PermissionError)
+
+		from portugal_compliance.setup.tax_setup import create_regional_tax_setup_for_company
+		created = create_regional_tax_setup_for_company(company)
+
+		errors = {
+			region: result["error"] for region, result in created.items()
+			if isinstance(result, dict) and "error" in result
+		}
+		total_created = sum(len(result) for result in created.values() if isinstance(result, list))
+
+		return {
+			'success': not errors,
+			'created': created,
+			'total_created': total_created,
+			'errors': errors,
+			'message': f'{total_created} templates novos criados nas 3 regiões' if not errors
+					   else f'Concluído com erros: {", ".join(errors)}',
+		}
+	except Exception as e:
+		frappe.log_error(
+			f"Erro ao gerar taxas regionais para {company}: {str(e)}\n{traceback.format_exc()}",
+			"Regional Tax Setup Error")
+		return {'success': False, 'error': f'Erro interno: {str(e)}'}
+
+
+@frappe.whitelist()
 def validate_company_for_compliance(company):
 	"""
 	✅ MELHORADO: Validar se empresa pode ativar compliance português

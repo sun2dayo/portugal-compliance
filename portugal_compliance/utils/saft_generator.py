@@ -296,8 +296,11 @@ class SAFTGenerator:
 		criada explicitamente para Madeira/Açores (auditoria de
 		certificação 2026-08-24).
 		"""
+		from portugal_compliance.utils.tax_breakdown import VALID_AT_CODES
+
 		tax_rates = frappe.db.sql("""
-								  SELECT DISTINCT at.rate, at.description, a.at_tax_region AS region
+								  SELECT DISTINCT at.rate, at.description, a.at_tax_region AS region,
+												  a.at_tax_code AS account_tax_code
 								  FROM `tabAccount` a
 										   INNER JOIN `tabSales Taxes and Charges` at
 								  ON at.account_head = a.name
@@ -308,7 +311,14 @@ class SAFTGenerator:
 								  """, (company,), as_dict=True)
 
 		for row in tax_rates:
-			row["tax_code"] = self._get_line_tax_code(flt(row["rate"]))
+			# Código real da conta (setup/tax_setup.py) quando disponível -
+			# só cai na faixa de percentagem para contas legadas sem
+			# at_tax_code (anteriores a 2026-08-24). Faixa de percentagem
+			# sozinha confunde regiões (ex: Normal dos Açores a 16% caía em
+			# "Intermédia").
+			row["tax_code"] = row.pop("account_tax_code") or None
+			if row["tax_code"] not in VALID_AT_CODES:
+				row["tax_code"] = self._get_line_tax_code(flt(row["rate"]))
 			row["region"] = row["region"] or "PT"
 
 		return tax_rates
@@ -440,7 +450,7 @@ class SAFTGenerator:
 		# no futuro, e nada nessa faixa indica de que conta a taxa veio
 		# (auditoria de certificação 2026-08-24, questão levantada após
 		# comparação com InvoiceXpress/Odoo l10n_pt).
-		from portugal_compliance.utils.tax_breakdown import get_account_at_info, get_item_tax_template_info
+		from portugal_compliance.utils.tax_breakdown import get_account_at_info, get_item_tax_template_info, VALID_AT_CODES
 
 		template_names = {r.item_tax_template for r in rows if r.item_tax_template}
 		# account_info começa só com as contas do cabeçalho (fallback);
@@ -450,13 +460,43 @@ class SAFTGenerator:
 		account_info = get_account_at_info({a for a in header_account.values() if a})
 		template_info = get_item_tax_template_info(template_names, account_info)
 
-		def _line_region(item_tax_template, invoice_name):
+		def _line_tax_info(item_tax_template, invoice_name):
 			info = template_info.get(item_tax_template)
 			if not info:
 				header_acc = header_account.get(invoice_name)
 				info = account_info.get(header_acc) if header_acc else None
-			region = (info or {}).get("region")
+			return info or {}
+
+		def _line_region(item_tax_template, invoice_name):
+			region = _line_tax_info(item_tax_template, invoice_name).get("region")
 			return region if region else "PT"
+
+		def _line_tax_code(item_tax_template, invoice_name, rate):
+			"""
+			Código AT real da conta/template (at_tax_code, já correto por
+			região - ver setup/tax_setup.py) quando resolvível; só cai na
+			classificação por faixa de percentagem (_get_line_tax_code)
+			quando não há conta/template AT associável (contas legadas
+			anteriores ao campo at_tax_region). A faixa de percentagem
+			sozinha confunde regiões: a taxa Normal dos Açores (16%) caía
+			na faixa "Intermédia" (<20%) do Continente - passou a ser um
+			bug real assim que Açores/Madeira passaram a ser gerados
+			automaticamente (ver setup/tax_setup.py::
+			create_regional_tax_setup_for_company).
+			"""
+			info = _line_tax_info(item_tax_template, invoice_name)
+			if info.get("tax_type") == "IS":
+				# Imposto do Selo: o código é a verba da TGIS
+				# (at_stamp_duty_verba, texto livre - ex: "1.1", "17.3.1"),
+				# nunca a classificação NOR/INT/RED/ISE de IVA. "OUT"
+				# (Outro) é o código de reserva do XSD quando a verba
+				# ainda não foi configurada na conta.
+				return info.get("verba") or "OUT"
+			code = info.get("code")
+			return code if code in VALID_AT_CODES else self._get_line_tax_code(rate)
+
+		def _line_tax_type(item_tax_template, invoice_name):
+			return _line_tax_info(item_tax_template, invoice_name).get("tax_type") or "IVA"
 
 		series_code_cache = {}
 
@@ -614,7 +654,8 @@ class SAFTGenerator:
 				"amount": abs_amount,
 				"debit_credit": "D" if signed_amount < 0 else "C",
 				"tax_percentage": tax_rate,
-				"tax_code": self._get_line_tax_code(tax_rate),
+				"tax_type": _line_tax_type(row.item_tax_template, row.name),
+				"tax_code": _line_tax_code(row.item_tax_template, row.name, tax_rate),
 				"tax_region": _line_region(row.item_tax_template, row.name),
 				"tax_amount": abs_amount * tax_rate / 100,
 				"tax_exemption_code": row.at_exemption_reason or "",
@@ -652,6 +693,62 @@ class SAFTGenerator:
 		cash_vat_scheme = cint(frappe.db.get_single_value("Portugal Auth Settings", "cash_vat_scheme"))
 		saft_payment_type = "RC" if cash_vat_scheme else "RG"
 
+		# Taxa oficial por região+código (mesma taxonomia usada para criar
+		# as contas/templates - setup/tax_setup.py) para atribuir a
+		# TaxPercentage real a cada grupo de imposto de uma fatura de
+		# origem, em vez de recalcular a partir de valores arredondados.
+		from portugal_compliance.setup.tax_setup import AT_TAX_TAXONOMY
+		from portugal_compliance.utils.tax_breakdown import get_tax_breakdown_by_at_code
+		rate_by_region_code = {
+			(region, spec["code"]): spec["rate"]
+			for region, specs in AT_TAX_TAXONOMY.items() for spec in specs
+		}
+
+		invoice_tax_groups_cache = {}
+
+		def _invoice_tax_groups(reference_doctype, reference_name):
+			"""
+			Grupos (região, código AT) com a base tributável real da
+			fatura de origem referenciada, para atribuir ao recibo a taxa/
+			código/região reais em vez dos literais fixos NOR/0.00/PT
+			(auditoria de certificação 2026-08-24/backlog V1.2.0). Só
+			resolvível para Sales Invoice/POS Invoice, que são os
+			doctypes com Item Tax Template - outras origens (ex: Journal
+			Entry) ficam sem grupos e caem no fallback exempt/M99 abaixo,
+			igual ao comportamento anterior.
+			"""
+			if reference_doctype not in ("Sales Invoice", "POS Invoice") or not reference_name:
+				return []
+			cache_key = (reference_doctype, reference_name)
+			if cache_key in invoice_tax_groups_cache:
+				return invoice_tax_groups_cache[cache_key]
+
+			try:
+				invoice_doc = frappe.get_doc(reference_doctype, reference_name)
+				breakdown = get_tax_breakdown_by_at_code(invoice_doc)
+			except Exception as e:
+				frappe.log_error(
+					f"Erro ao calcular grupos de imposto da fatura {reference_name} para recibo: {str(e)}",
+					"Portugal Compliance - Payment Tax Granularity",
+				)
+				invoice_tax_groups_cache[cache_key] = []
+				return []
+
+			groups = []
+			for region, buckets in breakdown.items():
+				for code, values in buckets.items():
+					base = flt(values.get("base"))
+					if base <= 0:
+						continue
+					groups.append({
+						"region": region,
+						"code": code,
+						"base": base,
+						"rate": rate_by_region_code.get((region, code), 0.0),
+					})
+			invoice_tax_groups_cache[cache_key] = groups
+			return groups
+
 		series_code_cache = {}
 
 		def _payment_doc_code(naming_series):
@@ -684,11 +781,47 @@ class SAFTGenerator:
 			for ref in pe.references:
 				invoice_date = frappe.db.get_value(ref.reference_doctype, ref.reference_name, "posting_date") \
 					if ref.reference_doctype and ref.reference_name else None
-				pe.saft_references.append(frappe._dict({
-					"reference_name": ref.reference_name,
-					"allocated_amount": ref.allocated_amount,
-					"invoice_date": invoice_date or pe.posting_date,
-				}))
+				invoice_date = invoice_date or pe.posting_date
+
+				groups = _invoice_tax_groups(ref.reference_doctype, ref.reference_name)
+				if groups:
+					# Divide o valor alocado do recibo pelas taxas reais da
+					# fatura de origem, proporcional à base de cada grupo -
+					# uma fatura de taxa mista gera uma <Line> por grupo. O
+					# último grupo recebe o resto exato (evita desvio de
+					# arredondamento entre a soma das linhas e o total
+					# alocado).
+					total_base = sum(g["base"] for g in groups)
+					remaining = flt(ref.allocated_amount)
+					for i, g in enumerate(groups):
+						if i == len(groups) - 1:
+							share = remaining
+						else:
+							share = flt(ref.allocated_amount) * (g["base"] / total_base) if total_base else 0.0
+							remaining -= share
+						pe.saft_references.append(frappe._dict({
+							"reference_name": ref.reference_name,
+							"allocated_amount": share,
+							"invoice_date": invoice_date,
+							"tax_code": g["code"],
+							"tax_percentage": g["rate"],
+							"tax_region": g["region"],
+							"is_exempt": g["code"] == "ISE",
+						}))
+				else:
+					# Fallback (referencia nao resolvivel, ex: Journal
+					# Entry) - mantem o comportamento anterior: assume-se
+					# isento/M99, nunca inventa uma taxa nao-zero sem
+					# origem real.
+					pe.saft_references.append(frappe._dict({
+						"reference_name": ref.reference_name,
+						"allocated_amount": ref.allocated_amount,
+						"invoice_date": invoice_date,
+						"tax_code": "NOR",
+						"tax_percentage": 0.0,
+						"tax_region": "PT",
+						"is_exempt": True,
+					}))
 			# O XSD exige SourceDocumentID (OriginatingON+InvoiceDate)
 			# em TODA a Line de um Payment - nao ha forma valida de
 			# representar um recebimento sem nenhuma fatura alocada

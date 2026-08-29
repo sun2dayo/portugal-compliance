@@ -169,8 +169,16 @@ def update_cache_if_needed():
 		last_cache_update = frappe.cache.get("portugal_compliance_last_cache_update")
 		current_time = get_datetime()
 
+		# "not last_cache_update or ..." só protege contra o valor vazio -
+		# não contra get_datetime() devolver None quando o valor lido do
+		# cache (cliente cru, pode devolver bytes) não é parseável. Isso
+		# gerava "unsupported operand type(s) for -: 'datetime.datetime'
+		# and 'NoneType'" recorrente no Error Log a cada ciclo do
+		# scheduler (ver tech_debt_backlog.md).
+		parsed_last_cache_update = get_datetime(last_cache_update) if last_cache_update else None
+
 		# Atualizar cache a cada 5 minutos
-		if not last_cache_update or (current_time - get_datetime(last_cache_update)).seconds > 300:
+		if not parsed_last_cache_update or (current_time - parsed_last_cache_update).seconds > 300:
 			# Atualizar cache de séries ativas
 			update_active_series_cache()
 

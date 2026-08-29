@@ -21,18 +21,28 @@ VALID_REGIONS = ("PT", "PT-AC", "PT-MA")
 
 def get_account_at_info(account_names):
 	"""
-	Uma só query para o código AT e a região fiscal (at_tax_region) de
-	um conjunto de contas. Contas anteriores ao campo at_tax_region
-	(2026-08-24) ficam sem valor - assumidas Continente (PT), a única
-	região que existia antes de haver contas regionais dedicadas.
+	Uma só query para o código AT, região fiscal (at_tax_region) e tipo
+	de imposto (at_tax_type: IVA/IS) de um conjunto de contas. Contas
+	anteriores ao campo at_tax_region (2026-08-24) ficam sem valor -
+	assumidas Continente (PT), a única região que existia antes de haver
+	contas regionais dedicadas. at_tax_type vazio é assumido IVA (única
+	modalidade suportada antes do Imposto do Selo, 2026-08-29).
 	"""
 	if not account_names:
 		return {}
 	rows = frappe.get_all(
 		"Account", filters={"name": ["in", list(account_names)]},
-		fields=["name", "at_tax_code", "at_tax_region"],
+		fields=["name", "at_tax_code", "at_tax_region", "at_tax_type", "at_stamp_duty_verba"],
 	)
-	return {r.name: {"code": r.at_tax_code, "region": r.at_tax_region or "PT"} for r in rows}
+	return {
+		r.name: {
+			"code": r.at_tax_code,
+			"region": r.at_tax_region or "PT",
+			"tax_type": r.at_tax_type or "IVA",
+			"verba": r.at_stamp_duty_verba,
+		}
+		for r in rows
+	}
 
 
 def get_item_tax_template_info(template_names, account_info_cache):

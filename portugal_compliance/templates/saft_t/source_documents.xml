@@ -61,7 +61,7 @@
                 <CreditAmount>{{ '%.2f'|format(item.amount or 0) }}</CreditAmount>
                 {% endif %}
                 <Tax>
-                    <TaxType>IVA</TaxType>
+                    <TaxType>{{ item.tax_type or 'IVA' }}</TaxType>
                     <TaxCountryRegion>{{ item.tax_region or 'PT' }}</TaxCountryRegion>
                     <TaxCode>{{ item.tax_code }}</TaxCode>
                     <TaxPercentage>{{ '%.2f'|format(item.tax_percentage or 0) }}</TaxPercentage>
@@ -120,17 +120,20 @@
                 <CreditAmount>{{ '%.2f'|format(reference.allocated_amount or 0) }}</CreditAmount>
                 <Tax>
                     <TaxType>IVA</TaxType>
-                    <TaxCountryRegion>PT</TaxCountryRegion>
-                    <TaxCode>NOR</TaxCode>
-                    <TaxPercentage>0.00</TaxPercentage>
+                    <TaxCountryRegion>{{ reference.tax_region or 'PT' }}</TaxCountryRegion>
+                    <TaxCode>{{ reference.tax_code or 'NOR' }}</TaxCode>
+                    <TaxPercentage>{{ '%.2f'|format(reference.tax_percentage or 0) }}</TaxPercentage>
                 </Tax>
+                {% if reference.is_exempt %}
                 <!-- TaxExemptionReason/Code sao irmaos de Tax dentro de Line, nao
                      filhos de Tax (PaymentTax nem os permite) - exigidos pelo XSD
-                     porque TaxPercentage=0: o recibo nao tem IVA proprio, o imposto
-                     ja foi liquidado na fatura de origem referenciada acima em
-                     SourceDocumentID. -->
+                     só quando a taxa é 0% (isenta) - mantido apenas quando a
+                     fatura de origem também é isenta (M99: o imposto real, quando
+                     existe, já foi liquidado na fatura de origem referenciada
+                     acima em SourceDocumentID, nunca no recibo em si). -->
                 <TaxExemptionReason>Não sujeito ou não tributado / autoliquidação</TaxExemptionReason>
                 <TaxExemptionCode>M99</TaxExemptionCode>
+                {% endif %}
             </Line>
             {% endfor %}
             <DocumentTotals>

@@ -782,6 +782,15 @@ function add_custom_buttons(frm) {
         check_compliance_status(frm);
     }, __('Portugal Compliance'));
 
+    // "Gerar Séries/Taxas Regionais" (2026-08-29): reexecução manual de
+    // create_regional_tax_setup_for_company para empresas ativadas antes
+    // da correção que passou a gerar as 3 regiões (Continente/Madeira/
+    // Açores) na ativação automática - essas empresas ficaram só com os
+    // 4 templates de Continente. Idempotente, seguro repetir.
+    frm.add_custom_button(__('Gerar Séries/Taxas Regionais'), function() {
+        generate_regional_tax_setup_manual(frm);
+    }, __('Portugal Compliance'));
+
     // "Estatísticas" passou a navegar direto para o Dashboard AT
     // (2026-08-24) em vez de abrir um dialog próprio - evita manter
     // duas vistas de estatísticas em paralelo (o Dashboard AT é mais
@@ -1376,6 +1385,50 @@ function prepare_portugal_compliance_data(frm) {
 }
 
 // ========== FUNÇÕES DE AÇÕES ==========
+
+function generate_regional_tax_setup_manual(frm) {
+    /**
+     * Botão manual "Gerar Séries/Taxas Regionais" - gera os templates de
+     * IVA (Sales Taxes and Charges Template + Item Tax Template + contas
+     * SNC) das 3 regiões AT para esta empresa. Idempotente.
+     */
+
+    frappe.confirm(
+        __('Gerar templates de IVA das 3 regiões AT (Continente, Madeira, Açores) para esta empresa?<br><br>Templates já existentes não são duplicados.'),
+        function() {
+            frappe.call({
+                method: 'portugal_compliance.api.company_api.generate_regional_tax_setup',
+                args: {
+                    company: frm.doc.name
+                },
+                freeze: true,
+                freeze_message: __('Gerando templates de IVA regionais...'),
+                callback: function(r) {
+                    if (r.message && r.message.success) {
+                        frappe.show_alert({
+                            message: __('Templates regionais gerados! Novos: {0}', [r.message.total_created]),
+                            indicator: 'green'
+                        });
+                    } else {
+                        frappe.msgprint({
+                            title: __('Erro'),
+                            message: r.message ? (r.message.error || JSON.stringify(r.message.errors)) : __('Erro ao gerar templates regionais'),
+                            indicator: 'red'
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro ao gerar templates regionais:', error);
+                    frappe.msgprint({
+                        title: __('Erro de Comunicação'),
+                        message: __('Erro ao comunicar com servidor: {0}', [error]),
+                        indicator: 'red'
+                    });
+                }
+            });
+        }
+    );
+}
 
 function setup_portugal_series_manual(frm) {
     /**
