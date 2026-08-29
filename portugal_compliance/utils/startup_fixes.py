@@ -110,91 +110,26 @@ def ensure_portugal_compliance_setup():
 
 def setup_naming_series_property_setters(app_name=None):
 	"""
-	✅ VERSÃO DINÂMICA: Property Setters baseados no abbr da empresa
-	Baseado na sua experiência com programação.consistência_de_dados[3]
+	Neutralizada (Auditoria Fase 0, 2026-08-26), mantida como no-op
+	seguro só para não quebrar a chamada em hooks.py::after_migrate e
+	em run_all_startup_fixes.
+
+	Criava um Property Setter por empresa (nome
+	f"{doctype}-naming_series-options-{company.abbr}"), mas o Frappe
+	resolve as opções de um campo Select por doc_type+field_name+
+	property - não pela parte final do nome do Property Setter. Com
+	mais do que uma empresa portuguesa no site, existiam múltiplos
+	Property Setter a competir pelo mesmo alvo (doc_type=doctype,
+	field_name="naming_series", property="options"), com resultado
+	dependente da ordem de leitura do cache de metadata do Frappe - o
+	mesmo problema de fundo do Property Setter único usado noutros
+	pontos do módulo (ver document_hooks.py e series_adapter.py::
+	sync_property_setter_standard). Substituído por filtragem
+	client-side, sempre consultada de fresco para a empresa
+	selecionada no formulário (ver
+	public/js/portugal_compliance.js::applyNamingSeriesFilter).
 	"""
-	try:
-		frappe.logger().info("🔧 Configurando Property Setters DINÂMICOS")
-
-		# Buscar todas as empresas portuguesas ativas
-		portuguese_companies = frappe.get_all("Company",
-											  filters={
-												  "country": "Portugal",
-												  "portugal_compliance_enabled": 1
-											  },
-											  fields=["name", "abbr"])
-
-		if not portuguese_companies:
-			frappe.logger().info("Nenhuma empresa portuguesa encontrada")
-			return
-
-		# Para cada empresa portuguesa
-		for company in portuguese_companies:
-			try:
-				# ✅ BUSCAR SÉRIES DINÂMICAS BASEADAS NO ABBR
-				company_series = frappe.get_all("Portugal Series Configuration",
-												filters={
-													"company": company.name,
-													"is_active": 1
-												},
-												fields=["document_type", "naming_series"])
-
-				if not company_series:
-					frappe.logger().info(f"Nenhuma série encontrada para {company.name}")
-					continue
-
-				# Agrupar por document_type
-				series_by_doctype = {}
-				for serie in company_series:
-					doctype = serie.document_type
-					if doctype not in series_by_doctype:
-						series_by_doctype[doctype] = []
-					series_by_doctype[doctype].append(serie.naming_series)
-
-				# Configurar Property Setters DINÂMICOS
-				configured_count = 0
-				for doctype, naming_series_list in series_by_doctype.items():
-					try:
-						# ✅ PROPERTY SETTER ESPECÍFICO POR EMPRESA
-						property_setter_name = f"{doctype}-naming_series-options-{company.abbr}"
-
-						# Verificar se já existe
-						if frappe.db.exists("Property Setter", property_setter_name):
-							# Atualizar existente
-							frappe.db.set_value("Property Setter", property_setter_name,
-												"value", '\n'.join(naming_series_list))
-						else:
-							# Criar novo DINÂMICO
-							property_setter = frappe.get_doc({
-								"doctype": "Property Setter",
-								"name": property_setter_name,
-								"doc_type": doctype,
-								"property": "options",
-								"field_name": "naming_series",
-								"property_type": "Text",
-								"value": '\n'.join(naming_series_list),
-								"doctype_or_field": "DocField"
-							})
-							property_setter.insert(ignore_permissions=True)
-
-						frappe.logger().info(f"✅ Property Setter DINÂMICO: {property_setter_name}")
-						configured_count += 1
-
-					except Exception as e:
-						frappe.log_error(
-							f"Erro ao configurar Property Setter para {doctype}: {str(e)}")
-
-				frappe.logger().info(
-					f"✅ {configured_count} Property Setters DINÂMICOS para {company.name} ({company.abbr})")
-
-			except Exception as e:
-				frappe.log_error(f"Erro ao processar empresa {company.name}: {str(e)}")
-
-		frappe.db.commit()
-		frappe.logger().info("✅ Property Setters DINÂMICOS configurados")
-
-	except Exception as e:
-		frappe.log_error(f"Erro na configuração de Property Setters DINÂMICOS: {str(e)}")
+	return
 
 
 def run_all_startup_fixes():
@@ -235,68 +170,11 @@ def run_all_startup_fixes():
 		return {"success": False, "error": str(e)}
 
 
-def fix_naming_series_property_setters():
-	"""
-	✅ NOVA FUNÇÃO: Corrigir Property Setters para naming series
-	Baseado na sua experiência com programação.autenticação[4]
-	"""
-	try:
-		frappe.logger().info("🔧 Corrigindo Property Setters para naming series")
-
-		# Buscar todas as empresas portuguesas
-		portuguese_companies = frappe.get_all("Company",
-											  filters={
-												  "country": "Portugal",
-												  "portugal_compliance_enabled": 1
-											  },
-											  fields=["name", "abbr"])
-
-		for company in portuguese_companies:
-			try:
-				# Buscar séries ativas para esta empresa
-				company_series = frappe.get_all("Portugal Series Configuration",
-												filters={
-													"company": company.name,
-													"is_active": 1
-												},
-												fields=["document_type", "naming_series"])
-
-				# Agrupar por document_type
-				series_by_doctype = {}
-				for serie in company_series:
-					doctype = serie.document_type
-					if doctype not in series_by_doctype:
-						series_by_doctype[doctype] = []
-					series_by_doctype[doctype].append(serie.naming_series)
-
-				# Criar/atualizar Property Setters
-				for doctype, naming_series_list in series_by_doctype.items():
-					property_setter_name = f"{doctype}-naming_series-options"
-
-					if frappe.db.exists("Property Setter", property_setter_name):
-						frappe.db.set_value("Property Setter", property_setter_name,
-											"value", '\n'.join(naming_series_list))
-					else:
-						frappe.get_doc({
-							"doctype": "Property Setter",
-							"doc_type": doctype,
-							"property": "options",
-							"field_name": "naming_series",
-							"property_type": "Text",
-							"value": '\n'.join(naming_series_list),
-							"doctype_or_field": "DocField"
-						}).insert(ignore_permissions=True)
-
-				frappe.logger().info(f"✅ Property Setters atualizados para {company.name}")
-
-			except Exception as e:
-				frappe.log_error(
-					f"Erro ao atualizar Property Setters para {company.name}: {str(e)}")
-
-		frappe.db.commit()
-
-	except Exception as e:
-		frappe.log_error(f"Erro na correção de Property Setters: {str(e)}")
+# fix_naming_series_property_setters removida (Auditoria Fase 0,
+# 2026-08-26): sem chamadores em todo o repositório (confirmado por
+# grep) - código morto que escrevia o mesmo Property Setter global já
+# neutralizado noutros pontos do módulo (ver
+# series_adapter.py::sync_property_setter_standard).
 
 
 # ✅ ADICIONAR NO FINAL DO ARQUIVO:

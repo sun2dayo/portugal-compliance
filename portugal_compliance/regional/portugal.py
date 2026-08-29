@@ -283,6 +283,22 @@ def validate_portugal_company_settings_safe(doc, method=None):
 			if cint(original_compliance) and not cint(doc.portugal_compliance_enabled):
 				# ✅ RESTAURAR COMPLIANCE AUTOMATICAMENTE
 				doc.portugal_compliance_enabled = 1
+				# Auditoria Fase 0 (2026-08-26): frappe.logger().info() sozinho
+				# nunca chegava ao utilizador - quem desmarcasse a checkbox e
+				# gravasse via a UI normal via um "sucesso" sem perceber que a
+				# sua ação foi revertida, só visível nos logs do servidor.
+				# frappe.msgprint() garante que o aviso aparece mesmo na
+				# resposta síncrona do save().
+				frappe.msgprint(
+					_(
+						"Portugal Compliance não pode ser desativado depois de ativado - "
+						"a alteração foi revertida automaticamente. Esta é uma proteção "
+						"deliberada (documentos fiscais já emitidos continuam a depender "
+						"desta configuração)."
+					),
+					title=_("Compliance Preservado"),
+					indicator="orange",
+				)
 				frappe.logger().info(
 					f"✅ Compliance preservado automaticamente para empresa {doc.name}")
 

@@ -1983,3 +1983,88 @@ console.log('🇵🇹 Portugal Compliance Module v2.0.0 carregado com sucesso - 
 	});
 })();
 
+// ========== FILTRAGEM CLIENT-SIDE DE NAMING_SERIES (Auditoria Fase 0, 2026-08-26) ==========
+// Substitui o mecanismo de Property Setter global de opções de
+// naming_series (doc_type + field_name="naming_series" + property=
+// "options", sem dimensão de empresa - com mais de uma empresa
+// portuguesa no mesmo site, a última gravação substituía inteiramente
+// a lista da anterior). Ver document_hooks.py, series_adapter.py e
+// startup_fixes.py para onde esse mecanismo foi neutralizado.
+//
+// naming_series é um campo Select nativo (fieldtype="Select",
+// options estático) - frm.set_query() não tem qualquer efeito sobre
+// controlos Select no Frappe (só se aplica a Link/Dynamic Link/Table
+// MultiSelect, cujo controlo faz uma pesquisa assíncrona ao servidor).
+// O mecanismo correto para filtrar dinamicamente as opções de um
+// Select é frm.set_df_property('naming_series', 'options', ...).
+//
+// Regra de ouro: só filtra quando a empresa selecionada no formulário
+// é portuguesa E tem compliance ativo - em qualquer outro cenário o
+// campo mantém intactas as opções nativas definidas no DocType
+// (ex: Sales Invoice mostra "ACC-SINV-.YYYY.-" como o ERPNext prevê).
+(function () {
+	const NAMING_SERIES_FILTER_DOCTYPES = ['Sales Invoice', 'POS Invoice', 'Payment Entry', 'Delivery Note'];
+
+	portugal_compliance.applyNamingSeriesFilter = function (frm) {
+		// Guarda as opções nativas originais do campo (definidas no
+		// DocType) uma única vez por formulário, antes de qualquer
+		// filtragem - necessário para as poder restaurar se o
+		// utilizador mudar de uma empresa portuguesa para uma que não
+		// é, no mesmo formulário ainda por gravar (ex: engano ao
+		// selecionar a empresa). Sem isto, as opções portuguesas
+		// ficavam "coladas" ao campo mesmo depois de trocar de
+		// empresa.
+		if (frm.__portugal_native_naming_series_options === undefined) {
+			const df = frappe.meta.get_docfield(frm.doctype, 'naming_series', frm.docname);
+			frm.__portugal_native_naming_series_options = (df && df.options) || '';
+		}
+
+		if (!frm.doc.company) {
+			frm.set_df_property('naming_series', 'options', frm.__portugal_native_naming_series_options);
+			frm.refresh_field('naming_series');
+			return;
+		}
+
+		frappe.db.get_value('Company', frm.doc.company, ['country', 'portugal_compliance_enabled'])
+			.then(function (r) {
+				const c = r && r.message;
+				if (!c || c.country !== 'Portugal' || !cint(c.portugal_compliance_enabled)) {
+					// Empresa não portuguesa ou sem compliance ativo -
+					// restaura as opções nativas (pode ter havido uma
+					// troca de empresa portuguesa -> não portuguesa no
+					// mesmo formulário).
+					frm.set_df_property('naming_series', 'options', frm.__portugal_native_naming_series_options);
+					frm.refresh_field('naming_series');
+					return;
+				}
+
+				frappe.call({
+					method: 'portugal_compliance.queries.series_queries.get_naming_series_options',
+					args: {
+						doctype: frm.doctype,
+						company: frm.doc.company
+					},
+					callback: function (res) {
+						const msg = res && res.message;
+						if (!msg || !msg.success || !msg.options || !msg.options.length) return;
+
+						const values = msg.options.map(function (o) { return o.value; });
+						frm.set_df_property('naming_series', 'options', values.join('\n'));
+						frm.refresh_field('naming_series');
+					}
+				});
+			});
+	};
+
+	NAMING_SERIES_FILTER_DOCTYPES.forEach(function (doctype) {
+		frappe.ui.form.on(doctype, {
+			refresh: function (frm) {
+				portugal_compliance.applyNamingSeriesFilter(frm);
+			},
+			company: function (frm) {
+				portugal_compliance.applyNamingSeriesFilter(frm);
+			}
+		});
+	});
+})();
+

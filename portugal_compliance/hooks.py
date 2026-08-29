@@ -244,9 +244,17 @@ has_permission = {
 override_doctype_class = {}
 
 # ✅ OVERRIDE WHITELISTED METHODS
-override_whitelisted_methods = {
-	"frappe.core.doctype.communication.email.make": "portugal_compliance.email.make_portugal_compliant_email"
-}
+# override_whitelisted_methods removido (Auditoria Fase 0, 2026-08-26):
+# apontava para "portugal_compliance.email.make_portugal_compliant_email",
+# uma funcao que nunca existiu em email.py. frappe.handler resolve
+# override_whitelisted_methods em TODOS os pedidos a
+# frappe.core.doctype.communication.email.make (usado pelo botao nativo
+# "New Email"/"Compose Email", disponivel em praticamente todos os
+# doctypes) - confirmado ao vivo que isto rebentava com AttributeError
+# em qualquer tentativa de enviar email a partir do Desk, em qualquer
+# empresa do site, portuguesa ou nao. Nao ha nenhuma customizacao real
+# de email por tras deste override para recuperar - so remover.
+override_whitelisted_methods = {}
 
 # ✅ SCHEDULED TASKS
 # Liga o subsistema tasks/ (Fase 3) - estava construido mas nunca

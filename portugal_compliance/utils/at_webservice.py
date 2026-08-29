@@ -167,22 +167,16 @@ def get_series_webservice_client(username=None, password=None):
 	return service, header
 
 
-def _refresh_naming_series_options(company):
-	"""
-	Reconstrói o Property Setter de opções do campo Naming Series para
-	todos os doctypes fiscais da empresa, para que uma série que acabou
-	de ser finalizada/anulada deixe de aparecer no dropdown de imediato
-	(auditoria de certificação 2026-08-24). O bloqueio real contra
-	emitir nessa série está em document_hooks._validate_series_not_inactive
-	(corre sempre, mesmo que este refresh falhe ou o cache do worker
-	ainda não tenha sido limpo) - isto é só para a UX não continuar a
-	oferecer uma opção já morta.
-	"""
-	try:
-		from portugal_compliance.utils.document_hooks import portugal_document_hooks
-		portugal_document_hooks._setup_automatic_property_setters(company)
-	except Exception as e:
-		frappe.log_error(f"Erro ao atualizar opções de naming_series para {company}: {str(e)}", "ATWebserviceClient")
+# _refresh_naming_series_options removida (Auditoria Fase 0,
+# 2026-08-26): reconstruía o Property Setter global de opções de
+# naming_series, mecanismo eliminado (ver document_hooks.py). Deixou
+# de ser necessário nenhum "refresh" explícito depois de
+# finalizar/anular uma série - o filtro client-side
+# (applyNamingSeriesFilter, public/js/portugal_compliance.js) consulta
+# sempre de fresco Portugal Series Configuration para a empresa
+# selecionada, em cada refresh/mudança de empresa do formulário. O
+# bloqueio real contra emitir na série continua intacto em
+# document_hooks._validate_series_not_inactive, do lado do servidor.
 
 
 class ATWebserviceError(Exception):
@@ -657,7 +651,6 @@ class ATWebserviceClient:
 		if is_success:
 			frappe.db.set_value("Portugal Series Configuration", series_config_name, "is_active", 0)
 			frappe.db.commit()
-			_refresh_naming_series_options(series_config.company)
 
 		return {
 			"success": is_success,
@@ -758,7 +751,6 @@ class ATWebserviceClient:
 				"validation_code": None,
 			})
 			frappe.db.commit()
-			_refresh_naming_series_options(series_config.company)
 
 		return {
 			"success": is_success,

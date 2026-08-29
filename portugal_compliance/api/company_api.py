@@ -119,16 +119,13 @@ def ensure_return_series_for_company(company, doctype="Sales Invoice"):
 		series_name = series_doc.name
 		frappe.logger().info(f"Série de devolução criada: {series_name} ({prefix})")
 
-		# Regenerar o Property Setter do dropdown naming_series - sem
-		# isto, a serie NC recem-criada nao aparece nas opcoes ate a
-		# proxima vez que ISSO for regenerado por outro motivo, ou pode
-		# ficar numa ordem que a torna o valor por omissao para
-		# documentos NORMAIS (ja aconteceu: uma fatura de teste foi
-		# criada na serie NC por a ordem das opcoes nao ter sido
-		# recalculada corretamente). _update_property_setter_for_doctype
-		# ordena sempre a serie normal (mais antiga/mais comunicada)
-		# primeiro - ver docstring dessa funcao.
-		portugal_document_hooks._update_property_setter_for_doctype(doctype, company_abbr)
+		# _update_property_setter_for_doctype removida (Auditoria Fase 0,
+		# 2026-08-26) - a série NC recém-criada fica visível de imediato
+		# porque o dropdown de naming_series passou a ser filtrado
+		# client-side, de fresco, em cada refresh/mudança de empresa do
+		# formulário (ver public/js/portugal_compliance.js::
+		# applyNamingSeriesFilter). Não há mais nenhuma lista estática
+		# a regenerar nem risco de ordem desatualizada.
 
 	try:
 		series_doc = frappe.get_doc("Portugal Series Configuration", series_name)

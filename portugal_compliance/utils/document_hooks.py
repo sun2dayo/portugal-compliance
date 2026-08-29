@@ -117,7 +117,6 @@ class PortugalComplianceDocumentHooks:
 		"""
 		try:
 			created_count = results.get('series', {}).get('created', 0)
-			property_setters_count = results.get('property_setters', {}).get('configured', 0)
 
 			if created_count > 0:
 				# ✅ VERIFICAR SE HÁ CREDENCIAIS AT CONFIGURADAS (2026-08-23:
@@ -137,7 +136,6 @@ class PortugalComplianceDocumentHooks:
 							<h4>🇵🇹 Portugal Compliance Ativado!</h4>
 							<div style="margin: 15px 0;">
 								✅ {created_count} séries criadas<br>
-								✅ {property_setters_count} Property Setters configurados<br>
 								✅ Custom fields criados<br>
 								✅ Compliance ativo
 							</div>
@@ -200,7 +198,6 @@ class PortugalComplianceDocumentHooks:
 							<h4>🇵🇹 Portugal Compliance Ativado!</h4>
 							<div style="margin: 15px 0;">
 								✅ {created_count} séries criadas<br>
-								✅ {property_setters_count} Property Setters configurados<br>
 								✅ Custom fields criados<br>
 								✅ Compliance ativo
 							</div>
@@ -226,7 +223,6 @@ class PortugalComplianceDocumentHooks:
 						<h4>🇵🇹 Portugal Compliance Ativado!</h4>
 						<div style="margin: 15px 0;">
 							✅ Configurações aplicadas<br>
-							✅ {property_setters_count} Property Setters configurados<br>
 							ℹ️ Séries já existiam ou serão criadas posteriormente<br>
 							✅ Compliance ativo
 						</div>
@@ -267,17 +263,23 @@ class PortugalComplianceDocumentHooks:
 		else:
 			results['series'] = {"success": True, "created": 0, "skipped": True}
 
-		# 2. Configurar naming series
-		if results['series'].get("success") and results['series'].get("created", 0) > 0:
-			self._replace_naming_series_with_portuguese_only(doc.abbr)
+		# A restrição das opções de naming_series por empresa deixou de
+		# usar Property Setter (Auditoria Fase 0, 2026-08-26):
+		# doctype_or_field="DocField"/options não tem dimensão de
+		# empresa no Frappe - com mais do que uma empresa portuguesa no
+		# mesmo site, a segunda a gravar substituía inteiramente a
+		# lista de séries da primeira (nenhuma das duas conseguia usar
+		# as suas próprias séries de forma fiável). Substituído por
+		# filtragem client-side (ver public/js/portugal_compliance.js::
+		# applyNamingSeriesFilter, ligado em company/refresh nos 4
+		# ficheiros JS dos doctypes fiscais), que consulta sempre a
+		# empresa atualmente selecionada no formulário via
+		# queries.series_queries.get_naming_series_options.
 
-		# 3. Configurar Property Setters
-		results['property_setters'] = self._setup_automatic_property_setters(doc.name)
-
-		# 4. Custom fields
+		# 2. Custom fields
 		self._ensure_custom_fields_exist()
 
-		# 5. Templates de impostos + contas SNC 2433x por taxa (Fase 7:
+		# 3. Templates de impostos + contas SNC 2433x por taxa (Fase 7:
 		# taxonomia AT completa, substitui a conta generica "Duties and
 		# Taxes" pela conta real do Plano de Contas SNC português)
 		from portugal_compliance.setup.tax_setup import setup_tax_templates_for_company
@@ -291,13 +293,11 @@ class PortugalComplianceDocumentHooks:
 	def _show_setup_results(self, doc, results):
 		"""Mostrar resultados da configuração"""
 		created_count = results.get('series', {}).get('created', 0)
-		property_setters_count = results.get('property_setters', {}).get('configured', 0)
 
 		if created_count > 0:
 			frappe.msgprint(
 				f"🇵🇹 Portugal Compliance ativado!<br>"
 				f"✅ {created_count} séries criadas<br>"
-				f"✅ {property_setters_count} Property Setters configurados<br>"
 				f"✅ Compliance ativo<br>"
 				f"⚠️ Comunique as séries à AT antes de emitir documentos",
 				title="Compliance Português Ativado",
@@ -319,84 +319,17 @@ class PortugalComplianceDocumentHooks:
 			title=_("Aviso de Configuração")
 		)
 
-	# ========== PROPERTY SETTERS AUTOMÁTICOS ==========
-
-	def _setup_automatic_property_setters(self, company_name):
-		"""
-		✅ OTIMIZADO: Configurar Property Setters automaticamente
-
-		Itera sobre TODOS os doctypes fiscais (self.supported_doctypes),
-		não só os que têm série ativa no momento - antes, um doctype que
-		descia a zero séries ativas (ex: a única série Payment Entry foi
-		finalizada/anulada) simplesmente não aparecia em
-		series_by_doctype, e o Property Setter antigo ficava esquecido
-		com a série morta ainda lá (auditoria de certificação
-		2026-08-24: confirmado ao vivo - uma série já anulada na AT
-		continuava selecionável no campo Naming Series do Payment
-		Entry). Agora cada doctype fiscal é sempre reescrito, mesmo que
-		fique com lista vazia.
-		"""
-		try:
-			company_series = frappe.get_all("Portugal Series Configuration",
-											filters={"company": company_name, "is_active": 1},
-											fields=["document_type", "naming_series"])
-
-			# Agrupar por document_type - inicializado com todos os
-			# doctypes fiscais (lista vazia por omissão) para que os que
-			# ficaram sem nenhuma série ativa também sejam reescritos.
-			series_by_doctype = {doctype: [] for doctype in self.supported_doctypes.keys()}
-			for serie in company_series:
-				doctype = serie.document_type
-				if doctype in series_by_doctype:
-					series_by_doctype[doctype].append(serie.naming_series)
-
-			# Configurar Property Setters
-			configured_count = 0
-			for doctype, naming_series_list in series_by_doctype.items():
-				if self._create_or_update_property_setter(doctype, naming_series_list):
-					configured_count += 1
-
-			frappe.db.commit()
-			return {"configured": configured_count,
-					"message": f"{configured_count} Property Setters configurados"}
-
-		except Exception as e:
-			frappe.log_error(f"Erro na configuração de Property Setters: {str(e)}")
-			return {"configured": 0, "error": str(e)}
-
-	def _create_or_update_property_setter(self, doctype, naming_series_list):
-		"""Criar ou atualizar Property Setter para um DocType"""
-		try:
-			property_setter_name = f"{doctype}-naming_series-options"
-
-			if frappe.db.exists("Property Setter", property_setter_name):
-				frappe.db.set_value("Property Setter", property_setter_name,
-									"value", '\n'.join(naming_series_list))
-			else:
-				property_setter = frappe.get_doc({
-					"doctype": "Property Setter",
-					"doc_type": doctype,
-					"property": "options",
-					"field_name": "naming_series",
-					"property_type": "Text",
-					"value": '\n'.join(naming_series_list),
-					"doctype_or_field": "DocField"
-				})
-				property_setter.insert(ignore_permissions=True)
-
-			# Sem isto, processos ja em execucao (workers/gunicorn) mantem
-			# a meta antiga em cache - o Select de naming_series ficaria a
-			# oferecer/defaultar para as opcoes anteriores ate um restart
-			# manual, o que ja causou um problema real (fatura normal
-			# criada na serie NC por engano, com cache desatualizada).
-			frappe.clear_cache(doctype=doctype)
-
-			return True
-		except Exception as e:
-			frappe.log_error(f"Erro ao configurar Property Setter para {doctype}: {str(e)}")
-			return False
-
 	# ========== HOOKS DE DOCUMENTOS ==========
+
+	# _setup_automatic_property_setters / _create_or_update_property_setter
+	# removidas (Auditoria Fase 0, 2026-08-26) - mesma razão da nota
+	# acima: um Property Setter de options em naming_series é global ao
+	# DocType, sem dimensão de empresa, e quebra com mais de uma
+	# empresa portuguesa ativa no site. A rede de segurança real contra
+	# emitir numa série inativa continua intacta e nunca dependeu deste
+	# mecanismo - ver _validate_series_not_inactive, que corre sempre
+	# em validate() do lado do servidor, independentemente do que a UI
+	# mostra no dropdown.
 
 	def generate_atcud_on_submit(self, doc, method=None):
 		"""
@@ -609,12 +542,14 @@ class PortugalComplianceDocumentHooks:
 		considera fechada (Finalizada) ou nunca aconteceu (Anulada).
 
 		A opção deveria desaparecer do campo Naming Series assim que a
-		série fica inativa (ver _setup_automatic_property_setters), mas
-		esta validação é a rede de segurança real - não depende do
-		Property Setter já ter sido reconstruído nem do cache de meta do
-		worker estar atualizado (auditoria de certificação 2026-08-24:
-		confirmado ao vivo que uma série anulada continuava selecionável
-		até um refresh manual).
+		série fica inativa (ver applyNamingSeriesFilter em
+		public/js/portugal_compliance.js, que filtra sempre de fresco a
+		partir de Portugal Series Configuration), mas esta validação é
+		a rede de segurança real do lado do servidor - não depende de
+		nenhum estado client-side já ter sido recarregado (auditoria de
+		certificação 2026-08-24: confirmado ao vivo que uma série
+		anulada continuava selecionável até um refresh manual, na
+		altura em que este filtro ainda era feito por Property Setter).
 
 		Só bloqueia documentos que ainda NÃO têm ATCUD - um documento já
 		assinado quando a série ainda estava ativa (ex: a cancelar
@@ -731,22 +666,30 @@ class PortugalComplianceDocumentHooks:
 
 		Supplier tem campo `country` direto. Customer não tem - o país
 		só existe no endereço primário ligado (`customer_primary_address`
-		-> Address.country). Quando não é possível determinar (sem
-		endereço ainda, ex: cliente recém-criado), assume-se português
-		por omissão - preserva o comportamento anterior a esta alteração
-		(que corria sempre, sem qualquer filtro de país) em vez de deixar
-		de validar clientes portugueses só por ainda não terem morada.
+		-> Address.country).
+
+		Alterado na Auditoria Fase 0 (2026-08-26): quando não é possível
+		determinar o país (sem endereço/país ainda, ex: cliente ou
+		fornecedor recém-criado), a omissão passou a ser NÃO português
+		(era o inverso). A regra de ouro deste módulo é só alterar
+		comportamento nativo quando há prova de que a empresa/entidade é
+		portuguesa - assumir português sem endereço bloqueava a criação
+		de clientes/fornecedores internacionais sempre que "Exigir NIF
+		do Cliente" estivesse ativo em Portugal Auth Settings (um switch
+		único, global ao site, sem dimensão de empresa), já que um
+		registo novo nunca tem endereço associado no momento da
+		primeira gravação.
 		"""
 		if party_type == "Supplier":
 			country = getattr(doc, 'country', None)
-			return not country or country == "Portugal"
+			return country == "Portugal"
 
 		address = getattr(doc, 'customer_primary_address', None)
 		if not address:
-			return True
+			return False
 
 		country = frappe.db.get_value("Address", address, "country")
-		return not country or country == "Portugal"
+		return country == "Portugal"
 
 	def _enforce_required_customer_nif(self, doc):
 		auth_settings = frappe.get_single("Portugal Auth Settings")
@@ -1011,7 +954,14 @@ class PortugalComplianceDocumentHooks:
 		return bool(re.match(pattern, naming_series))
 
 	def _validate_atcud_uniqueness_certified(self, doc):
-		"""✅ OTIMIZADO: Validar unicidade do ATCUD"""
+		"""
+		✅ OTIMIZADO: Validar unicidade do ATCUD
+
+		Verificado na Auditoria Fase 0 (2026-08-26, item "Performance/
+		Queries Redundantes"): o guard abaixo já garante que o loop de
+		frappe.db.exists() por doctype só corre quando atcud_code está
+		de facto preenchido - nenhuma alteração necessária aqui.
+		"""
 		atcud_code = getattr(doc, 'atcud_code', None)
 		if not atcud_code:
 			return
@@ -1115,28 +1065,15 @@ class PortugalComplianceDocumentHooks:
 			frappe.log_error(f"Erro no fallback: {str(e)}")
 			return {"success": False, "error": str(e)}
 
-	def _replace_naming_series_with_portuguese_only(self, company_abbr):
-		"""✅ OTIMIZADO: Substituir naming series"""
-		try:
-			for doctype in self.supported_doctypes.keys():
-				self._update_property_setter_for_doctype(doctype, company_abbr)
-		except Exception as e:
-			frappe.log_error(f"Erro ao configurar naming series: {str(e)}")
-
-	def _update_property_setter_for_doctype(self, doctype, company_abbr):
-		"""✅ OTIMIZADO: Atualizar Property Setter"""
-		try:
-			series = frappe.get_all("Portugal Series Configuration",
-									filters={"document_type": doctype, "is_active": 1},
-									fields=["prefix"],
-									order_by="is_communicated desc, creation asc")
-
-			if series:
-				naming_series_options = [f"{s.prefix}.####" for s in series]
-				self._create_or_update_property_setter(doctype, naming_series_options)
-
-		except Exception as e:
-			frappe.log_error(f"Erro ao atualizar Property Setter para {doctype}: {str(e)}")
+	# _replace_naming_series_with_portuguese_only / _update_property_setter_for_doctype
+	# removidas (Auditoria Fase 0, 2026-08-26): escreviam um Property
+	# Setter global (doctype_or_field="DocField", sem dimensão de
+	# empresa) nas opções do campo naming_series - com mais do que uma
+	# empresa portuguesa no site, a última a gravar substituía
+	# inteiramente a lista da anterior. Ver
+	# public/js/portugal_compliance.js::applyNamingSeriesFilter para o
+	# mecanismo que as substitui (filtragem client-side, sempre
+	# consultada de fresco para a empresa selecionada no formulário).
 
 	def _ensure_custom_fields_exist(self):
 		"""✅ OTIMIZADO: Garantir custom fields"""
@@ -1169,81 +1106,16 @@ class PortugalComplianceDocumentHooks:
 		except Exception as e:
 			frappe.log_error(f"Erro ao criar custom fields: {str(e)}")
 
-	def _setup_tax_templates_for_company(self, company_name):
-		"""✅ OTIMIZADO: Configurar templates de impostos"""
-		try:
-			tax_templates = [
-				{"name": "IVA 23%", "rate": 23},
-				{"name": "IVA 13%", "rate": 13},
-				{"name": "IVA 6%", "rate": 6},
-				{"name": "IVA 0%", "rate": 0}
-			]
-
-			for template in tax_templates:
-				template_name = f"{template['name']} - {company_name}"
-				if not frappe.db.exists("Sales Taxes and Charges Template", template_name):
-					try:
-						iva_account = self._get_or_create_iva_account(company_name)
-						tax_template = frappe.get_doc({
-							"doctype": "Sales Taxes and Charges Template",
-							"title": template_name,
-							"company": company_name,
-							"taxes": [{
-								"charge_type": "On Net Total",
-								"account_head": iva_account,
-								"description": template['name'],
-								"rate": template['rate']
-							}]
-						})
-						tax_template.insert(ignore_permissions=True)
-					except Exception as e:
-						frappe.log_error(f"Erro ao criar template {template_name}: {str(e)}")
-
-		except Exception as e:
-			frappe.log_error(f"Erro configuração tax templates: {str(e)}")
-
-	def _setup_default_accounts(self, company_name):
-		"""✅ OTIMIZADO: Configurar contas padrão"""
-		try:
-			self._get_or_create_iva_account(company_name)
-		except Exception as e:
-			frappe.log_error(f"Erro configuração contas: {str(e)}")
-
-	def _get_or_create_iva_account(self, company_name):
-		"""✅ OTIMIZADO: Obter ou criar conta IVA"""
-		try:
-			iva_accounts = frappe.get_all("Account",
-										  filters={"company": company_name, "account_type": "Tax"},
-										  fields=["name"],
-										  limit=1)
-
-			if iva_accounts:
-				return iva_accounts[0].name
-
-			iva_account = f"IVA - {company_name}"
-			if not frappe.db.exists("Account", iva_account):
-				parent_account = frappe.db.get_value("Account", {
-					"company": company_name,
-					"is_group": 1,
-					"root_type": "Liability"
-				}, "name")
-
-				if parent_account:
-					account_doc = frappe.get_doc({
-						"doctype": "Account",
-						"account_name": "IVA",
-						"company": company_name,
-						"parent_account": parent_account,
-						"account_type": "Tax",
-						"is_group": 0
-					})
-					account_doc.insert(ignore_permissions=True)
-
-			return iva_account
-
-		except Exception as e:
-			frappe.log_error(f"Erro ao criar conta IVA: {str(e)}")
-			return f"IVA - {company_name}"
+	# _setup_tax_templates_for_company / _setup_default_accounts /
+	# _get_or_create_iva_account removidas (Auditoria Fase 0,
+	# 2026-08-26): nenhuma das três tinha qualquer chamador em todo o
+	# repositório (confirmado por grep) - código morto dentro de um
+	# ficheiro vivo. O caminho real e ativo para templates de impostos
+	# é portugal_compliance.setup.tax_setup.setup_tax_templates_for_company
+	# (chamado em _execute_compliance_setup acima), que usa a
+	# taxonomia SNC 2433x real por taxa, não a conta genérica "IVA"
+	# que este código morto criava - mantê-lo teria sido um risco real
+	# se algum dia fosse reativado por engano.
 
 
 # ========== INSTÂNCIA GLOBAL ==========
@@ -1420,18 +1292,10 @@ def generate_manual_atcud_certified(doctype, docname):
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist()
-def refresh_property_setters_for_company(company_name):
-	"""API para atualizar Property Setters"""
-	try:
-		result = portugal_document_hooks._setup_automatic_property_setters(company_name)
-		return {
-			"success": True,
-			"message": result.get("message", "Property Setters atualizados"),
-			"configured": result.get("configured", 0)
-		}
-	except Exception as e:
-		return {"success": False, "error": str(e)}
+# refresh_property_setters_for_company removida (Auditoria Fase 0,
+# 2026-08-26): sem chamadores (confirmado por grep a todo o
+# repositório) e expunha _setup_automatic_property_setters, também
+# removida - ver nota junto a essa função.
 
 
 @frappe.whitelist()
@@ -1552,8 +1416,18 @@ def block_fiscal_document_deletion(doc, method=None):
 	Hook de on_trash. Bloqueia eliminacao de qualquer documento fiscal
 	que ja tenha ATCUD/assinatura gerados, ou que esteja anulado
 	(docstatus=2) mesmo sem ATCUD - o registo tem de permanecer.
+
+	Guard de empresa portuguesa acrescentado na Auditoria Fase 0
+	(2026-08-26): sem isto, o bloqueio de docstatus=2 (documento
+	anulado) aplicava-se a QUALQUER Sales Invoice/POS Invoice/Payment
+	Entry/Delivery Note cancelado, de qualquer empresa do site,
+	portuguesa ou não - cancelar e depois eliminar é um fluxo legítimo
+	do ERPNext fora de Portugal, que este hook alterava globalmente.
 	"""
 	if doc.doctype not in FISCAL_IMMUTABLE_DOCTYPES:
+		return
+
+	if not portugal_document_hooks._is_portuguese_company(doc.company):
 		return
 
 	if getattr(doc, "atcud_code", None):
@@ -1660,6 +1534,19 @@ def log_document_print(doc, method=None, print_settings=None):
 		frappe.log_error(f"Erro ao registar impressão de {doc.doctype} {doc.name}: {str(e)}")
 
 
+def _any_active_portuguese_company():
+	"""
+	True se existir pelo menos uma Company com country="Portugal" e
+	portugal_compliance_enabled=1 no site. Guard partilhado pelas
+	funções de after_migrate que alteram comportamento nativo do
+	ERPNext ao nível do DocType (sem dimensão de empresa possível) -
+	acrescentado na Auditoria Fase 0 (2026-08-26): antes corriam
+	incondicionalmente em qualquer site com esta app instalada, mesmo
+	sem nenhuma empresa portuguesa.
+	"""
+	return bool(frappe.db.exists("Company", {"country": "Portugal", "portugal_compliance_enabled": 1}))
+
+
 def force_track_changes_property_setters():
 	"""
 	Chamada em after_migrate (ver hooks.py). Garante via Property Setter
@@ -1667,7 +1554,17 @@ def force_track_changes_property_setters():
 	alguem o desligue manualmente no Customize Form - pista de auditoria
 	(quem alterou o que e quando) e um requisito de certificacao
 	(Portaria 363/2010), nao uma preferencia de UI.
+
+	Só atua se existir pelo menos uma empresa portuguesa com compliance
+	ativo (ver _any_active_portuguese_company) - track_changes é uma
+	propriedade do DocType inteiro, sem dimensão de empresa, por isso
+	não há como restringir isto só às empresas portuguesas sem afetar
+	as outras; a alternativa correta é não tocar em nada se não houver
+	nenhuma empresa portuguesa no site.
 	"""
+	if not _any_active_portuguese_company():
+		return
+
 	for doctype in FISCAL_IMMUTABLE_DOCTYPES:
 		try:
 			existing = frappe.db.get_value(
@@ -1703,7 +1600,17 @@ def set_pos_invoice_default_print_format():
 	Invoice, que serve muito mais do que vendas de balcão (fixar aqui
 	o formato térmico como omissão global forçaria um talão de 80mm em
 	qualquer fatura normal impressa a partir do Desk).
+
+	Só atua se existir pelo menos uma empresa portuguesa com compliance
+	ativo (ver _any_active_portuguese_company) - default_print_format é
+	uma propriedade do DocType inteiro, sem dimensão de empresa; sem
+	este guard, uma empresa não-portuguesa que instale esta app via um
+	site multi-empresa passava a ver um talão térmico em português como
+	formato por omissão do seu POS Invoice.
 	"""
+	if not _any_active_portuguese_company():
+		return
+
 	try:
 		existing = frappe.db.get_value(
 			"Property Setter", {"doc_type": "POS Invoice", "property": "default_print_format"}, "name"

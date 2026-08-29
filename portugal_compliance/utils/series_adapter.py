@@ -224,8 +224,13 @@ class SeriesAdapter:
 
 	def update_doctype_naming_series(self, doctype, company_abbr, year=None, force_update=False):
 		"""
-		✅ ALINHADO: Atualiza Property Setter COMPATÍVEL com startup_fixes.py
-		Usa abordagem padrão (não específica por empresa)
+		Chamada por Portugal Series Configuration.on_update/after_insert
+		(sync_naming_series_with_doctype) a cada gravação de série. O
+		Property Setter que este método construía foi neutralizado em
+		sync_property_setter_standard (Auditoria Fase 0, 2026-08-26) -
+		ver docstring dessa função para o motivo. Mantido como no-op
+		seguro (devolve sempre "action": "skipped") em vez de removido,
+		para não quebrar os chamadores existentes.
 		"""
 		try:
 			# ✅ VERIFICAR SE DOCTYPE EXISTE
@@ -235,22 +240,6 @@ class SeriesAdapter:
 					"error": f"DocType {doctype} does not exist"
 				}
 
-			# ✅ BUSCAR SÉRIES ATIVAS PARA QUALQUER EMPRESA (ALINHADO)
-			# creation ASC (nao DESC) - a serie mais ANTIGA/principal tem
-			# de ficar primeiro na lista de opcoes, para continuar a ser o
-			# valor por omissao do campo Select naming_series. Com DESC,
-			# qualquer serie adicional mais recente para o mesmo doctype
-			# (ex: NC para devolucoes, ver
-			# api.company_api.RETURN_DOCUMENT_SERIES) passava a ser o
-			# valor por omissao assim que fosse comunicada - confirmado
-			# ao vivo: uma fatura NORMAL foi criada por engano na serie
-			# NC so por esta ter sido comunicada mais recentemente. Esta
-			# funcao corre em Portugal Series Configuration.on_update
-			# (sync_naming_series_with_doctype) - dispara com muito mais
-			# frequencia do que
-			# document_hooks._update_property_setter_for_doctype (que ja
-			# usava a ordem correta), por isso era sempre esta versao,
-			# com a ordem errada, que "ganhava" por ultimo.
 			active_series = frappe.get_all("Portugal Series Configuration",
 										   filters={
 											   "document_type": doctype,
@@ -294,83 +283,27 @@ class SeriesAdapter:
 
 	def sync_property_setter_standard(self, doctype, naming_options, force_update=False):
 		"""
-		✅ ALINHADO: Sincronizar Property Setter PADRÃO (não específico por empresa)
-		Compatível com startup_fixes.py
+		Neutralizada (Auditoria Fase 0, 2026-08-26). Escrevia um Property
+		Setter global (doc_type + field_name="naming_series" + property=
+		"options", sem dimensão de empresa) - com mais do que uma
+		empresa portuguesa ativa no site, a última chamada substituía
+		inteiramente a lista de séries de todas as outras. Era o ponto
+		de convergência de update_doctype_naming_series, chamada por
+		Portugal Series Configuration.on_update/after_insert (ver
+		portugal_series_configuration.py::sync_naming_series_with_doctype
+		- disparava a cada gravação de série, portanto com muita
+		frequência). Removido _create_property_setter_standard (única
+		utilização era aqui). Substituído por filtragem client-side,
+		sempre consultada de fresco para a empresa selecionada no
+		formulário (ver public/js/portugal_compliance.js::
+		applyNamingSeriesFilter).
 		"""
-		try:
-			# ✅ USAR NOME PADRÃO (ALINHADO COM STARTUP_FIXES)
-			ps_name = f"{doctype}-naming_series-options"
-
-			# ✅ VERIFICAR SE CAMPO naming_series EXISTE NO DOCTYPE
-			meta = frappe.get_meta(doctype)
-			if not meta.get_field("naming_series"):
-				frappe.logger().info(
-					f"⏭️ DocType {doctype} não tem campo naming_series - Property Setter não necessário")
-				return {
-					"success": True,
-					"doctype": doctype,
-					"message": "No naming_series field in DocType",
-					"action": "none"
-				}
-
-			# ✅ CONVERTER LISTA PARA STRING
-			if isinstance(naming_options, list):
-				options_value = '\n'.join(naming_options)
-			else:
-				options_value = naming_options
-
-			# ✅ ATUALIZAÇÃO ALINHADA COM STARTUP_FIXES
-			if frappe.db.exists("Property Setter", ps_name):
-				if force_update:
-					frappe.db.set_value("Property Setter", ps_name, "value", options_value)
-					frappe.logger().info(f"✅ Property Setter atualizado: {ps_name}")
-				else:
-					# ✅ MERGE COM OPÇÕES EXISTENTES (SEGURO)
-					current_value = frappe.db.get_value("Property Setter", ps_name, "value") or ""
-					current_options = set(
-						[opt.strip() for opt in current_value.split('\n') if opt.strip()])
-					new_options = set(
-						[opt.strip() for opt in options_value.split('\n') if opt.strip()])
-
-					all_options = current_options | new_options
-					final_value = '\n'.join(sorted(all_options))
-
-					frappe.db.set_value("Property Setter", ps_name, "value", final_value)
-					frappe.logger().info(f"✅ Property Setter merged: {ps_name}")
-			else:
-				self._create_property_setter_standard(doctype, ps_name, options_value)
-				frappe.logger().info(f"✅ Property Setter criado: {ps_name}")
-
-			return {
-				"success": True,
-				"doctype": doctype,
-				"action": "updated",
-				"property_setter": ps_name
-			}
-
-		except Exception as e:
-			frappe.log_error(f"Error syncing Property Setter for {doctype}: {str(e)}")
-			return {
-				"success": False,
-				"error": str(e)
-			}
-
-	def _create_property_setter_standard(self, doctype, ps_name, value):
-		"""✅ ALINHADO: Criar Property Setter padrão"""
-		try:
-			ps_doc = frappe.get_doc({
-				"doctype": "Property Setter",
-				"name": ps_name,
-				"doc_type": doctype,
-				"field_name": "naming_series",
-				"property": "options",
-				"property_type": "Text",
-				"value": value,
-				"doctype_or_field": "DocField"
-			})
-			ps_doc.insert(ignore_permissions=True)
-		except Exception as e:
-			frappe.log_error(f"Error creating Property Setter: {str(e)}")
+		return {
+			"success": True,
+			"doctype": doctype,
+			"action": "skipped",
+			"message": "Property Setter global de naming_series desativado - filtragem passou a ser client-side",
+		}
 
 	# ========== VALIDAÇÃO DE FORMATO ALINHADA ==========
 
