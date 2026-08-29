@@ -195,13 +195,11 @@ doc_events = {
 	# ========== CONFIGURAÇÃO DA EMPRESA ==========
 	"Company": {
 		"on_update": "portugal_compliance.utils.document_hooks.setup_company_portugal_compliance",
-		# sync_at_credentials removido (2026-08-23): Company deixou de ter
-		# campos de credenciais AT - Portugal Auth Settings e a unica
-		# fonte de verdade. Ver document_hooks.py.
-		"validate": [
-			"portugal_compliance.regional.portugal.validate_portugal_company_settings_safe",
-			"portugal_compliance.utils.document_hooks.sync_communication_settings"
-		]
+		# sync_at_credentials removido (2026-08-23) e sync_communication_settings
+		# removido (2026-08-30): Company deixou de ter campos de
+		# credenciais/métodos de comunicação AT - Portugal Auth Settings é
+		# a única fonte de verdade. Ver document_hooks.py.
+		"validate": "portugal_compliance.regional.portugal.validate_portugal_company_settings_safe"
 	},
 
 	# ========== VALIDAÇÃO DE ENTIDADES ==========
