@@ -454,6 +454,7 @@ class PortugalComplianceDocumentHooks:
 			if doc.doctype in self.supported_doctypes:
 				self._validate_critical_fields(doc)
 				self._validate_series_not_inactive(doc)
+				self._validate_series_registered_in_compliance(doc)
 				self._validate_atcud_uniqueness_certified(doc)
 				self._validate_document_sequence_certified(doc)
 				self._validate_portuguese_required_fields(doc)
@@ -577,6 +578,51 @@ class PortugalComplianceDocumentHooks:
 			frappe.throw(
 				_("A série {0} está Finalizada/Anulada. Comunique uma nova série à AT antes de faturar.").format(prefix),
 				title=_("Série Inativa"),
+			)
+
+	def _validate_series_registered_in_compliance(self, doc):
+		"""
+		Escudo definitivo: bloqueia gravar um documento com uma
+		naming_series que não está registada em Portugal Series
+		Configuration para esta empresa, ou que lá está mas ainda não foi
+		comunicada à AT. Fecha a via de "séries fantasma" que
+		utils/naming_series_customizer.py podia introduzir (escrita
+		direta em DocType.autoname, nunca criava um registo em Portugal
+		Series Configuration) - _validate_series_not_inactive (acima) só
+		bloqueia séries que EXISTEM e estão is_active=0; uma série que
+		nunca existiu como registo passava incólume por essa verificação
+		(is_active vinha None, a condição "is_active is not None and not
+		is_active" nunca disparava). Auditoria 2026-08-29, depois de
+		confirmar que naming_series_customizer.py reintroduzia
+		exatamente essa via paralela no Onboarding.
+
+		Âmbito: só corre para os 4 doctypes em self.supported_doctypes
+		(Sales Invoice, POS Invoice, Payment Entry, Delivery Note) -
+		Quotation/Sales Order ficam fora deliberadamente (usam
+		validate_portugal_compliance_light, nunca chamam este método).
+
+		Só documentos ainda sem ATCUD - mesma lógica de
+		_validate_series_not_inactive: um documento já assinado nunca
+		deve ser bloqueado retroativamente por esta verificação.
+		"""
+		if getattr(doc, 'atcud_code', None):
+			return
+
+		naming_series = getattr(doc, 'naming_series', None)
+		if not naming_series:
+			return
+
+		prefix = naming_series.replace('.####', '')
+		is_communicated = frappe.db.get_value(
+			"Portugal Series Configuration",
+			{"prefix": prefix, "company": doc.company},
+			"is_communicated",
+		)
+
+		if not is_communicated:
+			frappe.throw(
+				_("A série selecionada não está registada ou autorizada no módulo de Compliance AT."),
+				title=_("Série Não Autorizada"),
 			)
 
 	def before_submit_document(self, doc, method=None):

@@ -105,9 +105,9 @@
     },
     {
       "action": "Server Action",
-      "action_label": "Configurar Naming Series",
+      "action_label": "Configurar Séries Portuguesas",
       "creation_doctype": "",
-      "description": "Configure automaticamente as naming series portuguesas para todos os tipos de documentos. Isto irá adicionar séries no formato XX-YYYY-EMPRESA.#### aos DocTypes do ERPNext.",
+      "description": "Cria as séries portuguesas oficiais (Portugal Series Configuration) para os documentos fiscais - Fatura, Fatura Simplificada, Recibo e Guia de Remessa. É a mesma via usada na ativação automática do compliance, com rastreio completo para comunicação à AT.",
       "intro_video_url": "",
       "is_complete": 0,
       "is_mandatory": 1,
@@ -117,10 +117,10 @@
       "show_form_tour": 0,
       "show_full_form": 0,
       "step": 3,
-      "title": "📋 Configurar Naming Series Nativas",
+      "title": "📋 Configurar Séries Portuguesas",
       "validate_action": 1,
-      "validation_logic": "{\n  \"server_action\": \"portugal_compliance.utils.naming_series_customizer.setup_all_portuguese_naming_series\",\n  \"expected_result\": {\n    \"success\": true,\n    \"updated_doctypes\": {\n      \"$gte\": 5\n    }\n  }\n}",
-      "server_action": "portugal_compliance.utils.naming_series_customizer.setup_all_portuguese_naming_series"
+      "validation_logic": "{\n  \"server_action\": \"portugal_compliance.onboarding.portugal_setup.setup_default_series\",\n  \"expected_result\": {\n    \"success\": true,\n    \"created\": {\n      \"$gte\": 1\n    }\n  }\n}",
+      "server_action": "portugal_compliance.onboarding.portugal_setup.setup_default_series"
     },
     {
       "action": "Create Entry",
