@@ -590,16 +590,34 @@ class SAFTGenerator:
 			fonte (is_tax_withholding_account=1 - campo nativo do
 			ERPNext, criado quando uma Tax Withholding Category e
 			aplicada). WithholdingTaxType (IRS/IRC/IS) nao tem
-			correspondencia direta e fiavel no ERPNext - fica de fora
-			(campo opcional no XSD) em vez de adivinhar; so o valor
-			(obrigatorio) e a descricao (opcional) sao mapeados.
+			correspondencia automatica fiavel a partir da configuracao
+			nativa do ERPNext (Tax Withholding Category) - vem do custom
+			field Account.at_withholding_tax_type (setup/tax_setup.py),
+			que cada conta de retencao tem de ter configurado manualmente.
+			So populado no SAF-T quando preenchido (campo opcional no
+			XSD) - nunca adivinhado.
 			"""
 			rows = frappe.db.sql("""
-								 SELECT description, tax_amount FROM `tabSales Taxes and Charges`
+								 SELECT description, tax_amount, account_head
+								 FROM `tabSales Taxes and Charges`
 								 WHERE parent = %s AND is_tax_withholding_account = 1
 								 """, (invoice_name,), as_dict=True)
+			account_names = {r.account_head for r in rows if r.account_head}
+			wh_types = {}
+			if account_names:
+				wh_types = {
+					a.name: a.at_withholding_tax_type
+					for a in frappe.get_all(
+						"Account", filters={"name": ["in", list(account_names)]},
+						fields=["name", "at_withholding_tax_type"],
+					)
+				}
 			return [
-				frappe._dict({"description": r.description or "", "amount": abs(flt(r.tax_amount))})
+				frappe._dict({
+					"description": r.description or "",
+					"amount": abs(flt(r.tax_amount)),
+					"withholding_tax_type": wh_types.get(r.account_head) or "",
+				})
 				for r in rows if r.tax_amount
 			]
 

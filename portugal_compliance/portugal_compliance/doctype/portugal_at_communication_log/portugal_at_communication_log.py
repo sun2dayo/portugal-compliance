@@ -2,7 +2,7 @@ import frappe
 from frappe.model.document import Document
 
 
-class PortugalInvoiceCommunicationLog(Document):
+class PortugalATCommunicationLog(Document):
 	def validate(self):
 		self.validate_document_reference()
 

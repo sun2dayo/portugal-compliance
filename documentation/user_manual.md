@@ -168,6 +168,39 @@ Compliance** no topo, com mais ações além da criação automática de séries
 - **Configurações Avançadas**: navega para **Portugal Auth Settings** (Passo 2), onde vivem as
   opções "Criar séries automaticamente", "Validar NIF" e "Exigir NIF do Cliente".
 
+### 4.2. Configurar Imposto do Selo (Opcional)
+
+A ativação do Portugal Compliance cria automaticamente as contas e os templates de **IVA**
+(Normal, Intermédia, Reduzida, Isenta) nas 3 regiões fiscais. O **Imposto do Selo (IS)** é
+diferente: como as verbas da Tabela Geral do Imposto do Selo (TGIS) aplicáveis dependem do
+tipo de negócio de cada empresa (ex: verba 1.1 para arrendamento, verba 17.x para serviços
+financeiros — não são as mesmas para todos), **não há nenhuma verba pré-configurada
+automaticamente**. Só depois de configurar manualmente é que o SAF-T passa a reportar
+`TaxType="IS"` numa linha, em vez do `"IVA"` por omissão.
+
+Para configurar, por cada tipo de Imposto do Selo que a empresa efetivamente cobra:
+
+1. Vá a **Accounting › Chart of Accounts** e crie (ou edite) a conta de imposto correspondente,
+   dentro do grupo de impostos da empresa (o mesmo grupo onde vivem as contas de IVA 2433x).
+2. Nessa conta, preencha os 2 campos adicionados pelo Portugal Compliance:
+   - **Tipo de Imposto AT** (`at_tax_type`): escolha **IS**.
+   - **Verba TGIS (Imposto do Selo)** (`at_stamp_duty_verba`): o código da verba real aplicável
+     ao negócio (ex: `"1.1"`, `"17.3.1"`) — texto livre, consulte a Tabela Geral do Imposto do
+     Selo em vigor ou o seu contabilista certificado para confirmar a verba correta. Sem este
+     campo preenchido, o SAF-T usa `"OUT"` (Outro) como código de reserva.
+3. Crie um **Sales Taxes and Charges Template** (ou **Item Tax Template**, conforme o caso de
+   uso) que use essa conta, do mesmo modo que os templates de IVA já existentes — ver
+   **Accounting › Sales Taxes and Charges Template** para um exemplo de referência.
+4. Aplique esse template aos artigos/faturas onde o Imposto do Selo se aplica, tal como faria
+   com um template de IVA.
+5. Gere um SAF-T de teste (Passo 6) e confirme, no bloco `<Tax>` da linha correspondente, que
+   `TaxType` mostra `IS` e `TaxCode` mostra a verba configurada — não `IVA`/`NOR`.
+
+> **Nota multi-inquilino (SaaS)**: estes 2 campos vivem na `Account` de **cada empresa**, não
+> numa configuração global — cada empresa/inquilino configura as suas próprias verbas TGIS,
+> sem afetar as restantes. Não existe (nem faz sentido existir) uma verba "por omissão" válida
+> para todos os inquilinos.
+
 ---
 
 ## 5. Passo 4 — Comunicar as Séries à AT

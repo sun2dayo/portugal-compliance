@@ -162,7 +162,8 @@ def get_weekly_series_stats(start_date, end_date):
 			}),
 			"communication_failures": frappe.db.count("Portugal Series Configuration", {
 				"last_communication_attempt": ["between", [start_date, end_date]],
-				"communication_status": "Failed"
+				"is_communicated": 0,
+				"communication_attempts": [">", 0]
 			}),
 			"active_series_total": frappe.db.count("Portugal Series Configuration", {
 				"is_active": 1
@@ -212,9 +213,10 @@ def get_weekly_communication_stats(start_date, end_date):
 			"communication_success_rate": 0
 		}
 
-		# Obter tentativas de comunicação
+		# Obter tentativas de comunicação - is_communicated (Check) e o
+		# campo real, "communication_status" nunca existiu no DocType.
 		communications = frappe.db.sql("""
-									   SELECT communication_status,
+									   SELECT is_communicated,
 											  last_communication_attempt,
 											  communication_attempts
 									   FROM `tabPortugal Series Configuration`
@@ -222,9 +224,8 @@ def get_weekly_communication_stats(start_date, end_date):
 									   """, (start_date, end_date), as_dict=True)
 
 		total_attempts = sum([comm.communication_attempts or 0 for comm in communications])
-		successful = len(
-			[comm for comm in communications if comm.communication_status == "Success"])
-		failed = len([comm for comm in communications if comm.communication_status == "Failed"])
+		successful = len([comm for comm in communications if comm.is_communicated])
+		failed = len([comm for comm in communications if not comm.is_communicated])
 
 		stats["total_attempts"] = total_attempts
 		stats["successful_communications"] = successful
@@ -255,22 +256,26 @@ def get_weekly_error_stats(start_date, end_date):
 			"error_trend": "stable"
 		}
 
-		# Análise de tipos de erro
+		# Análise de tipos de erro - Error Log nao tem campo "title" (o
+		# identificador real e "method", 2026-08-29) - e o literal '%' do
+		# LIKE tem de vir como parametro, nao inline na string, senao o
+		# frappe.db.sql(query, params) interpreta-o como um placeholder
+		# de formatacao ("not enough arguments for format string").
 		errors = frappe.db.sql("""
-							   SELECT title, COUNT(*) as count
+							   SELECT method, COUNT(*) as count
 							   FROM `tabError Log`
 							   WHERE creation BETWEEN %s
 								 AND %s
-								 AND error LIKE '%portugal_compliance%'
-							   GROUP BY title
+								 AND error LIKE %s
+							   GROUP BY method
 							   ORDER BY count DESC
 								   LIMIT 10
-							   """, (start_date, end_date), as_dict=True)
+							   """, (start_date, end_date, "%portugal_compliance%"), as_dict=True)
 
 		for error in errors:
-			stats["error_types"][error.title] = error.count
+			stats["error_types"][error.method] = error.count
 
-		stats["most_common_errors"] = [error.title for error in errors[:5]]
+		stats["most_common_errors"] = [error.method for error in errors[:5]]
 
 		# Tendência de erros (comparar com semana anterior)
 		prev_week_start = add_days(start_date, -7)
@@ -408,19 +413,11 @@ def store_weekly_report(report_data):
 		cache_key = f"portugal_compliance_weekly_report_{report_data['period']['end_date']}"
 		frappe.cache().set_value(cache_key, report_data, expires_in_sec=2592000)
 
-		# Criar entrada de log para histórico
-		frappe.get_doc({
-			"doctype": "Portugal Weekly Report",
-			"report_date": report_data['period']['end_date'],
-			"period_start": report_data['period']['start_date'],
-			"period_end": report_data['period']['end_date'],
-			"compliance_score": report_data['compliance_score']['final_score'],
-			"compliance_grade": report_data['compliance_score']['grade'],
-			"total_atcud_generated": report_data['atcud_statistics']['total_generated'],
-			"total_series_communicated": report_data['series_statistics']['series_communicated'],
-			"total_errors": report_data['error_statistics']['total_errors'],
-			"report_data": json.dumps(report_data)
-		}).insert(ignore_permissions=True, ignore_if_duplicate=True)
+		# "Portugal Weekly Report" removido (2026-08-29): DocType não
+		# existe na app atual (erro "the DocType you're trying to open
+		# might be deleted", confirmado ao vivo - mesmo padrão de
+		# "Portugal Compliance Audit" em tasks/yearly.py). O cache acima
+		# (30 dias de retenção) já é o mecanismo real de persistência.
 
 	except Exception as e:
 		frappe.log_error(f"Error storing weekly report: {str(e)}")
@@ -495,7 +492,7 @@ def analyze_communication_patterns():
 										 FROM `tabPortugal Series Configuration`
 										 WHERE communication_date >= DATE_SUB(NOW()
 											 , INTERVAL 30 DAY)
-										   AND communication_status = 'Success'
+										   AND is_communicated = 1
 										 GROUP BY HOUR(communication_date)
 										 ORDER BY count DESC
 										 """, as_dict=True)
@@ -517,21 +514,25 @@ def analyze_error_patterns():
 	Analisa padrões de erro
 	"""
 	try:
-		# Análise de tipos de erro mais comuns
+		# Análise de tipos de erro mais comuns - Error Log nao tem "title",
+		# o identificador real e "method" (2026-08-29). Sem params na
+		# chamada frappe.db.sql (nenhum valor a seguir a query), o '%'
+		# literal do LIKE nao e reinterpolado - nao e o mesmo bug de
+		# formatacao de string de get_weekly_error_stats() acima.
 		error_patterns = frappe.db.sql("""
-									   SELECT title, COUNT(*) as count
+									   SELECT method, COUNT(*) as count
 									   FROM `tabError Log`
 									   WHERE creation >= DATE_SUB(NOW()
 										   , INTERVAL 30 DAY)
 										 AND error LIKE '%portugal_compliance%'
-									   GROUP BY title
+									   GROUP BY method
 									   ORDER BY count DESC
 										   LIMIT 10
 									   """, as_dict=True)
 
 		patterns = {
-			"most_common_errors": [e.title for e in error_patterns],
-			"error_frequency": {e.title: e.count for e in error_patterns}
+			"most_common_errors": [e.method for e in error_patterns],
+			"error_frequency": {e.method: e.count for e in error_patterns}
 		}
 
 		frappe.cache().set_value("portugal_compliance_error_patterns", patterns, expires_in_sec=604800)
@@ -676,7 +677,7 @@ def calculate_communication_trend():
 
 			successful = frappe.db.count("Portugal Series Configuration", {
 				"communication_date": ["between", [week_start, week_end]],
-				"communication_status": "Success"
+				"is_communicated": 1
 			})
 
 			success_rate = (successful / total_attempts * 100) if total_attempts > 0 else 100
@@ -981,10 +982,27 @@ def backup_auth_configurations():
 	Faz backup de configurações de autenticação (sem passwords)
 	"""
 	try:
-		auth_configs = frappe.db.get_all("Portugal Auth Settings",
-										 fields=["name", "company", "username", "environment",
-												 "is_active"]  # Excluir password
-										 )
+		# Portugal Auth Settings e um DocType Single (configuracao unica,
+		# global ao site - nao por empresa, sem tabela propria; os dados
+		# de um Single vivem em tabSingles). frappe.db.get_all() gerava
+		# SQL contra uma tabela tabPortugal Auth Settings que nao existe;
+		# os campos name/company/username/environment/is_active tambem
+		# nunca existiram no DocType - ver campos reais abaixo.
+		settings = frappe.get_single("Portugal Auth Settings")
+		auth_configs = [{
+			"sandbox_mode": settings.get("sandbox_mode"),
+			"auto_create_series": settings.get("auto_create_series"),
+			"validate_nif": settings.get("validate_nif"),
+			"require_customer_nif": settings.get("require_customer_nif"),
+			"cash_vat_scheme": settings.get("cash_vat_scheme"),
+			"at_webservice_url": settings.get("at_webservice_url"),
+			"invoice_communication_method": settings.get("invoice_communication_method"),
+			"transport_communication_method": settings.get("transport_communication_method"),
+			"software_certificate_number": settings.get("software_certificate_number"),
+			"at_username": settings.get("at_username"),
+			# at_password/certificate_password/invoice_signing_key_password
+			# excluidos deliberadamente (sao segredos).
+		}]
 
 		backup_data = {
 			"backup_date": now(),
@@ -1025,13 +1043,14 @@ def analyze_recurring_errors():
 	Analisa erros recorrentes
 	"""
 	try:
-		# Obter erros da última semana
+		# Obter erros da última semana - Error Log nao tem "title", o
+		# identificador real e "method" (2026-08-29).
 		recurring_errors = frappe.db.sql("""
-										 SELECT title, error, COUNT(*) as frequency
+										 SELECT method, error, COUNT(*) as frequency
 										 FROM `tabError Log`
 										 WHERE creation >= DATE_SUB(NOW(), INTERVAL 7 DAY)
 										   AND error LIKE '%portugal_compliance%'
-										 GROUP BY title, error
+										 GROUP BY method, error
 										 HAVING frequency > 5
 										 ORDER BY frequency DESC
 										 """, as_dict=True)
@@ -1055,11 +1074,13 @@ def identify_bottlenecks():
 		bottlenecks = []
 
 		# Verificar séries com muitas tentativas de comunicação
+		# error_message removido (2026-08-29): campo nunca existiu no
+		# DocType, mesmo motivo ja documentado em tasks/hourly.py.
 		problematic_series = frappe.db.get_all("Portugal Series Configuration",
 											   filters={"communication_attempts": [">", 2],
 														"is_communicated": 0},
 											   fields=["name", "series_name",
-													   "communication_attempts", "error_message"]
+													   "communication_attempts"]
 											   )
 
 		if problematic_series:
@@ -1165,7 +1186,7 @@ def analyze_series_usage():
 												psc.company,
 												COUNT(al.name) as usage_count
 										 FROM `tabPortugal Series Configuration` psc
-												  LEFT JOIN `tabATCUD Log` al ON al.series_name = psc.series_name
+												  LEFT JOIN `tabATCUD Log` al ON al.series_used = psc.series_name
 										 WHERE psc.is_active = 1
 										   AND psc.creation <= DATE_SUB(NOW(), INTERVAL 30 DAY)
 										 GROUP BY psc.name
@@ -1179,7 +1200,7 @@ def analyze_series_usage():
 											   psc.company,
 											   COUNT(al.name) as usage_count
 										FROM `tabPortugal Series Configuration` psc
-												 LEFT JOIN `tabATCUD Log` al ON al.series_name = psc.series_name
+												 LEFT JOIN `tabATCUD Log` al ON al.series_used = psc.series_name
 										WHERE psc.is_active = 1
 										GROUP BY psc.name
 										HAVING usage_count > 1000
@@ -1372,9 +1393,15 @@ def get_configuration_changes(start_date, end_date):
 				"modified": ["between", [start_date, end_date]],
 				"portugal_compliance_enabled": 1
 			}),
-			"auth_configs": frappe.db.count("Portugal Auth Settings", {
-				"modified": ["between", [start_date, end_date]]
-			})
+			# Portugal Auth Settings e Single (config unica global) - "count"
+			# nao se aplica; 1 se a unica configuracao existente mudou no
+			# periodo, senao 0. get_datetime() em start_date/end_date
+			# tambem - chegam como str, nao comparaveis diretamente com o
+			# datetime devolvido por .modified.
+			"auth_configs": (
+				1 if get_datetime(start_date) <= get_datetime(frappe.get_single("Portugal Auth Settings").modified) <= get_datetime(end_date)
+				else 0
+			)
 		}
 
 		return changes

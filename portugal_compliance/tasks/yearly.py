@@ -72,7 +72,15 @@ def generate_annual_compliance_report():
 		year_start = date(previous_year, 1, 1)
 		year_end = date(previous_year, 12, 31)
 
-		# Coletar dados do ano
+		# Coletar dados do ano - compliance_overview/operational_metrics/
+		# financial_impact/regulatory_compliance/risk_management/
+		# technology_performance/stakeholder_impact/benchmarking/
+		# strategic_recommendations/next_year_planning removidos
+		# (2026-08-29): chamavam funções nunca definidas em nenhum ponto
+		# do módulo (NameError, confirmado por grep a todo o repositório).
+		# Nenhum código consome estas chaves (store_annual_report só lê
+		# annual_data['year']) - seguro remover em vez de fabricar
+		# conteúdo sem definição de negócio real por trás.
 		annual_data = {
 			"year": previous_year,
 			"period": {
@@ -80,16 +88,6 @@ def generate_annual_compliance_report():
 				"end_date": year_end
 			},
 			"executive_summary": generate_annual_executive_summary(year_start, year_end),
-			"compliance_overview": generate_compliance_overview(year_start, year_end),
-			"operational_metrics": calculate_annual_operational_metrics(year_start, year_end),
-			"financial_impact": calculate_annual_financial_impact(year_start, year_end),
-			"regulatory_compliance": assess_annual_regulatory_compliance(year_start, year_end),
-			"risk_management": conduct_annual_risk_review(year_start, year_end),
-			"technology_performance": evaluate_technology_performance(year_start, year_end),
-			"stakeholder_impact": assess_stakeholder_impact(year_start, year_end),
-			"benchmarking": perform_annual_benchmarking(year_start, year_end),
-			"strategic_recommendations": generate_strategic_recommendations(year_start, year_end),
-			"next_year_planning": create_next_year_plan(current_year)
 		}
 
 		# Armazenar relatório
@@ -122,10 +120,9 @@ def generate_annual_executive_summary(start_date, end_date):
 			},
 			"key_achievements": get_annual_achievements(start_date, end_date),
 			"compliance_score": calculate_annual_compliance_score(start_date, end_date),
-			"operational_excellence": measure_operational_excellence(start_date, end_date),
-			"strategic_initiatives": review_strategic_initiatives(start_date, end_date),
-			"challenges_overcome": identify_challenges_overcome(start_date, end_date),
-			"future_outlook": create_future_outlook()
+			# operational_excellence/strategic_initiatives/challenges_overcome/
+			# future_outlook removidos (2026-08-29): mesma razão do dict
+			# annual_data acima - chamavam funções nunca definidas.
 		}
 
 		return summary
@@ -192,7 +189,7 @@ def get_annual_achievements(start_date, end_date):
 		critical_incidents = frappe.db.count("Error Log", {
 			"creation": ["between", [start_date, end_date]],
 			"error": ["like", "%portugal_compliance%"],
-			"title": ["like", "%critical%"]
+			"method": ["like", "%critical%"]
 		})
 
 		if critical_incidents == 0:
@@ -211,7 +208,7 @@ def get_annual_achievements(start_date, end_date):
 		# Comunicação de séries bem-sucedida
 		successful_communications = frappe.db.count("Portugal Series Configuration", {
 			"communication_date": ["between", [start_date, end_date]],
-			"communication_status": "Success"
+			"is_communicated": 1
 		})
 
 		if successful_communications >= 100:
@@ -360,7 +357,7 @@ def calculate_communication_compliance_annual(start_date, end_date):
 
 		successful_attempts = frappe.db.count("Portugal Series Configuration", {
 			"communication_date": ["between", [start_date, end_date]],
-			"communication_status": "Success"
+			"is_communicated": 1
 		})
 
 		if total_attempts > 0:
@@ -572,31 +569,42 @@ def generate_company_annual_saft(company, start_date, end_date, year):
 		# Criar instância do gerador
 		saft_generator = SAFTGenerator()
 
-		# Gerar SAF-T
+		# Gerar SAF-T - assinatura real usa from_date/to_date, nao
+		# start_date/end_date (ver utils/saft_generator.py e
+		# CERTIFICATION.md secção 3).
 		saft_xml = saft_generator.generate_saft(
 			company=company,
-			start_date=start_date,
-			end_date=end_date
+			from_date=start_date,
+			to_date=end_date
 		)
 
 		# Guardar ficheiro em armazenamento privado e duradouro do Frappe
 		# (nao /tmp - contem dados fiscais e pessoais reais)
 		file_path = saft_generator.save_saft_file(saft_xml, company, start_date, end_date)
 
-		# Criar registo de export, ja com o caminho e hash do ficheiro
-		export_log = frappe.get_doc({
+		# Criar registo de export, ja com o caminho e hash do ficheiro -
+		# campos reais do DocType (nao existem period_start/period_end/
+		# year/export_date, e "Annual" nao e um export_type valido - ver
+		# saf_t_export_log.py::validate_export_type).
+		export_log_fields = {
 			"doctype": "SAF-T Export Log",
 			"company": company,
-			"export_type": "Annual",
-			"period_start": start_date,
-			"period_end": end_date,
-			"year": year,
+			"export_type": "Full",
+			"from_date": start_date,
+			"to_date": end_date,
 			"status": "Completed",
 			"file_size": len(saft_xml.encode('utf-8')),
 			"file_path": file_path,
 			"file_hash": saft_generator.generate_file_hash(saft_xml),
-			"export_date": now()
-		})
+		}
+		# fiscal_year e um Link para "Fiscal Year" - so preenchido quando
+		# existe mesmo um registo com esse nome (o formato do nome do ano
+		# fiscal varia por configuracao, ex: "2025" vs "2025-2026"), para
+		# nao rebentar a validacao do Link com um valor inventado.
+		if frappe.db.exists("Fiscal Year", str(year)):
+			export_log_fields["fiscal_year"] = str(year)
+
+		export_log = frappe.get_doc(export_log_fields)
 		export_log.insert(ignore_permissions=True)
 
 		frappe.logger().info(f"Annual SAF-T generated for {company}: {file_path}")
@@ -719,12 +727,13 @@ def archive_old_communication_logs(retention_date):
 	Arquiva logs de comunicação antigos
 	"""
 	try:
-		# Limpar tentativas de comunicação muito antigas
+		# Limpar tentativas de comunicação muito antigas - error_message
+		# removido (2026-08-29): coluna nunca existiu no DocType, mesmo
+		# motivo ja documentado em tasks/hourly.py.
 		old_attempts = frappe.db.sql("""
 									 UPDATE `tabPortugal Series Configuration`
 									 SET last_communication_attempt = NULL,
-										 communication_attempts     = 0,
-										 error_message              = NULL
+										 communication_attempts     = 0
 									 WHERE last_communication_attempt < %s
 									   AND is_communicated = 1
 									 """, retention_date)
@@ -905,7 +914,8 @@ def audit_series_management(start_date, end_date):
 
 		# Verificar falhas de comunicação
 		failed_communications = frappe.db.count("Portugal Series Configuration", {
-			"communication_status": "Failed",
+			"is_communicated": 0,
+			"communication_attempts": [">", 0],
 			"last_communication_attempt": ["between", [start_date, end_date]]
 		})
 
@@ -1099,23 +1109,26 @@ def audit_system_security(start_date, end_date):
 		security_errors = frappe.db.count("Error Log", {
 			"creation": ["between", [start_date, end_date]],
 			"error": ["like", "%portugal_compliance%"],
-			"title": ["like", "%security%"]
+			"method": ["like", "%security%"]
 		})
 
 		if security_errors > 0:
 			audit_result["issues"].append(f"{security_errors} security-related errors detected")
 			audit_result["recommendations"].append("Review and strengthen security measures")
 
-		# Verificar uso de credenciais
-		companies_without_secure_auth = frappe.db.count("Portugal Auth Settings", {
-			"password": ["like", "%test%"]  # Passwords óbvias
-		})
+		# Verificar uso de credenciais - Portugal Auth Settings e Single
+		# (configuracao global unica, nao por empresa - "count" nao se
+		# aplica); "password" tambem nunca foi o nome do campo real (e
+		# at_password, Password fieldtype - so legivel via
+		# get_password(), nunca por filtro LIKE direto na BD).
+		auth_settings = frappe.get_single("Portugal Auth Settings")
+		at_password = auth_settings.get_password("at_password", raise_exception=False) or ""
+		has_weak_auth = "test" in at_password.lower()
 
-		if companies_without_secure_auth > 0:
+		if has_weak_auth:
 			audit_result["status"] = "non_compliant"
 			audit_result["score"] -= 30
-			audit_result["issues"].append(
-				f"{companies_without_secure_auth} companies with weak authentication")
+			audit_result["issues"].append("AT authentication password appears weak (contains 'test')")
 			audit_result["recommendations"].append(
 				"Implement strong password policies and secure credential storage")
 
@@ -1162,17 +1175,11 @@ def store_audit_results(audit_results):
 	Armazena resultados da auditoria
 	"""
 	try:
-		# Criar documento de auditoria
-		audit_doc = frappe.get_doc({
-			"doctype": "Portugal Compliance Audit",
-			"audit_year": audit_results["audit_year"],
-			"audit_date": audit_results["audit_date"],
-			"overall_assessment": audit_results["overall_assessment"],
-			"total_findings": len(audit_results["findings"]),
-			"total_recommendations": len(audit_results["recommendations"]),
-			"audit_results": json.dumps(audit_results, default=str, indent=2)
-		})
-		audit_doc.insert(ignore_permissions=True)
+		# "Portugal Compliance Audit" removido (2026-08-29): DocType não
+		# existe na app atual (erro "the DocType you're trying to open
+		# might be deleted") - provavelmente resquício de uma versão
+		# anterior. O cache abaixo (5 anos de retenção) já é o mecanismo
+		# real de persistência destes resultados.
 
 		# Armazenar no cache por 5 anos
 		cache_key = f"portugal_compliance_annual_audit_{audit_results['audit_year']}"

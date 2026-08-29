@@ -145,7 +145,7 @@ def retry_invoice_communications():
 	ou ficou pendente (rede em baixo, timeout, etc) - mesmo padrao de
 	retry com backoff exponencial ja usado para series
 	(process_failed_communications / try_series_communication acima),
-	agora para Portugal Invoice Communication Log.
+	agora para Portugal AT Communication Log.
 
 	O nome do doctype/funcao ficou de "faturas" por ser o primeiro
 	fluxo implementado, mas o log e generico (campo document_type) e
@@ -155,7 +155,7 @@ def retry_invoice_communications():
 	"""
 	try:
 		pending = frappe.db.get_all(
-			"Portugal Invoice Communication Log",
+			"Portugal AT Communication Log",
 			filters={
 				"status": ["in", ["Retrying", "Pending"]],
 				"next_retry_date": ["<=", now()],

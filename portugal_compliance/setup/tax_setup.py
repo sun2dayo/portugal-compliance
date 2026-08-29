@@ -83,6 +83,25 @@ ACCOUNT_CUSTOM_FIELDS = [
 		"module": "Portugal Compliance",
 		"depends_on": "eval:doc.at_tax_type=='IS'",
 	},
+	{
+		# Tipo de retenção na fonte (IRS/IRC/IS) para contas usadas em
+		# linhas de Sales Taxes and Charges com is_tax_withholding_account=1
+		# (campo nativo do ERPNext). Independente de at_tax_type - uma
+		# conta de retenção não é em si uma conta de IVA/Imposto do Selo.
+		# Sem correspondência automática possível a partir do ERPNext
+		# (não há forma fiável de inferir IRS vs IRC vs IS a partir da
+		# configuração nativa de Tax Withholding Category) - cada conta
+		# de retenção tem de ser configurada manualmente. Ver
+		# saft_generator.py::_withholding_tax_rows, que só popula
+		# WithholdingTaxType no SAF-T quando este campo está preenchido
+		# (é opcional no XSD).
+		"fieldname": "at_withholding_tax_type",
+		"label": "Tipo de Retenção na Fonte AT",
+		"fieldtype": "Select",
+		"options": "\nIRS\nIRC\nIS",
+		"insert_after": "at_stamp_duty_verba",
+		"module": "Portugal Compliance",
+	},
 ]
 
 EXEMPTION_REASON_FIELD = {

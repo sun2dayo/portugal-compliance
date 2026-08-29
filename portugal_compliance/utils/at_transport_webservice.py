@@ -323,9 +323,9 @@ def build_transport_payload(document_type, document_name):
 def _write_log(log_name, document_type, document_name, company, status, code=None, message=None,
 				payload=None, raw_response=None, bump_retry=False):
 	if log_name:
-		log = frappe.get_doc("Portugal Invoice Communication Log", log_name)
+		log = frappe.get_doc("Portugal AT Communication Log", log_name)
 	else:
-		log = frappe.new_doc("Portugal Invoice Communication Log")
+		log = frappe.new_doc("Portugal AT Communication Log")
 		log.document_type = document_type
 		log.document_name = document_name
 		log.company = company

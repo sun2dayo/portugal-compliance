@@ -2,7 +2,7 @@
 // Copyright (c) 2026, NovaDX - Octávio Daio and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('Portugal Invoice Communication Log', {
+frappe.ui.form.on('Portugal AT Communication Log', {
 	refresh: function (frm) {
 		// Botão de reenvio manual - só faz sentido num registo já
 		// gravado e num estado que indica que a comunicação com a AT

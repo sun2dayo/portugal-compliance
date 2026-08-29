@@ -79,6 +79,7 @@
             </DocumentTotals>
             {% for wh in invoice.withholding_tax %}
             <WithholdingTax>
+                {% if wh.withholding_tax_type %}<WithholdingTaxType>{{ wh.withholding_tax_type }}</WithholdingTaxType>{% endif %}
                 {% if wh.description %}<WithholdingTaxDescription>{{ wh.description }}</WithholdingTaxDescription>{% endif %}
                 <WithholdingTaxAmount>{{ '%.2f'|format(wh.amount or 0) }}</WithholdingTaxAmount>
             </WithholdingTax>

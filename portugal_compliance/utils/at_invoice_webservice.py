@@ -298,9 +298,9 @@ def build_invoice_payload(document_type, document_name):
 def _write_log(log_name, document_type, document_name, company, status, code=None, message=None,
 				payload=None, raw_response=None, bump_retry=False):
 	if log_name:
-		log = frappe.get_doc("Portugal Invoice Communication Log", log_name)
+		log = frappe.get_doc("Portugal AT Communication Log", log_name)
 	else:
-		log = frappe.new_doc("Portugal Invoice Communication Log")
+		log = frappe.new_doc("Portugal AT Communication Log")
 		log.document_type = document_type
 		log.document_name = document_name
 		log.company = company
@@ -509,7 +509,7 @@ def enqueue_invoice_cancellation(doc, method=None):
 	InvoiceStatus=A e valores a 0.00 - ver saft_generator.py).
 	"""
 	was_registered = frappe.db.exists(
-		"Portugal Invoice Communication Log",
+		"Portugal AT Communication Log",
 		{"document_type": doc.doctype, "document_name": doc.name, "status": "Success"},
 	)
 	if not was_registered:

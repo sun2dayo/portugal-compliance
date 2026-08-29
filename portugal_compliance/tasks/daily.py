@@ -77,22 +77,24 @@ def is_portugal_compliance_enabled():
 		return False
 
 
-def check_certificate_expiry():
+def get_expiring_certificates(days=30):
 	"""
-	Verifica a validade REAL dos certificados x509 usados pelos
-	webservices da AT (mTLS cliente e certificado publico da AT usado
-	para cifrar o WS-Security) - le a data de expiracao do proprio
-	ficheiro de certificado, nao um campo de BD (ver nota em
-	tasks/hourly.py sobre o mecanismo anterior, que nunca funcionou
-	porque o campo que lia nunca existiu). Notifica os System Managers
-	via Notification Log quando faltam 30 dias ou menos para expirar -
-	a renovacao junto da AT (novo CSR + email para asi-cd@at.gov.pt) e
-	manual e pode demorar, por isso o aviso tem de vir com antecedencia
-	real.
+	Lê a validade REAL dos certificados x509 usados pelos webservices da
+	AT (mTLS cliente e certificado publico da AT usado para cifrar o
+	WS-Security) - a data de expiracao vem do proprio ficheiro de
+	certificado, nao de um campo de BD (nao existe nenhum
+	Company.certificate_expiry_date - ver nota em tasks/hourly.py sobre o
+	mecanismo anterior, que nunca funcionou porque o campo que lia nunca
+	existiu). Devolve a lista dos certificados a `days` dias ou menos de
+	expirar - partilhado entre check_certificate_expiry() (notificacao
+	diaria) e tasks/monthly.py::get_regulatory_status() (contagem no
+	relatorio mensal), para nao duplicar a logica de leitura x509.
 	"""
+	expiring = []
 	try:
 		from cryptography import x509
 		from cryptography.hazmat.backends import default_backend
+		import os
 
 		settings = frappe.get_single("Portugal Auth Settings")
 		certs_to_check = [
@@ -104,7 +106,6 @@ def check_certificate_expiry():
 			if not path:
 				continue
 			try:
-				import os
 				if not os.path.exists(path):
 					continue
 				with open(path, "rb") as f:
@@ -117,14 +118,28 @@ def check_certificate_expiry():
 				expiry = cert.not_valid_after_utc if hasattr(cert, "not_valid_after_utc") else cert.not_valid_after
 				days_left = (expiry.replace(tzinfo=None) - datetime.utcnow()).days
 
-				if days_left <= 30:
-					_notify_certificate_expiry(label, path, expiry, days_left)
+				if days_left <= days:
+					expiring.append({
+						"label": label, "path": path, "expiry": expiry, "days_left": days_left,
+					})
 			except Exception as e:
 				frappe.log_error(f"Erro ao ler certificado '{label}' ({path}): {str(e)}",
 								  "Certificate Expiry Check")
-
 	except Exception as e:
 		frappe.log_error(f"Error checking certificate expiry: {str(e)}")
+
+	return expiring
+
+
+def check_certificate_expiry():
+	"""
+	Notifica os System Managers via Notification Log quando faltam 30
+	dias ou menos para um certificado x509 da AT expirar - a renovacao
+	junto da AT (novo CSR + email para asi-cd@at.gov.pt) e manual e pode
+	demorar, por isso o aviso tem de vir com antecedencia real.
+	"""
+	for cert in get_expiring_certificates(days=30):
+		_notify_certificate_expiry(cert["label"], cert["path"], cert["expiry"], cert["days_left"])
 
 
 def _notify_certificate_expiry(label, path, expiry_date, days_left):

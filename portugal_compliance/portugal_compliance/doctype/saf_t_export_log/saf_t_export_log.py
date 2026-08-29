@@ -40,7 +40,18 @@ class SAFTExportLog(Document):
 																 'request_ip') else ""
 
 		if not self.user_agent:
-			self.user_agent = frappe.get_request_header("User-Agent") or ""
+			# frappe.get_request_header() acede a frappe.local.request, que
+			# levanta RuntimeError("object is not bound") - nao
+			# AttributeError - fora de um pedido HTTP real (jobs
+			# agendados/background workers, ex: tasks/yearly.py::
+			# generate_company_annual_saft chamado pelo scheduler). O
+			# hasattr() da linha do ip_address acima nao apanha isto
+			# (so suprime AttributeError), por isso precisa do seu
+			# proprio try/except (2026-08-29, confirmado ao vivo).
+			try:
+				self.user_agent = frappe.get_request_header("User-Agent") or ""
+			except Exception:
+				self.user_agent = ""
 
 		if not self.system_version:
 			self.system_version = frappe.__version__

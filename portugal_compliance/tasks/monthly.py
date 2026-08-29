@@ -264,7 +264,7 @@ def calculate_communication_compliance_score(start_date, end_date):
 
 		successful_attempts = frappe.db.count("Portugal Series Configuration", {
 			"communication_date": ["between", [start_date, end_date]],
-			"communication_status": "Success"
+			"is_communicated": 1
 		})
 
 		if total_attempts > 0:
@@ -428,7 +428,7 @@ def get_key_achievements(start_date, end_date):
 		critical_errors = frappe.db.count("Error Log", {
 			"creation": ["between", [start_date, end_date]],
 			"error": ["like", "%portugal_compliance%"],
-			"title": ["like", "%critical%"]
+			"method": ["like", "%critical%"]
 		})
 
 		if critical_errors == 0:
@@ -583,11 +583,13 @@ def get_regulatory_status():
 				status["at_connectivity"] = "issues"
 				status["pending_actions"].append("Resolve AT connectivity issues")
 
-		# Verificar certificados próximos do vencimento
-		expiring_certs = frappe.db.count("Company", {
-			"portugal_compliance_enabled": 1,
-			"certificate_expiry_date": ["<=", add_days(today(), 30)]
-		})
+		# Verificar certificados próximos do vencimento - le a validade
+		# real dos ficheiros x509 (Company nunca teve
+		# certificate_expiry_date; certificados sao globais em Portugal
+		# Auth Settings, nao por Company - mesma logica partilhada com
+		# tasks/daily.py::check_certificate_expiry).
+		from portugal_compliance.tasks.daily import get_expiring_certificates
+		expiring_certs = len(get_expiring_certificates(days=30))
 
 		if expiring_certs > 0:
 			status["certificate_status"] = "expiring"
@@ -709,7 +711,8 @@ def get_monthly_series_analytics(start_date, end_date):
 			}),
 			"communication_failures": frappe.db.count("Portugal Series Configuration", {
 				"last_communication_attempt": ["between", [start_date, end_date]],
-				"communication_status": "Failed"
+				"is_communicated": 0,
+				"communication_attempts": [">", 0]
 			})
 		}
 
@@ -731,11 +734,12 @@ def get_monthly_communication_analytics(start_date, end_date):
 			}),
 			"successful_communications": frappe.db.count("Portugal Series Configuration", {
 				"communication_date": ["between", [start_date, end_date]],
-				"communication_status": "Success"
+				"is_communicated": 1
 			}),
 			"failed_communications": frappe.db.count("Portugal Series Configuration", {
 				"last_communication_attempt": ["between", [start_date, end_date]],
-				"communication_status": "Failed"
+				"is_communicated": 0,
+				"communication_attempts": [">", 0]
 			})
 		}
 

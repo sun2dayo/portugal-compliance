@@ -48,6 +48,34 @@ disponíveis a pedido, via `create_regional_tax_setup_for_company()`.
 
 ---
 
+## 1bis. Imposto do Selo (IS) — Configuração Manual por Inquilino
+
+Ao contrário da tabela da secção 1 (IVA, gerada automaticamente na ativação), **não existe
+nenhuma verba de Imposto do Selo pré-configurada** — as verbas da TGIS aplicáveis dependem do
+tipo de negócio de cada empresa, e não faria sentido assumir um código fiscal por omissão numa
+instalação multi-inquilino (SaaS). Mecanismo pronto desde 2026-08-29 (`Account.at_tax_type` +
+`Account.at_stamp_duty_verba`, ver [setup/tax_setup.py](portugal_compliance/setup/tax_setup.py))
+— configuração fica a cargo de cada empresa/inquilino, documentado passo a passo em
+[user_manual.md](user_manual.md), secção 4.2.
+
+| Campo (`Account`) | Tipo | Preenchimento |
+| :--- | :--- | :--- |
+| `at_tax_type` | Select (`IVA`/`IS`) | `IS` para contas de Imposto do Selo |
+| `at_stamp_duty_verba` | Texto livre | Verba TGIS real (ex: `"1.1"`, `"17.3.1"`) — sem valor por omissão |
+
+**[Preencher para a instalação real]**: listar aqui as contas de IS efetivamente criadas
+nesta empresa e a verba TGIS de cada uma, à medida que forem configuradas — mesmo princípio da
+tabela da secção 1 (declaração do estado real, não um ficheiro de configuração paralelo).
+
+| Conta | Verba TGIS | Descrição |
+| :--- | :--- | :--- |
+| *(nenhuma conta de IS configurada nesta instalação até à data)* | — | — |
+
+> Sem verba configurada (`at_stamp_duty_verba` vazio), o SAF-T usa `"OUT"` (Outro) como código
+> de reserva em vez de inventar uma verba — ver `saft_generator.py::_line_tax_code`.
+
+---
+
 ## 2. Regime de IVA de Caixa
 
 | Campo | Valor |
