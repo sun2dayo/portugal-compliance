@@ -2051,6 +2051,42 @@ console.log('🇵🇹 Portugal Compliance Module v2.0.0 carregado com sucesso - 
 						const values = msg.options.map(function (o) { return o.value; });
 						frm.set_df_property('naming_series', 'options', values.join('\n'));
 						frm.refresh_field('naming_series');
+
+						// Escolhe a série certa por omissão em vez de deixar
+						// o campo em branco - o comportamento nativo do
+						// Frappe seria pré-selecionar a primeira opção, mas
+						// set_df_property('options', ...) substitui a lista
+						// inteira e limpa essa pré-seleção sem a repor.
+						// is_return_series vem calculado no servidor a
+						// partir de RETURN_DOCUMENT_SERIES (o mesmo
+						// mapeamento usado para provisionar a própria série
+						// - ver company_api.py), por isso esta lógica
+						// funciona sem alteração para qualquer doctype: só
+						// escolhe entre "a de devolução" e "a normal"
+						// quando ambas existem (hoje, só Sales Invoice tem
+						// as duas - os outros doctypes têm sempre uma única
+						// opção não-devolução, que fica sempre escolhida).
+						const isReturn = cint(frm.doc.is_return);
+						const wanted = msg.options.find(function (o) {
+							return Boolean(o.is_return_series) === Boolean(isReturn);
+						}) || msg.options[0];
+
+						const currentOption = msg.options.find(function (o) {
+							return o.value === frm.doc.naming_series;
+						});
+						const currentIsCorrect = currentOption &&
+							Boolean(currentOption.is_return_series) === Boolean(isReturn);
+
+						// Nunca sobrepõe uma escolha já correta (evita
+						// escritas/refreshes desnecessários) - só define
+						// quando o campo está vazio, aponta para uma opção
+						// que já não é válida, ou já não corresponde ao
+						// estado atual de is_return (ex: utilizador marcou
+						// "Is Return" depois de já ter escolhido a série
+						// normal).
+						if (wanted && !currentIsCorrect) {
+							frm.set_value('naming_series', wanted.value);
+						}
 					}
 				});
 			});
@@ -2062,6 +2098,12 @@ console.log('🇵🇹 Portugal Compliance Module v2.0.0 carregado com sucesso - 
 				portugal_compliance.applyNamingSeriesFilter(frm);
 			},
 			company: function (frm) {
+				portugal_compliance.applyNamingSeriesFilter(frm);
+			},
+			is_return: function (frm) {
+				// Alguns doctypes (Sales Invoice, POS Invoice) têm este
+				// campo, outros não - inofensivo nos que não têm, o
+				// handler simplesmente nunca dispara.
 				portugal_compliance.applyNamingSeriesFilter(frm);
 			}
 		});

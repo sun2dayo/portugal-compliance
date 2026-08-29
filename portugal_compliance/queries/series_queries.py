@@ -190,6 +190,7 @@ def get_portuguese_series_list(doctype, company=None, include_inactive=False):
                 total_documents_issued,
                 communication_date,
                 at_environment,
+                document_code,
                 creation,
                 modified
             FROM `tabPortugal Series Configuration`
@@ -666,6 +667,14 @@ def get_naming_series_options(doctype, company=None, only_communicated=False):
 		if cint(only_communicated):
 			series_list = [s for s in series_list if s.is_communicated]
 
+		# Código da série de devolução (ex: "NC" para Sales Invoice) deste
+		# doctype, se existir - mesma fonte de verdade usada para
+		# provisionar a própria série (company_api.RETURN_DOCUMENT_SERIES),
+		# para o cliente poder escolher a série certa por omissão
+		# (normal vs devolução) sem duplicar este mapeamento em JS.
+		from portugal_compliance.api.company_api import RETURN_DOCUMENT_SERIES
+		return_code = RETURN_DOCUMENT_SERIES.get(doctype, {}).get("code")
+
 		# Formatar para retorno
 		options = []
 		for series in series_list:
@@ -677,7 +686,9 @@ def get_naming_series_options(doctype, company=None, only_communicated=False):
 				"label": f"{series.prefix} - {status}",
 				"description": f"Empresa: {series.company}",
 				"is_communicated": series.is_communicated,
-				"validation_code": series.validation_code
+				"validation_code": series.validation_code,
+				"document_code": series.document_code,
+				"is_return_series": bool(return_code) and series.document_code == return_code,
 			})
 
 		return {
