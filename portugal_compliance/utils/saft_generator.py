@@ -442,11 +442,10 @@ class SAFTGenerator:
 									si.posting_date,
 									si.due_date,
 									si.creation,
-									si.net_total,
-									si.total_taxes_and_charges,
-									si.grand_total,
+									si.base_net_total,
+									si.base_total_taxes_and_charges,
+									si.base_grand_total,
 									si.currency,
-									si.conversion_rate,
 									si.docstatus,
 									si.owner,
 									si.atcud_code,
@@ -460,8 +459,8 @@ class SAFTGenerator:
 									sii.description,
 									sii.qty,
 									sii.uom,
-									sii.rate,
-									sii.amount,
+									sii.base_rate,
+									sii.base_net_amount,
 									sii.item_tax_template,
 									sii.at_exemption_reason
 							 FROM `tab{doctype}` si
@@ -471,6 +470,25 @@ class SAFTGenerator:
 							   AND si.docstatus IN (1, 2)
 							 ORDER BY si.posting_date, si.name
 							 """, (company, from_date, to_date), as_dict=True)
+		# base_* (moeda da empresa, EUR) em vez dos campos "nus"
+		# (moeda de transação do documento) em TODOS os totais/linhas
+		# acima, e base_net_amount em vez de amount por linha -
+		# 2026-08-30, auditoria pedida pelo utilizador. Duas
+		# consequências do bug anterior, confirmadas por leitura de
+		# código (ver controllers/taxes_and_totals.py::
+		# apply_discount_amount no ERPNext core): (1) uma fatura em
+		# moeda estrangeira (ex. USD) enviava à AT os valores em USD,
+		# não convertidos para EUR - conversion_rate era lido do SQL
+		# mas nunca usado em lado nenhum (removido, dead code); (2) o
+		# desconto adicional/global (Sales Invoice.discount_amount,
+		# distinto do desconto de linha que já ia embutido em
+		# sii.rate/amount) nunca era refletido no valor de cada linha -
+		# só net_amount/base_net_amount incluem a distribuição
+		# proporcional desse desconto por linha, amount/base_amount
+		# não. Sem isto, a soma das linhas nunca batia certo com o
+		# total do documento sempre que existisse desconto adicional, e
+		# o imposto por linha (calculado sobre esse valor) ficava
+		# sobrestimado.
 		# docstatus IN (1, 2): faturas anuladas (docstatus=2) tem de
 		# constar no SAF-T com InvoiceStatus=A e valores fiscais a
 		# 0.00 - a lei portuguesa exige o registo da anulacao, nao a
@@ -652,7 +670,7 @@ class SAFTGenerator:
 			XSD) - nunca adivinhado.
 			"""
 			rows = frappe.db.sql("""
-								 SELECT description, tax_amount, account_head
+								 SELECT description, base_tax_amount, account_head
 								 FROM `tabSales Taxes and Charges`
 								 WHERE parent = %s AND is_tax_withholding_account = 1
 								 """, (invoice_name,), as_dict=True)
@@ -669,10 +687,10 @@ class SAFTGenerator:
 			return [
 				frappe._dict({
 					"description": r.description or "",
-					"amount": abs(flt(r.tax_amount)),
+					"amount": abs(flt(r.base_tax_amount)),
 					"withholding_tax_type": wh_types.get(r.account_head) or "",
 				})
-				for r in rows if r.tax_amount
+				for r in rows if r.base_tax_amount
 			]
 
 		invoices = {}
@@ -698,9 +716,9 @@ class SAFTGenerator:
 				# mantêm-se os originais, prova de que o documento foi
 				# mesmo assinado antes de ser anulado.
 				is_cancelled = row.docstatus == 2
-				invoice["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.total_taxes_and_charges))
-				invoice["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.net_total))
-				invoice["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.grand_total))
+				invoice["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.base_total_taxes_and_charges))
+				invoice["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_net_total))
+				invoice["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_grand_total))
 				invoice["original_document_reference"] = _original_document_reference(row.return_against)
 				invoice["ship_to"] = _address_dict(row.shipping_address_name)
 				invoice["self_billing_indicator"] = _self_billing(row.customer)
@@ -714,7 +732,7 @@ class SAFTGenerator:
 				exemption_reason = frappe.db.get_value(
 					"AT Tax Exemption", row.at_exemption_reason, "description"
 				) or row.at_exemption_reason
-			signed_amount = flt(row.amount)
+			signed_amount = flt(row.base_net_amount)
 			abs_amount = 0.0 if row.docstatus == 2 else abs(signed_amount)
 			invoices[row.name]["lines"].append(frappe._dict({
 				"item_code": row.item_code,
@@ -722,7 +740,7 @@ class SAFTGenerator:
 				"description": row.description,
 				"qty": abs(flt(row.qty)),
 				"uom": row.uom,
-				"rate": row.rate,
+				"rate": row.base_rate,
 				"amount": abs_amount,
 				"debit_credit": "D" if signed_amount < 0 else "C",
 				"tax_percentage": tax_rate,
