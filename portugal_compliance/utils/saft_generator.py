@@ -10,6 +10,60 @@ import time
 from datetime import datetime
 
 
+def get_company_address(company):
+	"""
+	Morada principal da empresa. Company nao tem um campo proprio - a
+	ligacao e feita via Dynamic Link (Address->Company), o mesmo
+	mecanismo generico usado para clientes/fornecedores.
+	"""
+	address_name = frappe.db.get_value(
+		"Dynamic Link",
+		{"link_doctype": "Company", "link_name": company, "parenttype": "Address"},
+		"parent",
+	)
+	return frappe.get_doc("Address", address_name) if address_name else None
+
+
+def validate_company_fiscal_address(company, company_address=None):
+	"""
+	Levanta frappe.throw com mensagem clara em portugues se a Company nao
+	tiver morada fiscal completa (Rua/Cidade/Codigo Postal - os 3 campos
+	que o XSD do SAF-T exige em CompanyAddress, minLength=1). Chamada em
+	dois pontos: de forma sincrona ao gravar o SAF-T Export Log
+	(doctype/saf_t_export_log/saf_t_export_log.py::validate(), para o
+	utilizador ver o erro de imediato ao tentar submeter) e aqui dentro
+	do gerador (prepare_context, por seguranca - cobre chamadas diretas
+	fora do fluxo normal da UI, ex: tasks/yearly.py).
+
+	Aceita company_address ja obtido (evita 2ª query quando o chamador
+	ja o tem, como prepare_context) ou vai busca-lo se omitido.
+	"""
+	if company_address is None:
+		company_address = get_company_address(company)
+
+	if not company_address:
+		frappe.throw(_(
+			"A empresa {0} não tem morada fiscal configurada. "
+			"Adicione uma Morada (Address) à empresa - com Rua, Cidade "
+			"e Código Postal preenchidos - antes de gerar o SAF-T."
+		).format(company))
+
+	missing_fields = []
+	if not (company_address.address_line1 or "").strip():
+		missing_fields.append(_("Rua/Morada"))
+	if not (company_address.city or "").strip():
+		missing_fields.append(_("Cidade"))
+	if not (company_address.pincode or "").strip():
+		missing_fields.append(_("Código Postal"))
+	if missing_fields:
+		frappe.throw(_(
+			"A morada fiscal da empresa {0} está incompleta. "
+			"Campo(s) em falta em {1}: {2}."
+		).format(company, company_address.name, ", ".join(missing_fields)))
+
+	return company_address
+
+
 class SAFTGenerator:
 	def __init__(self):
 		self.template_path = os.path.join(
@@ -112,17 +166,9 @@ class SAFTGenerator:
 		return code.upper() if code else "PT"
 
 	def _get_company_address(self, company):
-		"""
-		Morada principal da empresa. Company nao tem um campo proprio -
-		a ligacao e feita via Dynamic Link (Address->Company), o mesmo
-		mecanismo generico usado para clientes/fornecedores.
-		"""
-		address_name = frappe.db.get_value(
-			"Dynamic Link",
-			{"link_doctype": "Company", "link_name": company, "parenttype": "Address"},
-			"parent",
-		)
-		return frappe.get_doc("Address", address_name) if address_name else None
+		"""Ver get_company_address (funcao de modulo) - mantido como
+		metodo por compatibilidade com o unico call site interno abaixo."""
+		return get_company_address(company)
 
 	def prepare_context(self, company_doc, from_date, to_date, export_type):
 		"""
@@ -135,30 +181,12 @@ class SAFTGenerator:
 		"""
 		company_address = self._get_company_address(company_doc.name)
 
-		# Falhar cedo com mensagem clara em vez de deixar o XML ser gerado
-		# com AddressDetail/City/PostalCode vazios e so descobrir o
-		# problema tarde, na validacao XSD (minLength=1 nesses 3 campos) -
-		# foi exatamente isso que aconteceu com o export SAFT-EXP-2026-0006
-		# da NovaDX (2026-08-30): Company sem nenhuma Address associada.
-		if not company_address:
-			frappe.throw(_(
-				"A empresa {0} não tem morada fiscal configurada. "
-				"Adicione uma Morada (Address) à empresa - com Rua, Cidade "
-				"e Código Postal preenchidos - antes de gerar o SAF-T."
-			).format(company_doc.name))
-
-		missing_fields = []
-		if not (company_address.address_line1 or "").strip():
-			missing_fields.append(_("Rua/Morada"))
-		if not (company_address.city or "").strip():
-			missing_fields.append(_("Cidade"))
-		if not (company_address.pincode or "").strip():
-			missing_fields.append(_("Código Postal"))
-		if missing_fields:
-			frappe.throw(_(
-				"A morada fiscal da empresa {0} está incompleta. "
-				"Campo(s) em falta em {1}: {2}."
-			).format(company_doc.name, company_address.name, ", ".join(missing_fields)))
+		# Rede de seguranca - o caminho normal (UI) ja bloqueia isto mais
+		# cedo em SAFTExportLog.validate(), de forma sincrona, antes de
+		# sequer chegar aqui. Mantido tambem aqui para chamadas diretas
+		# fora desse fluxo (ex: tasks/yearly.py::generate_company_
+		# annual_saft, chamado pelo scheduler sem passar pelo doctype).
+		company_address = validate_company_fiscal_address(company_doc.name, company_address)
 
 		context = {
 			# Header information

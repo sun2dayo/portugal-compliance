@@ -5,13 +5,29 @@ import os
 import hashlib
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from portugal_compliance.utils.saft_generator import validate_company_fiscal_address
 
 
 class SAFTExportLog(Document):
 	def validate(self):
 		self.validate_date_range()
 		self.validate_export_type()
+		self.validate_company_address()
 		self.set_system_info()
+
+	def validate_company_address(self):
+		"""
+		Bloqueia a submissao de imediato (sincrono, no browser) se a
+		empresa nao tiver morada fiscal completa - em vez de deixar
+		criar o log, agendar o job em background (after_insert) e so
+		descobrir o problema minutos depois com o log ja "Failed"
+		(pedido do utilizador 2026-08-30: o bloqueio deve acontecer ao
+		tentar submeter, nao depois). generate_saft_background/
+		SAFTGenerator.prepare_context repetem a mesma validacao como
+		rede de seguranca para chamadas fora deste fluxo (scheduler).
+		"""
+		if self.company:
+			validate_company_fiscal_address(self.company)
 
 	def validate_date_range(self):
 		"""Valida intervalo de datas"""
