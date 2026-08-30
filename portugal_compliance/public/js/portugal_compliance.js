@@ -43,9 +43,24 @@ window.portugal_compliance = {
 
     // Configuration
     config: {
-        atcud_pattern: /^[A-Z0-9]{8,12}$/,
+        // Corrigido 2026-08-30 (achado pelo utilizador: botão "Validate
+        // ATCUD" do menu Portugal Compliance dava sempre "ATCUD format
+        // is invalid", mesmo com um ATCUD real e válido, ex.
+        // "AAJFJT3SG4-0004"). Faltava o sufixo "-sequência" - o padrão
+        // exigia a string INTEIRA ser só 8-12 alfanuméricos, sem hífen
+        // nenhum, quando todo ATCUD real tem sempre a forma
+        // CODIGO-SEQUENCIA. Alinhado com o regex autoritativo do
+        // servidor (atcud_generator.py: self.atcud_format).
+        atcud_pattern: /^[A-Z0-9]{8,12}-\d{1,12}$/,
         nif_pattern: /^\d{9}$/,
-        series_pattern: /^[A-Z]{2,4}-\d{4}-[A-Z0-9]{1,4}$/,
+        // Corrigido 2026-08-30 (mesmo achado, mesmo ficheiro): exigia o
+        // formato antigo COM hífens ("GT-2025-NDX"), já abandonado em
+        // toda a app a favor do formato SEM hífens ("GT2025NDX" -
+        // ver is_portuguese_naming_series() em qualquer doctype_js,
+        // ex. stock_entry.js). Recebe só o prefixo (naming_series já
+        // sem ".####" - ver validateBeforeSave/onNamingSeriesChange),
+        // por isso não inclui aqui o sufixo ".####".
+        series_pattern: /^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$/,
         // Corrigida 2026-08-30 (achado pelo utilizador: "❌ ATCUD
         // Missing"/menu "🇵🇹 Portugal Compliance"/indicador de série a
         // aparecer num Stock Entry submetido). Esta lista nunca tinha
@@ -337,7 +352,7 @@ window.portugal_compliance = {
             frappe.validated = false;
             frappe.msgprint({
                 title: __('Invalid Series Format'),
-                message: __('Series format should be XX-YYYY-COMPANY'),
+                message: __('Series format should be XXYYYYCOMPANY (e.g. GT2025NDX)'),
                 indicator: 'red'
             });
         }
