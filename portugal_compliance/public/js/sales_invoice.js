@@ -506,7 +506,7 @@ function setup_automatic_naming_series(frm) {
 
     // ✅ BUSCAR SÉRIES PORTUGUESAS DISPONÍVEIS PARA FATURAS DE VENDA (SEM HÍFENS)
     frappe.call({
-        method: 'portugal_compliance.utils.document_hooks.get_available_portugal_series_certified',
+        method: 'portugal_compliance.api.series_api.get_available_portugal_series_certified',
         args: {
             doctype: 'Sales Invoice',
             company: frm.doc.company

@@ -316,7 +316,7 @@ function setup_automatic_naming_series(frm) {
 
     // ✅ BUSCAR SÉRIES PORTUGUESAS DISPONÍVEIS PARA LANÇAMENTOS
     frappe.call({
-        method: 'portugal_compliance.api.get_available_portugal_series_certified',
+        method: 'portugal_compliance.api.series_api.get_available_portugal_series_certified',
         args: {
             doctype: 'Journal Entry',
             company: frm.doc.company
@@ -324,8 +324,14 @@ function setup_automatic_naming_series(frm) {
         callback: function(r) {
             if (r.message && r.message.success && r.message.series.length > 0) {
                 // ✅ PRIORIZAR SÉRIES COMUNICADAS JE/LC (Journal Entry/Lançamento Contabilístico)
+                // 2026-08-31: prefixos eram 'JE-'/'LC-' (COM hífen) -
+                // formato abandonado em toda a app a favor de
+                // JE2025EMPRESA/LC2025EMPRESA (ver is_portuguese_naming_series
+                // neste mesmo ficheiro). Com o hífen, este filtro nunca
+                // podia bater certo com uma série real e o auto-select
+                // ficava sempre mudo para Journal Entry.
                 let je_series = r.message.series.filter(s =>
-                    s.prefix.startsWith('JE-') || s.prefix.startsWith('LC-')
+                    s.prefix.startsWith('JE') || s.prefix.startsWith('LC')
                 );
                 let communicated_series = je_series.filter(s => s.is_communicated);
                 let series_to_use = communicated_series.length > 0 ? communicated_series : je_series;

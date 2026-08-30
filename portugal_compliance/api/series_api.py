@@ -273,6 +273,34 @@ def get_series_status(company=None, document_type=None):
 
 
 @frappe.whitelist()
+def get_available_portugal_series_certified(doctype, company):
+	"""
+	Auto-seleção de série ao mudar de Empresa (setup_automatic_naming_series
+	em cada doctype_js fiscal/pré-fiscal). Esta função nunca existiu no
+	servidor - era chamada sob 3 caminhos diferentes
+	(utils.atcud_generator, utils.document_hooks, api), nenhum real,
+	em 11 ficheiros JS (auditoria 2026-08-30/31). O nome e a assinatura
+	(doctype, company) ficam exatamente como o frontend já espera -
+	só a implementação estava em falta.
+
+	Wrapper fino sobre get_series_status(), que já faz a mesma query a
+	Portugal Series Configuration (filtrada por company/document_type)
+	no mesmo formato {success, series: [...]} que os 11 chamadores já
+	esperam - reutilizado em vez de duplicado. Filtra séries inativas
+	(Finalizada/Anulada) antes de devolver: o filtro do lado do
+	cliente (prefixo + is_communicated) não sabe nada sobre is_active,
+	e sem este filtro aqui podia auto-selecionar uma série que a
+	submissão real rejeitaria depois (ver _validate_series_not_inactive
+	em document_hooks.py).
+	"""
+	result = get_series_status(company=company, document_type=doctype)
+	if not result.get("success"):
+		return result
+	result["series"] = [s for s in result["series"] if s.get("is_active")]
+	return result
+
+
+@frappe.whitelist()
 def validate_series_format(series_prefix):
 	"""
 	✅ CORRIGIDO: Valida formato da série (SEM HÍFENS)
