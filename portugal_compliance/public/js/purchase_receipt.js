@@ -36,8 +36,8 @@ frappe.ui.form.on('Purchase Receipt', {
             // ✅ CONFIGURAR INTERFACE PORTUGUESA
             setup_portuguese_interface(frm);
 
-            // ✅ MOSTRAR STATUS DE COMPLIANCE
-            show_compliance_status(frm);
+            // show_compliance_status removida (2026-08-30) - ver nota
+            // em stock_entry.js.
 
             // ✅ ADICIONAR BOTÕES PERSONALIZADOS
             add_custom_buttons(frm);
@@ -73,8 +73,8 @@ frappe.ui.form.on('Purchase Receipt', {
     // ========== EVENTOS DE NAMING SERIES ==========
     naming_series: function(frm) {
         if (frm.doc.naming_series) {
-            // ✅ VALIDAR SÉRIE PORTUGUESA
-            validate_portuguese_series(frm);
+            // validate_portuguese_series removida (2026-08-30) - ver
+            // nota em validate_portuguese_purchase_receipt/stock_entry.js.
 
             // ✅ VERIFICAR STATUS DE COMUNICAÇÃO
             check_series_communication_status(frm);
@@ -271,20 +271,17 @@ function setup_portuguese_interface(frm) {
      * Configurar interface específica para Portugal
      */
 
-    // ✅ ADICIONAR INDICADOR DE COMPLIANCE
-    if (!frm.doc.__islocal) {
-        let compliance_status = get_compliance_status(frm);
-
-        frm.dashboard.add_indicator(
-            __('Portugal Compliance: {0}', [compliance_status.label]),
-            compliance_status.color
-        );
-    }
-
-
     // ✅ CONFIGURAR LAYOUT PORTUGUÊS
     setup_portuguese_layout(frm);
 }
+
+// add_compliance_section, add_receipt_section, show_compliance_status
+// e get_compliance_status removidas (2026-08-30, mesmo achado do
+// utilizador ja corrigido em stock_entry.js - ver esse ficheiro para
+// o historico completo). Purchase Receipt nunca esteve em
+// document_hooks.py::supported_doctypes - os cartoes/banner/indicador
+// que geravam assumiam, incorretamente, que este doctype tem
+// serie/ATCUD proprios.
 
 function setup_portuguese_layout(frm) {
     /**
@@ -297,147 +294,6 @@ function setup_portuguese_layout(frm) {
         frm.fields_dict.atcud_code.df.insert_after = 'naming_series';
         frm.refresh_field('atcud_code');
     }
-
-    // ✅ ADICIONAR SEÇÃO DE COMPLIANCE
-    if (!frm.doc.__islocal && frm.doc.atcud_code) {
-        add_compliance_section(frm);
-    }
-
-    // ✅ ADICIONAR SEÇÃO DE RECEÇÃO
-    add_receipt_section(frm);
-}
-
-function add_compliance_section(frm) {
-    /**
-     * Adicionar seção de informações de compliance
-     */
-
-    let total_qty = calculate_total_qty(frm);
-    let total_amount = frm.doc.grand_total || 0;
-
-    let compliance_html = `
-        <div class="portugal-compliance-info" style="
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Informações de Compliance Português - Guia de Receção
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>ATCUD:</strong> ${frm.doc.atcud_code || 'Não gerado'}<br>
-                    <strong>Série:</strong> ${frm.doc.naming_series || 'Não definida'}<br>
-                    <strong>Fornecedor:</strong> ${frm.doc.supplier_name || ''}
-                </div>
-                <div class="col-md-6">
-                    <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span><br>
-                    <strong>Qtd Total:</strong> ${total_qty}<br>
-                    <strong>Valor Total:</strong> €${total_amount.toFixed(2)}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.compliance_section_added) {
-        $(frm.fields_dict.naming_series.wrapper).after(compliance_html);
-        frm.compliance_section_added = true;
-    }
-}
-
-function add_receipt_section(frm) {
-    /**
-     * Adicionar seção específica de receção
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let receipt_html = `
-        <div class="receipt-info" style="
-            background: #e8f5e8;
-            border: 1px solid #4caf50;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #2e7d32;">
-                📦 Informações de Receção
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>Fatura Fornecedor:</strong> ${frm.doc.bill_no || 'Não definida'}<br>
-                    <strong>Data Fatura:</strong> ${frm.doc.bill_date ? frappe.datetime.str_to_user(frm.doc.bill_date) : 'Não definida'}<br>
-                    <strong>Data Receção:</strong> ${frappe.datetime.str_to_user(frm.doc.posting_date)}
-                </div>
-                <div class="col-md-6">
-                    <strong>Armazém:</strong> ${frm.doc.set_warehouse || 'Múltiplos'}<br>
-                    <strong>Purchase Order:</strong> ${frm.doc.purchase_order || 'Não definida'}<br>
-                    <strong>Observações:</strong> ${frm.doc.remarks || 'Nenhuma'}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.receipt_section_added) {
-        $(frm.fields_dict.supplier.wrapper).after(receipt_html);
-        frm.receipt_section_added = true;
-    }
-}
-
-function show_compliance_status(frm) {
-    /**
-     * Mostrar status de compliance no formulário
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let status = get_compliance_status(frm);
-
-    // ✅ MOSTRAR INDICADOR NO DASHBOARD
-    frm.dashboard.clear_headline();
-    frm.dashboard.set_headline(
-        `<span class="indicator ${status.color}">${status.label}</span> ${status.description}`
-    );
-}
-
-function get_compliance_status(frm) {
-    /**
-     * Obter status de compliance do documento
-     */
-
-    if (!frm.doc.naming_series) {
-        return {
-            label: 'Não Configurado',
-            color: 'red',
-            description: 'Série portuguesa não definida'
-        };
-    }
-
-    if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        return {
-            label: 'Não Conforme',
-            color: 'red',
-            description: 'Série não é portuguesa'
-        };
-    }
-
-    if (!frm.doc.atcud_code) {
-        return {
-            label: 'Pendente',
-            color: 'orange',
-            description: 'ATCUD será gerado automaticamente'
-        };
-    }
-
-    return {
-        label: 'Conforme',
-        color: 'green',
-        description: 'Guia conforme legislação portuguesa'
-    };
 }
 
 // ========== FUNÇÕES DE BOTÕES PERSONALIZADOS ==========
@@ -449,19 +305,8 @@ function add_custom_buttons(frm) {
 
     if (frm.doc.__islocal) return;
 
-    // ✅ BOTÃO PARA GERAR ATCUD MANUALMENTE
-    if (!frm.doc.atcud_code && frm.doc.naming_series) {
-        frm.add_custom_button(__('Gerar ATCUD'), function() {
-            generate_atcud_manually(frm);
-        }, __('Portugal Compliance'));
-    }
-
-    // ✅ BOTÃO PARA VERIFICAR SÉRIE
-    if (frm.doc.naming_series) {
-        frm.add_custom_button(__('Verificar Série'), function() {
-            check_series_status(frm);
-        }, __('Portugal Compliance'));
-    }
+    // Botões "Gerar ATCUD"/"Verificar Série" removidos (2026-08-30) -
+    // ver nota acima/em stock_entry.js.
 
     // ✅ BOTÃO PARA VALIDAR ENDEREÇOS
     if (frm.doc.supplier) {
@@ -544,35 +389,6 @@ function setup_automatic_naming_series(frm) {
     });
 }
 
-function validate_portuguese_series(frm) {
-    /**
-     * ✅ CORRIGIDO: Validar se naming series é portuguesa (formato SEM HÍFENS)
-     */
-
-    if (!frm.doc.naming_series) return;
-
-    if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        frappe.msgprint({
-            title: __('Série Inválida'),
-            message: __('Para compliance português, use séries no formato GR2025EMPRESA.####'),
-            indicator: 'red'
-        });
-        frm.set_value('naming_series', '');
-        return;
-    }
-
-    // ✅ VERIFICAR SE É SÉRIE DE GUIA DE RECEÇÃO (formato SEM HÍFENS)
-    let prefix = frm.doc.naming_series.replace('.####', '');
-    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: GR
-
-    if (doc_code !== 'GR') {
-        frappe.msgprint({
-            title: __('Série Incorreta'),
-            message: __('Para Purchase Receipt, use séries GR (Guia de Receção)'),
-            indicator: 'orange'
-        });
-    }
-}
 
 function check_series_communication_status(frm) {
     /**
@@ -632,12 +448,15 @@ function validate_portuguese_purchase_receipt(frm) {
 
     let errors = [];
 
-    // ✅ VALIDAR NAMING SERIES
-    if (!frm.doc.naming_series) {
-        errors.push(__('Naming Series é obrigatória para empresas portuguesas'));
-    } else if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        errors.push(__('Use naming series portuguesa (formato GR2025EMPRESA.####)'));
-    }
+    // Exigencia de naming_series removida (2026-08-30, mesmo achado do
+    // utilizador ja corrigido em stock_entry.js - ver esse ficheiro
+    // para o historico completo): Purchase Receipt nunca esteve em
+    // document_hooks.py::supported_doctypes (documento de rececao de
+    // compra, nao emitido a terceiros - Portaria 195/2020 nao se
+    // aplica), confirmado "ja era codigo morto" no proprio commit de
+    // 2026-08-22 que o excluiu. Esta validacao client-side exigia na
+    // mesma um formato de serie que a app nunca chegou a provisionar
+    // de verdade para este doctype.
 
     // ✅ VALIDAR FORNECEDOR
     if (!frm.doc.supplier) {
@@ -805,62 +624,33 @@ function validate_shipping_address(frm) {
 
 function validate_before_submit_portuguese(frm) {
     /**
-     * Validações críticas antes da submissão
+     * Validações críticas antes da submissão.
+     *
+     * Exigencia de ATCUD/serie comunicada removida (2026-08-30) - ver
+     * validate_portuguese_purchase_receipt (mesmo ficheiro) para o
+     * historico completo. Purchase Receipt nunca gera ATCUD nem
+     * comunica serie (nunca esteve em document_hooks.py::
+     * supported_doctypes). Validacao de armazens (generica,
+     * nao-fiscal) mantida tal como estava.
      */
-
     return new Promise((resolve, reject) => {
         let validations = [];
 
-        // ✅ VALIDAR ATCUD OBRIGATÓRIO
-        if (!frm.doc.atcud_code) {
-            validations.push(__('ATCUD é obrigatório para guias de receção portuguesas'));
+        // ✅ VALIDAR ARMAZÉNS
+        let items_without_warehouse = frm.doc.items.filter(item => !item.warehouse);
+        if (!frm.doc.set_warehouse && items_without_warehouse.length > 0) {
+            validations.push(__('Todos os itens devem ter armazém definido'));
         }
 
-        // ✅ VALIDAR SÉRIE COMUNICADA
-        if (frm.doc.naming_series) {
-            let prefix = frm.doc.naming_series.replace('.####', '');
-
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Portugal Series Configuration',
-                    filters: {prefix: prefix, company: frm.doc.company},
-                    fieldname: 'is_communicated'
-                },
-                callback: function(r) {
-                    if (r.message && !r.message.is_communicated) {
-                        validations.push(__('Série GR deve estar comunicada à AT antes da submissão'));
-                    }
-
-                    // ✅ VALIDAR ARMAZÉNS
-                    let items_without_warehouse = frm.doc.items.filter(item => !item.warehouse);
-                    if (!frm.doc.set_warehouse && items_without_warehouse.length > 0) {
-                        validations.push(__('Todos os itens devem ter armazém definido'));
-                    }
-
-                    if (validations.length > 0) {
-                        frappe.msgprint({
-                            title: __('Validação Crítica'),
-                            message: validations.join('<br>'),
-                            indicator: 'red'
-                        });
-                        reject();
-                    } else {
-                        resolve();
-                    }
-                }
+        if (validations.length > 0) {
+            frappe.msgprint({
+                title: __('Validação Crítica'),
+                message: validations.join('<br>'),
+                indicator: 'red'
             });
+            reject();
         } else {
-            if (validations.length > 0) {
-                frappe.msgprint({
-                    title: __('Validação Crítica'),
-                    message: validations.join('<br>'),
-                    indicator: 'red'
-                });
-                reject();
-            } else {
-                resolve();
-            }
+            resolve();
         }
     });
 }
@@ -957,97 +747,6 @@ function calculate_and_show_totals(frm) {
 
 // ========== FUNÇÕES DE AÇÕES ==========
 
-function generate_atcud_manually(frm) {
-    /**
-     * ✅ CORRIGIDO: Gerar ATCUD manualmente usando API correta
-     */
-
-    frappe.call({
-        method: 'portugal_compliance.utils.atcud_generator.generate_manual_atcud_certified',
-        args: {
-            doctype: frm.doc.doctype,
-            docname: frm.doc.name
-        },
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frm.reload_doc();
-                frappe.show_alert({
-                    message: __('ATCUD gerado: {0}', [r.message.atcud_code]),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint({
-                    title: __('Erro'),
-                    message: r.message ? r.message.error : __('Erro ao gerar ATCUD'),
-                    indicator: 'red'
-                });
-            }
-        }
-    });
-}
-
-function check_series_status(frm) {
-    /**
-     * Verificar status da série
-     */
-
-    if (!frm.doc.naming_series) {
-        frappe.msgprint(__('Naming series não definida'));
-        return;
-    }
-
-    let prefix = frm.doc.naming_series.replace('.####', '');
-
-    frappe.call({
-        method: 'frappe.client.get',
-        args: {
-            doctype: 'Portugal Series Configuration',
-            filters: {prefix: prefix, company: frm.doc.company}
-        },
-        callback: function(r) {
-            if (r.message) {
-                show_series_status_dialog(frm, r.message);
-            } else {
-                frappe.msgprint(__('Série não encontrada na configuração'));
-            }
-        }
-    });
-}
-
-function show_series_status_dialog(frm, series_data) {
-    /**
-     * Mostrar dialog com status da série
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Status da Série GR'),
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'series_info'
-            }
-        ]
-    });
-
-    let html = `
-        <div class="series-status-info">
-            <h5>${series_data.series_name}</h5>
-            <table class="table table-bordered">
-                <tr><td><strong>Prefixo:</strong></td><td>${series_data.prefix}</td></tr>
-                <tr><td><strong>Tipo:</strong></td><td>Guia de Receção</td></tr>
-                <tr><td><strong>Empresa:</strong></td><td>${series_data.company}</td></tr>
-                <tr><td><strong>Ativa:</strong></td><td>${series_data.is_active ? 'Sim' : 'Não'}</td></tr>
-                <tr><td><strong>Comunicada:</strong></td><td>${series_data.is_communicated ? 'Sim' : 'Não'}</td></tr>
-                <tr><td><strong>Código AT:</strong></td><td>${series_data.validation_code || 'Não disponível'}</td></tr>
-                <tr><td><strong>Sequência Atual:</strong></td><td>${series_data.current_sequence}</td></tr>
-                <tr><td><strong>Total Emitidos:</strong></td><td>${series_data.total_documents_issued}</td></tr>
-            </table>
-        </div>
-    `;
-
-    dialog.fields_dict.series_info.$wrapper.html(html);
-    dialog.show();
-}
 
 function validate_all_addresses(frm) {
     /**
@@ -1494,12 +1193,6 @@ frappe.ui.form.on('Purchase Receipt Item', {
         // ✅ RECALCULAR TOTAIS QUANDO QUANTIDADE MUDA
         setTimeout(() => {
             calculate_receipt_totals(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
         }, 100);
     },
 
@@ -1507,12 +1200,6 @@ frappe.ui.form.on('Purchase Receipt Item', {
         // ✅ RECALCULAR TOTAIS QUANDO RATE MUDA
         setTimeout(() => {
             calculate_receipt_totals(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
         }, 100);
     },
 
@@ -1589,18 +1276,8 @@ function setup_keyboard_shortcuts(frm) {
      * Configurar atalhos de teclado para Portugal Compliance
      */
 
-    // ✅ CTRL+G para gerar ATCUD
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+g',
-        action: () => {
-            if (!frm.doc.atcud_code && frm.doc.naming_series) {
-                generate_atcud_manually(frm);
-            }
-        },
-        description: __('Gerar ATCUD'),
-        ignore_inputs: true,
-        page: frm.page
-    });
+    // Atalho Ctrl+G ("Gerar ATCUD") removido junto com o botão e a
+    // função - ver nota em add_custom_buttons.
 
     // ✅ CTRL+T para calcular totais
     frappe.ui.keys.add_shortcut({
@@ -1896,7 +1573,6 @@ function create_receipt_audit_log(frm) {
         purchase_order: frm.doc.purchase_order,
         set_warehouse: frm.doc.set_warehouse,
         bill_no: frm.doc.bill_no,
-        compliance_status: get_compliance_status(frm).label,
         created_by: frappe.session.user,
         created_at: frappe.datetime.now_datetime()
     };

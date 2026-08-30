@@ -34,8 +34,11 @@ frappe.ui.form.on('Journal Entry', {
             // ✅ CONFIGURAR INTERFACE PORTUGUESA
             setup_portuguese_interface(frm);
 
-            // ✅ MOSTRAR STATUS DE COMPLIANCE
-            show_compliance_status(frm);
+            // show_compliance_status removida (2026-08-30, mesmo
+            // achado do utilizador ja corrigido em stock_entry.js -
+            // ver esse ficheiro para o historico completo). Journal
+            // Entry nunca esteve em document_hooks.py::
+            // supported_doctypes.
 
             // ✅ ADICIONAR BOTÕES PERSONALIZADOS
             add_custom_buttons(frm);
@@ -71,8 +74,8 @@ frappe.ui.form.on('Journal Entry', {
     // ========== EVENTOS DE NAMING SERIES ==========
     naming_series: function(frm) {
         if (frm.doc.naming_series) {
-            // ✅ VALIDAR SÉRIE PORTUGUESA
-            validate_portuguese_series(frm);
+            // validate_portuguese_series removida (2026-08-30) - ver
+            // nota em stock_entry.js.
 
             // ✅ VERIFICAR STATUS DE COMUNICAÇÃO
             check_series_communication_status(frm);
@@ -236,20 +239,17 @@ function setup_portuguese_interface(frm) {
      * Configurar interface específica para Portugal
      */
 
-    // ✅ ADICIONAR INDICADOR DE COMPLIANCE
-    if (!frm.doc.__islocal) {
-        let compliance_status = get_compliance_status(frm);
-
-        frm.dashboard.add_indicator(
-            __('Portugal Compliance: {0}', [compliance_status.label]),
-            compliance_status.color
-        );
-    }
-
-
     // ✅ CONFIGURAR LAYOUT PORTUGUÊS
     setup_portuguese_layout(frm);
 }
+
+// add_compliance_section, add_accounting_section,
+// show_compliance_status e get_compliance_status removidas
+// (2026-08-30, mesmo achado do utilizador ja corrigido em
+// stock_entry.js - ver esse ficheiro para o historico completo).
+// Journal Entry nunca esteve em document_hooks.py::supported_doctypes
+// (lançamento contabilístico interno, nao documento emitido a
+// terceiros - Portaria 195/2020 nao se aplica).
 
 function setup_portuguese_layout(frm) {
     /**
@@ -262,164 +262,6 @@ function setup_portuguese_layout(frm) {
         frm.fields_dict.atcud_code.df.insert_after = 'naming_series';
         frm.refresh_field('atcud_code');
     }
-
-    // ✅ ADICIONAR SEÇÃO DE COMPLIANCE
-    if (!frm.doc.__islocal && frm.doc.atcud_code) {
-        add_compliance_section(frm);
-    }
-
-    // ✅ ADICIONAR SEÇÃO CONTABILÍSTICA
-    add_accounting_section(frm);
-}
-
-function add_compliance_section(frm) {
-    /**
-     * Adicionar seção de informações de compliance
-     */
-
-    let balance_info = calculate_journal_balance(frm);
-
-    let compliance_html = `
-        <div class="portugal-compliance-info" style="
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Informações de Compliance Português - Lançamento Contabilístico
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>ATCUD:</strong> ${frm.doc.atcud_code || 'Não gerado'}<br>
-                    <strong>Série:</strong> ${frm.doc.naming_series || 'Não definida'}<br>
-                    <strong>Tipo:</strong> ${frm.doc.voucher_type || 'Não definido'}
-                </div>
-                <div class="col-md-6">
-                    <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span><br>
-                    <strong>Total Débito:</strong> €${balance_info.total_debit.toFixed(2)}<br>
-                    <strong>Total Crédito:</strong> €${balance_info.total_credit.toFixed(2)}
-                </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-md-12">
-                    <strong>Balanceamento:</strong>
-                    <span class="indicator ${balance_info.is_balanced ? 'green' : 'red'}">
-                        ${balance_info.is_balanced ? 'Balanceado' : `Diferença: €${balance_info.difference.toFixed(2)}`}
-                    </span>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.compliance_section_added) {
-        $(frm.fields_dict.naming_series.wrapper).after(compliance_html);
-        frm.compliance_section_added = true;
-    }
-}
-
-function add_accounting_section(frm) {
-    /**
-     * Adicionar seção específica contabilística
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let accounting_html = `
-        <div class="accounting-info" style="
-            background: #e1f5fe;
-            border: 1px solid #0288d1;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #01579b;">
-                📊 Informações Contabilísticas
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>Tipo Lançamento:</strong> ${frm.doc.voucher_type || 'Não definido'}<br>
-                    <strong>Data Lançamento:</strong> ${frappe.datetime.str_to_user(frm.doc.posting_date)}<br>
-                    <strong>Nº Contas:</strong> ${frm.doc.accounts ? frm.doc.accounts.length : 0}
-                </div>
-                <div class="col-md-6">
-                    <strong>Referência:</strong> ${frm.doc.cheque_no || frm.doc.reference_no || 'Não definida'}<br>
-                    <strong>Data Referência:</strong> ${frm.doc.cheque_date ? frappe.datetime.str_to_user(frm.doc.cheque_date) : 'Não definida'}<br>
-                    <strong>Observações:</strong> ${frm.doc.user_remark || 'Nenhuma'}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.accounting_section_added) {
-        $(frm.fields_dict.voucher_type.wrapper).after(accounting_html);
-        frm.accounting_section_added = true;
-    }
-}
-
-function show_compliance_status(frm) {
-    /**
-     * Mostrar status de compliance no formulário
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let status = get_compliance_status(frm);
-
-    // ✅ MOSTRAR INDICADOR NO DASHBOARD
-    frm.dashboard.clear_headline();
-    frm.dashboard.set_headline(
-        `<span class="indicator ${status.color}">${status.label}</span> ${status.description}`
-    );
-}
-
-function get_compliance_status(frm) {
-    /**
-     * Obter status de compliance do documento
-     */
-
-    if (!frm.doc.naming_series) {
-        return {
-            label: 'Não Configurado',
-            color: 'red',
-            description: 'Série portuguesa não definida'
-        };
-    }
-
-    if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        return {
-            label: 'Não Conforme',
-            color: 'red',
-            description: 'Série não é portuguesa'
-        };
-    }
-
-    if (!frm.doc.atcud_code) {
-        return {
-            label: 'Pendente',
-            color: 'orange',
-            description: 'ATCUD será gerado automaticamente'
-        };
-    }
-
-    // ✅ VERIFICAR BALANCEAMENTO
-    let balance_info = calculate_journal_balance(frm);
-    if (!balance_info.is_balanced) {
-        return {
-            label: 'Não Balanceado',
-            color: 'red',
-            description: 'Lançamento não está balanceado'
-        };
-    }
-
-    return {
-        label: 'Conforme',
-        color: 'green',
-        description: 'Lançamento conforme legislação portuguesa'
-    };
 }
 
 // ========== FUNÇÕES DE BOTÕES PERSONALIZADOS ==========
@@ -431,19 +273,8 @@ function add_custom_buttons(frm) {
 
     if (frm.doc.__islocal) return;
 
-    // ✅ BOTÃO PARA GERAR ATCUD MANUALMENTE
-    if (!frm.doc.atcud_code && frm.doc.naming_series) {
-        frm.add_custom_button(__('Gerar ATCUD'), function() {
-            generate_atcud_manually(frm);
-        }, __('Portugal Compliance'));
-    }
-
-    // ✅ BOTÃO PARA VERIFICAR SÉRIE
-    if (frm.doc.naming_series) {
-        frm.add_custom_button(__('Verificar Série'), function() {
-            check_series_status(frm);
-        }, __('Portugal Compliance'));
-    }
+    // Botões "Gerar ATCUD"/"Verificar Série" removidos (2026-08-30) -
+    // ver nota acima/em stock_entry.js.
 
     // ✅ BOTÃO PARA VALIDAR BALANCEAMENTO
     if (frm.doc.accounts && frm.doc.accounts.length > 0) {
@@ -521,33 +352,6 @@ function setup_automatic_naming_series(frm) {
     });
 }
 
-function validate_portuguese_series(frm) {
-    /**
-     * Validar se naming series é portuguesa
-     */
-
-    if (!frm.doc.naming_series) return;
-
-    if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        frappe.msgprint({
-            title: __('Série Inválida'),
-            message: __('Para compliance português, use séries no formato JE-YYYY-EMPRESA.#### ou LC-YYYY-EMPRESA.####'),
-            indicator: 'red'
-        });
-        frm.set_value('naming_series', '');
-        return;
-    }
-
-    // ✅ VERIFICAR SE É SÉRIE DE LANÇAMENTO
-    let prefix = frm.doc.naming_series.split('-')[0];
-    if (!['JE', 'LC'].includes(prefix)) {
-        frappe.msgprint({
-            title: __('Série Incorreta'),
-            message: __('Para Journal Entry, use séries JE (Journal Entry) ou LC (Lançamento Contabilístico)'),
-            indicator: 'orange'
-        });
-    }
-}
 
 function check_series_communication_status(frm) {
     /**
@@ -607,12 +411,9 @@ function validate_portuguese_journal_entry(frm) {
 
     let errors = [];
 
-    // ✅ VALIDAR NAMING SERIES
-    if (!frm.doc.naming_series) {
-        errors.push(__('Naming Series é obrigatória para empresas portuguesas'));
-    } else if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        errors.push(__('Use naming series portuguesa (formato JE-YYYY-EMPRESA.#### ou LC-YYYY-EMPRESA.####)'));
-    }
+    // Exigencia de naming_series removida (2026-08-30) - ver nota em
+    // stock_entry.js. Journal Entry nunca esteve em document_hooks.py::
+    // supported_doctypes.
 
     // ✅ VALIDAR TIPO DE LANÇAMENTO
     if (!frm.doc.voucher_type) {
@@ -720,12 +521,6 @@ function validate_journal_balance(frm) {
         });
     }
 
-    // ✅ ATUALIZAR SEÇÃO DE COMPLIANCE SE EXISTIR
-    if (frm.compliance_section_added) {
-        $('.portugal-compliance-info').remove();
-        frm.compliance_section_added = false;
-        add_compliance_section(frm);
-    }
 }
 
 function validate_voucher_type(frm) {
@@ -762,62 +557,31 @@ function validate_voucher_type(frm) {
 
 function validate_before_submit_portuguese(frm) {
     /**
-     * Validações críticas antes da submissão
+     * Validações críticas antes da submissão.
+     *
+     * Exigencia de ATCUD/serie comunicada removida (2026-08-30) - ver
+     * nota em stock_entry.js. Journal Entry nunca esteve em
+     * document_hooks.py::supported_doctypes. Validação de
+     * balanceamento (genérica, não-fiscal) mantida tal como estava.
      */
-
     return new Promise((resolve, reject) => {
         let validations = [];
 
-        // ✅ VALIDAR ATCUD OBRIGATÓRIO
-        if (!frm.doc.atcud_code) {
-            validations.push(__('ATCUD é obrigatório para lançamentos contabilísticos portugueses'));
+        // ✅ VALIDAR BALANCEAMENTO FINAL
+        let balance_info = calculate_journal_balance(frm);
+        if (!balance_info.is_balanced) {
+            validations.push(__('Lançamento deve estar balanceado antes da submissão'));
         }
 
-        // ✅ VALIDAR SÉRIE COMUNICADA
-        if (frm.doc.naming_series) {
-            let prefix = frm.doc.naming_series.replace('.####', '');
-
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Portugal Series Configuration',
-                    filters: {prefix: prefix, company: frm.doc.company},
-                    fieldname: 'is_communicated'
-                },
-                callback: function(r) {
-                    if (r.message && !r.message.is_communicated) {
-                        validations.push(__('Série JE/LC deve estar comunicada à AT antes da submissão'));
-                    }
-
-                    // ✅ VALIDAR BALANCEAMENTO FINAL
-                    let balance_info = calculate_journal_balance(frm);
-                    if (!balance_info.is_balanced) {
-                        validations.push(__('Lançamento deve estar balanceado antes da submissão'));
-                    }
-
-                    if (validations.length > 0) {
-                        frappe.msgprint({
-                            title: __('Validação Crítica'),
-                            message: validations.join('<br>'),
-                            indicator: 'red'
-                        });
-                        reject();
-                    } else {
-                        resolve();
-                    }
-                }
+        if (validations.length > 0) {
+            frappe.msgprint({
+                title: __('Validação Crítica'),
+                message: validations.join('<br>'),
+                indicator: 'red'
             });
+            reject();
         } else {
-            if (validations.length > 0) {
-                frappe.msgprint({
-                    title: __('Validação Crítica'),
-                    message: validations.join('<br>'),
-                    indicator: 'red'
-                });
-                reject();
-            } else {
-                resolve();
-            }
+            resolve();
         }
     });
 }
@@ -886,97 +650,6 @@ function configure_fields_by_voucher_type(frm) {
 
 // ========== FUNÇÕES DE AÇÕES ==========
 
-function generate_atcud_manually(frm) {
-    /**
-     * Gerar ATCUD manualmente
-     */
-
-    frappe.call({
-        method: 'portugal_compliance.utils.document_hooks.generate_manual_atcud_certified',
-        args: {
-            doctype: frm.doc.doctype,
-            docname: frm.doc.name
-        },
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frm.reload_doc();
-                frappe.show_alert({
-                    message: __('ATCUD gerado: {0}', [r.message.atcud_code]),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint({
-                    title: __('Erro'),
-                    message: r.message ? r.message.error : __('Erro ao gerar ATCUD'),
-                    indicator: 'red'
-                });
-            }
-        }
-    });
-}
-
-function check_series_status(frm) {
-    /**
-     * Verificar status da série
-     */
-
-    if (!frm.doc.naming_series) {
-        frappe.msgprint(__('Naming series não definida'));
-        return;
-    }
-
-    let prefix = frm.doc.naming_series.replace('.####', '');
-
-    frappe.call({
-        method: 'frappe.client.get',
-        args: {
-            doctype: 'Portugal Series Configuration',
-            filters: {prefix: prefix, company: frm.doc.company}
-        },
-        callback: function(r) {
-            if (r.message) {
-                show_series_status_dialog(frm, r.message);
-            } else {
-                frappe.msgprint(__('Série não encontrada na configuração'));
-            }
-        }
-    });
-}
-
-function show_series_status_dialog(frm, series_data) {
-    /**
-     * Mostrar dialog com status da série
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Status da Série JE/LC'),
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'series_info'
-            }
-        ]
-    });
-
-    let html = `
-        <div class="series-status-info">
-            <h5>${series_data.series_name}</h5>
-            <table class="table table-bordered">
-                <tr><td><strong>Prefixo:</strong></td><td>${series_data.prefix}</td></tr>
-                <tr><td><strong>Tipo:</strong></td><td>Lançamento Contabilístico</td></tr>
-                <tr><td><strong>Empresa:</strong></td><td>${series_data.company}</td></tr>
-                <tr><td><strong>Ativa:</strong></td><td>${series_data.is_active ? 'Sim' : 'Não'}</td></tr>
-                <tr><td><strong>Comunicada:</strong></td><td>${series_data.is_communicated ? 'Sim' : 'Não'}</td></tr>
-                <tr><td><strong>Código AT:</strong></td><td>${series_data.validation_code || 'Não disponível'}</td></tr>
-                <tr><td><strong>Sequência Atual:</strong></td><td>${series_data.current_sequence}</td></tr>
-                <tr><td><strong>Total Emitidos:</strong></td><td>${series_data.total_documents_issued}</td></tr>
-            </table>
-        </div>
-    `;
-
-    dialog.fields_dict.series_info.$wrapper.html(html);
-    dialog.show();
-}
 
 function validate_and_show_balance(frm) {
     /**
@@ -1519,18 +1192,8 @@ function setup_keyboard_shortcuts(frm) {
      * Configurar atalhos de teclado para Portugal Compliance
      */
 
-    // ✅ CTRL+G para gerar ATCUD
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+g',
-        action: () => {
-            if (!frm.doc.atcud_code && frm.doc.naming_series) {
-                generate_atcud_manually(frm);
-            }
-        },
-        description: __('Gerar ATCUD'),
-        ignore_inputs: true,
-        page: frm.page
-    });
+    // Atalho Ctrl+G ("Gerar ATCUD") removido junto com o botão e a
+    // função - ver nota em add_custom_buttons.
 
     // ✅ CTRL+B para validar balanceamento
     frappe.ui.keys.add_shortcut({
