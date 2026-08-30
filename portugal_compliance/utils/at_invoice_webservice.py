@@ -238,7 +238,7 @@ def build_invoice_payload(document_type, document_name):
 		# segunda vez. Uma Nota de Credito (linhas negativas no
 		# ERPNext) tem de ir como "D" (Debito), nunca "C" fixo - o
 		# proprio WSDL da AT usa a mesma convencao SalesInvoices do SAF-T.
-		line_summary.append({
+		line = {
 			"TaxPointDate": doc.posting_date,
 			"DebitCreditIndicator": item.debit_credit,
 			"Amount": flt(item.amount),
@@ -248,7 +248,20 @@ def build_invoice_payload(document_type, document_name):
 				"TaxCode": item.tax_code,
 				"TaxPercentage": flt(item.tax_percentage),
 			},
-		})
+		}
+		# Elemento opcional (minOccurs="0" no WSDL), so faz sentido -
+		# e a propria AT rejeita RegisterInvoice com o erro -48
+		# ("Existem linhas com isenção de imposto sem a indicação do
+		# código do motivo") quando falta - em linhas isentas
+		# (item.tax_exemption_code, ja calculado por
+		# SAFTGenerator.get_sales_invoices_data a partir de
+		# Item.at_exemption_reason). Nunca enviar chave vazia: o tipo
+		# TaxExemptionCode do WSDL e um pattern "M[0-9]{2}" - uma
+		# string vazia falharia a validacao XSD tao mal como omitir o
+		# campo numa linha que precisava dele.
+		if item.tax_exemption_code:
+			line["TaxExemptionCode"] = item.tax_exemption_code
+		line_summary.append(line)
 
 	invoice_data = {
 		"InvoiceNo": invoice.invoice_no,
@@ -348,6 +361,57 @@ def _get_line_summary_type(client):
 	raise InvoiceWebserviceError(_("Não foi possível localizar o tipo LineSummary no WSDL"))
 
 
+def _get_tax_type(client):
+	"""
+	Tipo XSD "Tax" (complexType top-level no WSDL, faturas.wsdl linha
+	683 - ao contrário do item de LineSummary, tem nome próprio e por
+	isso é acessível diretamente via client.get_type()).
+	"""
+	return client.get_type("{http://factemi.at.min_financas.pt/documents}Tax")
+
+
+def _build_tax_object(client, tax_dict):
+	"""
+	Mesmo bug e mesma técnica de _build_line_summary_item, aplicados
+	aqui ao choice interno do próprio tipo Tax - não ao choice de
+	LineSummary (Amount/TotalTaxBase), que é um choice DIFERENTE e já
+	corrigido à parte.
+
+	faturas.wsdl (complexType "Tax", linha 683): sequence de TaxType/
+	TaxCountryRegion/TaxCode, seguida de um choice entre TaxPercentage
+	e TotalTaxAmount. Uma linha isenta (0%) tem TaxPercentage=0.0 -
+	valor "falsy" em Python - e sofre exatamente o mesmo bug do zeep
+	(Choice.parse_kwargs): TaxType/TaxCountryRegion/TaxCode (elementos
+	de sequence normais, fora do choice) continuam a ser escritos, mas
+	o campo do choice desaparece do XML.
+
+	Confirmado ao vivo (2026-08-30, FT2026ZB0004 - fatura multi-taxa
+	com uma linha isenta, Matabala Vermelha): RegisterInvoice rejeitado
+	pela AT com erro de XSD "found </ns0:Tax>, but next item should be
+	any of [TaxPercentage, TotalTaxAmount]" - confirma que o parser
+	viu TaxType/TaxCountryRegion/TaxCode corretamente e só depois
+	encontrou o fecho da tag em vez do campo do choice, exatamente
+	como o bug já documentado para LineSummary.Amount previa.
+
+	Antes desta correção, o dict de Tax de cada linha era passado tal
+	e qual dentro dos kwargs do LineSummary item (ver
+	_build_line_summary_item) - o zeep construía-o recursivamente a
+	partir desse dict, caindo no mesmo Choice.parse_kwargs com bug.
+	Construir o objeto Tax à parte, com o campo do choice definido por
+	atribuição direta, e só depois inseri-lo (já como objeto tipado,
+	não dict) nos kwargs do LineSummary item, evita o bug nos dois
+	níveis.
+	"""
+	tax_dict = dict(tax_dict)
+	choice_key = "TaxPercentage" if "TaxPercentage" in tax_dict else "TotalTaxAmount"
+	choice_value = tax_dict.pop(choice_key)
+
+	tax_type = _get_tax_type(client)
+	tax_obj = tax_type(**tax_dict)
+	setattr(tax_obj, choice_key, choice_value)
+	return tax_obj
+
+
 def _build_line_summary_item(client, item):
 	"""
 	Constrói um item de LineSummary como objeto zeep tipado, em vez de
@@ -371,10 +435,16 @@ def _build_line_summary_item(client, item):
 	defini-lo a seguir por atribuição de atributo, evita por completo o
 	método com bug (só é invocado a partir de kwargs do construtor, não
 	de atribuição a uma instância já criada).
+
+	O mesmo bug repete-se um nível abaixo, no campo Tax (também um
+	choice, TaxPercentage/TotalTaxAmount - ver _build_tax_object) - por
+	isso o dict de Tax é sempre substituído aqui por um objeto já
+	construído corretamente, antes de entrar nos kwargs deste nível.
 	"""
 	item = dict(item)
 	choice_key = "Amount" if "Amount" in item else "TotalTaxBase"
 	choice_value = item.pop(choice_key)
+	item["Tax"] = _build_tax_object(client, item["Tax"])
 
 	line_type = _get_line_summary_type(client)
 	line_obj = line_type(**item)
