@@ -694,7 +694,14 @@ function validate_portuguese_taxes_structure(frm) {
     let iva_rates = [];
 
     frm.doc.taxes.forEach(function(tax) {
-        let description = (tax.description || '').toUpperCase();
+        // Em faturas multi-taxa (Item Tax Template diferente por linha),
+        // o ERPNext gera as linhas de taxes dinamicamente e NUNCA
+        // preenche description - so account_head (2026-08-30, confirmado
+        // ao vivo: {account_head: "24331 - IVA Liquidado 23% Normal - ZB",
+        // description: undefined}). Sem este fallback, has_iva ficava
+        // sempre false neste modo e bloqueava faturas com IVA genuino e
+        // corretamente calculado.
+        let description = (tax.description || tax.account_head || '').toUpperCase();
         if (description.includes('IVA') || description.includes('VAT')) {
             has_iva = true;
             iva_rates.push(tax.rate);
