@@ -548,6 +548,67 @@ class PortugalComplianceDocumentHooks:
 					.format(item.idx, item.item_code)
 				)
 
+	# Campo de valor a comparar com o limiar de 1000€, por doctype -
+	# Sales Invoice/POS Invoice usam o total da fatura, Payment Entry o
+	# valor efetivamente pago (nao tem grand_total).
+	_NIF_THRESHOLD_AMOUNT_FIELD = {
+		"Sales Invoice": "grand_total",
+		"POS Invoice": "grand_total",
+		"Payment Entry": "paid_amount",
+	}
+
+	def _validate_nif_threshold(self, doc):
+		"""
+		Bloqueio rigido (frappe.throw) em before_submit - documentos
+		acima de 1000€ exigem NIF do cliente/parceiro (regra fiscal
+		portuguesa para faturas/recibos nesse escalao).
+
+		Pedido do utilizador (2026-08-30) apos reparar numa
+		inconsistencia: o Payment Entry ja bloqueava corretamente
+		faturas de Recibo acima de 1000€ sem NIF - mas so no cliente
+		(payment_entry.js::validate_before_submit_portuguese, um
+		before_submit em JS, contornavel por qualquer chamada direta a
+		API que nao passe pelo formulario). A Sales Invoice de origem
+		desse Recibo passou incolume pela mesma regra porque nunca a
+		teve implementada em lado nenhum - nem cliente, nem servidor
+		(confirmado por grep: zero ocorrencias de "1000" em
+		sales_invoice.js ou em document_hooks.py antes desta correcao).
+		overrides/sales_invoice.py e overrides/payment_entry.py tambem
+		nao contam - confirmado em hooks.py que override_doctype_class
+		esta vazio ({}) desde a Auditoria Fase 0 (2026-08-26): essas
+		classes nunca sao instanciadas, codigo morto.
+
+		Esta e a primeira vez que esta regra existe do lado do
+		servidor, para os 3 doctypes onde faz sentido (nao Delivery
+		Note - documento de transporte, sem valor monetario/NIF na
+		mesma logica de fatura).
+		"""
+		amount_field = self._NIF_THRESHOLD_AMOUNT_FIELD.get(doc.doctype)
+		if not amount_field:
+			return
+
+		if flt(getattr(doc, amount_field, 0)) <= 1000:
+			return
+
+		if doc.doctype == "Payment Entry":
+			party_type = getattr(doc, "party_type", None)
+			party = getattr(doc, "party", None)
+			if not party_type or not party:
+				return
+			nif = frappe.db.get_value(party_type, party, "tax_id")
+		else:
+			customer = getattr(doc, "customer", None)
+			if not customer:
+				return
+			nif = frappe.db.get_value("Customer", customer, "tax_id")
+
+		if not nif:
+			frappe.throw(
+				_("{0} com valor superior a 1000€ exige NIF do cliente/parceiro antes de submeter.")
+				.format(_(doc.doctype)),
+				title=_("NIF Obrigatório"),
+			)
+
 	def _validate_critical_fields(self, doc):
 		"""Validar campos críticos"""
 		config = self.supported_doctypes[doc.doctype]
@@ -647,6 +708,7 @@ class PortugalComplianceDocumentHooks:
 				return
 
 			self._validate_tax_exemption_hard(doc)
+			self._validate_nif_threshold(doc)
 
 			config = self.supported_doctypes[doc.doctype]
 
@@ -1447,8 +1509,11 @@ FISCAL_LOCK_FIELDS = {
 def block_fiscal_document_deletion(doc, method=None):
 	"""
 	Hook de on_trash. Bloqueia eliminacao de qualquer documento fiscal
-	que ja tenha ATCUD/assinatura gerados, ou que esteja anulado
-	(docstatus=2) mesmo sem ATCUD - o registo tem de permanecer.
+	que ja tenha ATCUD/assinatura gerados, que esteja anulado
+	(docstatus=2) mesmo sem ATCUD, ou que ainda seja rascunho
+	(docstatus=0) mas ja tenha consumido um numero de uma serie fiscal
+	portuguesa - em qualquer um dos tres casos, o registo tem de
+	permanecer.
 
 	Guard de empresa portuguesa acrescentado na Auditoria Fase 0
 	(2026-08-26): sem isto, o bloqueio de docstatus=2 (documento
@@ -1456,12 +1521,41 @@ def block_fiscal_document_deletion(doc, method=None):
 	Entry/Delivery Note cancelado, de qualquer empresa do site,
 	portuguesa ou não - cancelar e depois eliminar é um fluxo legítimo
 	do ERPNext fora de Portugal, que este hook alterava globalmente.
+
+	Ramo docstatus=0 acrescentado 2026-08-28 (pedido do utilizador,
+	"Proteção da Sequencialidade"): o Frappe atribui o nome definitivo
+	via naming_series (ex: RG2026ZB0001) logo no primeiro save de um
+	rascunho, nao so na submissao - consome sempre um numero do
+	contador da serie em tabSeries, quer o documento venha a ser
+	submetido ou nao. Apagar esse rascunho nao devolve o numero ao
+	contador (o Frappe nunca decrementa series), criando um buraco na
+	sequencia visivel para a AT (ex: RG...0001 nunca existiu, RG...0002
+	e o primeiro documento real) - exatamente o tipo de quebra de
+	sequencialidade que a Portaria 195/2020 exige poder justificar.
+	Nao e preciso verificar aqui se doc.naming_series corresponde a uma
+	serie registada em Portugal Series Configuration: qualquer
+	documento destes 4 doctypes, de uma empresa portuguesa, que exista
+	na base de dados ja passou por
+	_validate_series_registered_in_compliance (chamada em validate() -
+	ver mais acima nesta classe) - a sua mera existencia aqui garante
+	que a serie e genuina.
 	"""
 	if doc.doctype not in FISCAL_IMMUTABLE_DOCTYPES:
 		return
 
 	if not portugal_document_hooks._is_portuguese_company(doc.company):
 		return
+
+	if doc.docstatus == 0 and getattr(doc, "naming_series", None):
+		frappe.throw(
+			_(
+				"Documentos de séries fiscais portuguesas não podem ser apagados para preservar "
+				"a sequência legal, mesmo em rascunho - {0} {1} já consumiu um número da série "
+				"({2}). Submeta o documento e anule-o (Cancelar) para justificar a numeração à AT, "
+				"em vez de o eliminar."
+			).format(_(doc.doctype), doc.name, doc.naming_series),
+			title=_("Eliminação Bloqueada"),
+		)
 
 	if getattr(doc, "atcud_code", None):
 		frappe.throw(
