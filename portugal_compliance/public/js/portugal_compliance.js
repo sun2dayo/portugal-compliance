@@ -58,7 +58,8 @@ window.portugal_compliance = {
         // toda a app a favor do formato SEM hífens ("GT2025NDX" -
         // ver is_portuguese_naming_series() em qualquer doctype_js,
         // ex. stock_entry.js). Recebe só o prefixo (naming_series já
-        // sem ".####" - ver validateBeforeSave/onNamingSeriesChange),
+        // sem ".####" - ver onNamingSeriesChange (validateBeforeSave
+        // que também o usava foi removida, ver setupGlobalEvents),
         // por isso não inclui aqui o sufixo ".####".
         series_pattern: /^[A-Z]{2,4}\d{4}[A-Z0-9]{1,4}$/,
         // Corrigida 2026-08-30 (achado pelo utilizador: "❌ ATCUD
@@ -68,8 +69,8 @@ window.portugal_compliance = {
         // 2026-08-22/24 (document_hooks.py::supported_doctypes,
         // autoritativo) - controla isSupportedDoctype() ->
         // enhanceForm() (indicador ATCUD, menu "Portugal Compliance",
-        // indicador de serie, validateBeforeSave, onNamingSeriesChange
-        // via $(document).on(...)), por isso 7 doctypes que ja nao sao
+        // indicador de serie, onNamingSeriesChange via $(document).on(...)),
+        // por isso 7 doctypes que ja nao sao
         // fiscais (Purchase Invoice, Purchase Receipt, Journal Entry,
         // Stock Entry, Quotation, Sales Order, Purchase Order -
         // "Material Request" nunca esteve sequer na lista real do
@@ -122,12 +123,26 @@ window.portugal_compliance = {
             }
         });
 
-        // Listen for document save events
-        $(document).on('before-save', function(e, frm) {
-            if (self.isSupportedDoctype(frm.doctype)) {
-                self.validateBeforeSave(frm);
-            }
-        });
+        // validateBeforeSave/validatePortugueseDocument removidas
+        // (2026-08-30): o binding a 'before-save' chamava
+        // frappe.client.get_value dentro de frappe.call assíncrono, e só
+        // definia frappe.validated=false dentro do callback - que corre
+        // DEPOIS do Frappe já ter decidido se a gravação avança, logo
+        // nunca bloqueava nada de facto (achado ao vivo pelo
+        // utilizador: "ATCUD format is invalid" continuava a aparecer
+        // mesmo com ATCUD válido, mesma classe de bug). Não substituída
+        // por um equivalente síncrono aqui: a companhia ser portuguesa
+        // só é sabida via ida à BD (não está em frm.doc), e essa mesma
+        // barreira já existe, correta e incontornável, no backend -
+        // document_hooks.py::before_submit_document, incondicional para
+        // os 4 supported_doctypes, com _is_portuguese_naming_series()
+        // (regex correto, sem hífens) atrás de _is_portuguese_company()
+        // (frappe.get_cached_doc, falha em segurança). A parte só de
+        // regex (sem ida à BD) já está duplicada, correta e SÍNCRONA em
+        // cada doctype_js fiscal (ex.: delivery_note.js::
+        // validate_portuguese_series(), que ainda limpa o valor
+        // inválido no próprio campo via naming_series: - melhor UX do
+        // que este handler global alguma vez deu).
 
         // Listen for naming series changes
         $(document).on('naming-series-changed', function(e, frm) {
@@ -312,51 +327,6 @@ window.portugal_compliance = {
     },
 
     // ========== VALIDAÇÕES ==========
-
-    validateBeforeSave: function(frm) {
-        const self = this;
-
-        // Check if company has Portugal compliance enabled
-        if (frm.doc.company) {
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Company',
-                    filters: { name: frm.doc.company },
-                    fieldname: ['portugal_compliance_enabled', 'country']
-                },
-                callback: function(r) {
-                    if (r.message && r.message.country === 'Portugal' && r.message.portugal_compliance_enabled) {
-                        self.validatePortugueseDocument(frm);
-                    }
-                }
-            });
-        }
-    },
-
-    validatePortugueseDocument: function(frm) {
-        // Validate naming series is Portuguese
-        if (!frm.doc.naming_series) {
-            frappe.validated = false;
-            frappe.msgprint({
-                title: __('Naming Series Required'),
-                message: __('Please select a Portuguese naming series for this document'),
-                indicator: 'red'
-            });
-            return;
-        }
-
-        // Extract and validate prefix
-        const prefix = frm.doc.naming_series.replace('.####', '');
-        if (!this.validateSeriesFormat(prefix)) {
-            frappe.validated = false;
-            frappe.msgprint({
-                title: __('Invalid Series Format'),
-                message: __('Series format should be XXYYYYCOMPANY (e.g. GT2025NDX)'),
-                indicator: 'red'
-            });
-        }
-    },
 
     validateNIF: function(nif, callback) {
         if (!nif) {
