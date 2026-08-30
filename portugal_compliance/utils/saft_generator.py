@@ -1066,6 +1066,18 @@ def generate_saft_background(log_name):
 
 		export_log = frappe.get_doc("SAF-T Export Log", log_name)
 		export_log.status = "Failed"
+		# Job corre em background - o realtime abaixo so chega a quem
+		# estiver com o browser aberto nesse momento exato. Sem gravar a
+		# mensagem no proprio documento, reabrir o log mais tarde (ex.
+		# SAFT-EXP-2026-0007) nao mostra nada: nem XSD Validation Errors
+		# (nunca chegou a essa validacao) nem qualquer outro vestigio do
+		# motivo da falha - so o log_error acima, que nao aparece nesta
+		# doctype. "Validation Error" ja existia como opcao do Select
+		# xml_validation_status mas nunca era usado; serve exatamente
+		# para distinguir isto (falha antes/fora da validacao XSD) de
+		# "Invalid" (XML gerado mas rejeitado pelo schema).
+		export_log.xml_validation_status = "Validation Error"
+		export_log.xsd_validation_errors = str(e)
 		export_log.save()
 
 		frappe.publish_realtime('saft_export_failed', {
