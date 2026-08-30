@@ -292,9 +292,6 @@ function setup_portuguese_layout(frm) {
         frm.fields_dict.atcud_code.df.insert_after = 'naming_series';
         frm.refresh_field('atcud_code');
     }
-
-    // ✅ ADICIONAR SEÇÃO DE PAGAMENTO
-    add_payment_section(frm);
 }
 
 // add_compliance_section removida (2026-08-30): o cartão "Informações
@@ -306,45 +303,16 @@ function setup_portuguese_layout(frm) {
 // é sempre um "Cliente"), por isso não há um badge equivalente a
 // manter.
 
-function add_payment_section(frm) {
-    /**
-     * Adicionar seção específica de pagamento
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let payment_html = `
-        <div class="payment-info" style="
-            background: #e8f5e8;
-            border: 1px solid #4caf50;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #2e7d32;">
-                💰 Informações do Pagamento
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>De:</strong> ${frm.doc.paid_from || 'Não definida'}<br>
-                    <strong>Para:</strong> ${frm.doc.paid_to || 'Não definida'}<br>
-                    <strong>Referência:</strong> ${frm.doc.reference_no || 'Não definida'}
-                </div>
-                <div class="col-md-6">
-                    <strong>Data Ref:</strong> ${frm.doc.reference_date ? frappe.datetime.str_to_user(frm.doc.reference_date) : 'Não definida'}<br>
-                    <strong>Status:</strong> ${frm.doc.status || 'Draft'}<br>
-                    <strong>Observações:</strong> ${frm.doc.remarks ? 'Definidas' : 'Não definidas'}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.payment_section_added) {
-        $(frm.fields_dict.party.wrapper).after(payment_html);
-        frm.payment_section_added = true;
-    }
-}
+// add_payment_section removida (2026-08-30, achado pelo utilizador): o
+// cartão "Informações do Pagamento" tinha o mesmo problema de
+// duplicação (De/Para/Referência/Data Ref já visíveis nativamente em
+// "Payment From / To" e "Transaction ID") e, pior, um bug de
+// reatividade real - o HTML era construído como string estática uma
+// única vez (guardado por frm.payment_section_added, nunca
+// re-executado) e nunca mais atualizado, por isso o campo "Status"
+// dentro do cartão ficava preso em "Draft" mesmo depois do documento
+// ser submetido (frm.doc.status nativo já muda corretamente - só este
+// cartão é que nunca voltava a ler o valor atual).
 
 function show_compliance_status(frm) {
     /**
