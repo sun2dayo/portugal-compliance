@@ -684,8 +684,9 @@ class PortugalComplianceDocumentHooks:
 
 		Âmbito: só corre para os 4 doctypes em self.supported_doctypes
 		(Sales Invoice, POS Invoice, Payment Entry, Delivery Note) -
-		Quotation/Sales Order ficam fora deliberadamente (usam
-		validate_portugal_compliance_light, nunca chamam este método).
+		Quotation/Sales Order/Purchase Order/Material Request ficam
+		fora deliberadamente, nunca chamam este método (não são
+		fiscais - ver document_hooks.py:supported_doctypes).
 
 		Só documentos ainda sem ATCUD - mesma lógica de
 		_validate_series_not_inactive: um documento já assinado nunca
@@ -759,29 +760,13 @@ class PortugalComplianceDocumentHooks:
 			frappe.log_error(f"Erro validação submissão: {str(e)}")
 			raise
 
-	# ========== HOOKS EM FALTA (referenciados em hooks.py, sem implementacao) ==========
-
-	def validate_portugal_compliance_light(self, doc, method=None):
-		"""
-		Validacao ligeira para documentos pre-fiscais (Quotation, Sales
-		Order, Purchase Order, Material Request) - estes documentos nao
-		sao fiscais em Portugal e nao precisam de ATCUD, mas convem
-		avisar cedo se a serie/empresa nao estiver bem configurada,
-		antes de o utilizador chegar a fatura.
-		"""
-		try:
-			if not self._is_portuguese_company(doc.company):
-				return
-
-			naming_series = getattr(doc, 'naming_series', None)
-			if naming_series and not self._is_portuguese_naming_series(naming_series):
-				frappe.msgprint(
-					_("Esta série não segue o formato de série portuguesa recomendado."),
-					indicator="orange",
-					alert=True,
-				)
-		except Exception as e:
-			frappe.log_error(f"Erro em validate_portugal_compliance_light: {str(e)}")
+	# validate_portugal_compliance_light() removida (2026-08-30): só
+	# existia para mostrar "Esta série não segue o formato de série
+	# portuguesa recomendado" em Quotation/Sales Order/Purchase Order/
+	# Material Request - nenhum destes é fiscal (ver supported_doctypes
+	# acima), e usar naming_series nativas do ERPNext nestes doctypes
+	# passou a ser o comportamento esperado, não um desvio a assinalar.
+	# Ver hooks.py (doc_events destes 4 doctypes, também removidos).
 
 	def validate_customer_nif(self, doc, method=None):
 		"""Valida o formato do NIF do cliente quando fornecido e, se
@@ -1364,11 +1349,6 @@ def setup_company_portugal_compliance(doc, method=None):
 	nao, crashava com AttributeError assim que a app estava instalada.
 	"""
 	return portugal_document_hooks.setup_company_portugal_compliance(doc, method)
-
-
-def validate_portugal_compliance_light(doc, method=None):
-	"""Hook para validate de documentos pre-fiscais (Quotation, Sales/Purchase Order, Material Request)"""
-	return portugal_document_hooks.validate_portugal_compliance_light(doc, method)
 
 
 def validate_customer_nif(doc, method=None):

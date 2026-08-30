@@ -178,19 +178,19 @@ doc_events = {
 	# registos já existentes em ATCUD Log destes doctypes mantêm-se
 	# intactos para efeitos de auditoria.
 
-	# ========== DOCUMENTOS COMERCIAIS (SEM ATCUD OBRIGATÓRIO) ==========
-	"Quotation": {
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
-	},
-	"Sales Order": {
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
-	},
-	"Purchase Order": {
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
-	},
-	"Material Request": {
-		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance_light"
-	},
+	# Quotation/Sales Order/Purchase Order/Material Request: hook de
+	# validate removido (2026-08-30). Só existia para mostrar "Esta
+	# série não segue o formato de série portuguesa recomendado" -
+	# ecoava, do lado do servidor, exatamente a mesma nagging de série
+	# fiscal que já tínhamos removido do lado do cliente nestes 5
+	# doctypes (ver commit 700e2d6, portugal_compliance.js). Confirmado
+	# ao vivo pelo utilizador: aparecia em quase todas as criações/
+	# submissões de Quotation, Sales Order e Purchase Order mesmo com
+	# série nativa do ERPNext - nao deveria ser mais aplicavel, dado que
+	# nenhum destes doctypes é fiscal (ver nota acima) e usar séries
+	# nativas passou a ser o comportamento esperado, não um desvio a
+	# assinalar. validate_portugal_compliance_light() removida de
+	# document_hooks.py no mesmo commit (não tinha mais nenhuma lógica).
 
 	# ========== CONFIGURAÇÃO DA EMPRESA ==========
 	"Company": {
