@@ -1572,48 +1572,6 @@ function setup_keyboard_shortcuts(frm) {
     });
 }
 
-// ========== EVENTOS DE CLEANUP ==========
-
-frappe.ui.form.on('Journal Entry', {
-    onload_post_render: function(frm) {
-        // ✅ CONFIGURAÇÕES APÓS RENDERIZAÇÃO COMPLETA
-        if (is_portuguese_company(frm)) {
-            // ✅ ADICIONAR CLASSES CSS ESPECÍFICAS
-            frm.wrapper.addClass('portugal-compliance-form journal-entry-pt');
-
-            // ✅ CONFIGURAR OBSERVADORES DE MUDANÇA
-            setup_change_observers(frm);
-        }
-    }
-});
-
-function setup_change_observers(frm) {
-    /**
-     * Configurar observadores de mudança para campos críticos
-     */
-
-    // ✅ OBSERVAR MUDANÇAS NA NAMING SERIES
-    frm.fields_dict.naming_series && frm.fields_dict.naming_series.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.naming_series) {
-                validate_portuguese_series(frm);
-                check_series_communication_status(frm);
-                show_series_info(frm);
-            }
-        }, 100);
-    });
-
-	// ✅ OBSERVAR MUDANÇAS NO TIPO DE LANÇAMENTO
-	frm.fields_dict.voucher_type && frm.fields_dict.voucher_type.$input.on('change', function() {
-		setTimeout(() => {
-			if (frm.doc.voucher_type) {
-				configure_fields_by_voucher_type(frm);
-				validate_voucher_type(frm);
-			}
-		}, 100);
-	});
-	}
-
 // ========== CONSOLE LOG PARA DEBUG ==========
 console.log('Portugal Compliance Journal Entry JS loaded - Version 2.0.0');
 

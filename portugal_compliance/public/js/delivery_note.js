@@ -1480,57 +1480,5 @@ function setup_keyboard_shortcuts(frm) {
     });
 }
 
-// ========== EVENTOS DE CLEANUP ==========
-
-frappe.ui.form.on('Delivery Note', {
-    onload_post_render: function(frm) {
-        // ✅ CONFIGURAÇÕES APÓS RENDERIZAÇÃO COMPLETA
-        if (is_portuguese_company(frm)) {
-            // ✅ ADICIONAR CLASSES CSS ESPECÍFICAS
-            frm.wrapper.addClass('portugal-compliance-form delivery-note-pt');
-
-            // ✅ CONFIGURAR OBSERVADORES DE MUDANÇA
-            setup_change_observers(frm);
-        }
-    }
-});
-
-function setup_change_observers(frm) {
-    /**
-     * Configurar observadores de mudança para campos críticos
-     */
-
-    // ✅ OBSERVAR MUDANÇAS NA NAMING SERIES
-    frm.fields_dict.naming_series && frm.fields_dict.naming_series.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.naming_series) {
-                validate_portuguese_series(frm);
-                check_series_communication_status(frm);
-                show_series_info(frm);
-            }
-        }, 100);
-    });
-
-    // ✅ OBSERVAR MUDANÇAS NO CLIENTE
-    frm.fields_dict.customer && frm.fields_dict.customer.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.customer) {
-                validate_customer_nif(frm);
-                load_customer_tax_info(frm);
-            }
-        }, 100);
-    });
-
-    // ✅ OBSERVAR MUDANÇAS NO ENDEREÇO DE ENTREGA
-    frm.fields_dict.shipping_address_name && frm.fields_dict.shipping_address_name.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.shipping_address_name) {
-                validate_shipping_address(frm);
-                load_delivery_address_info(frm);
-            }
-        }, 100);
-    });
-}
-
 // ========== CONSOLE LOG PARA DEBUG ==========
 console.log('Portugal Compliance Delivery Note JS loaded - Version 2.0.0');

@@ -1603,67 +1603,6 @@ function setup_keyboard_shortcuts(frm) {
     // o botão e a função - ver nota em add_custom_buttons.
 }
 
-// ========== EVENTOS DE CLEANUP ==========
-
-frappe.ui.form.on('POS Invoice', {
-    onload_post_render: function(frm) {
-        // ✅ CONFIGURAÇÕES APÓS RENDERIZAÇÃO COMPLETA
-        if (is_portuguese_company(frm)) {
-            // ✅ ADICIONAR CLASSES CSS ESPECÍFICAS
-            frm.wrapper.addClass('portugal-compliance-form pos-invoice-pt');
-
-            // ✅ CONFIGURAR OBSERVADORES DE MUDANÇA
-            setup_change_observers(frm);
-        }
-    }
-});
-
-function setup_change_observers(frm) {
-    /**
-     * Configurar observadores de mudança para campos críticos
-     */
-
-    // ✅ OBSERVAR MUDANÇAS NA NAMING SERIES
-    frm.fields_dict.naming_series && frm.fields_dict.naming_series.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.naming_series) {
-                validate_portuguese_series(frm);
-                check_series_communication_status(frm);
-                show_series_info(frm);
-            }
-        }, 100);
-    });
-
-    // ✅ OBSERVAR MUDANÇAS NO CLIENTE
-    frm.fields_dict.customer && frm.fields_dict.customer.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.customer) {
-                validate_customer_nif(frm);
-                load_customer_tax_info(frm);
-                check_pos_nif_limit(frm);
-            }
-        }, 100);
-    });
-
-    // ✅ OBSERVAR MUDANÇAS NO TOTAL
-    frm.fields_dict.grand_total && frm.fields_dict.grand_total.$input.on('change', function() {
-        setTimeout(() => {
-            if (frm.doc.grand_total) {
-                check_simplified_invoice_limit(frm);
-
-                // Atualizar seções visuais
-                add_customer_nif_badge(frm);
-
-                if (frm.pos_section_added) {
-                    $('.pos-info').remove();
-                    frm.pos_section_added = false;
-                    add_pos_section(frm);
-                }
-            }
-        }, 100);
-    });
-}
-
 // ========== FUNÇÕES DE VALIDAÇÃO AVANÇADA ==========
 
 function validate_pos_compliance(frm) {
