@@ -151,7 +151,10 @@ def get_invoice_webservice_client():
 	service = client.create_service(binding_name, endpoint)
 
 	header = _build_wsse_security_header(at_username, at_password, at_public_cert_path)
-	return service, header
+	# client devolvido também - necessário em register_invoice() para
+	# contornar um bug do zeep na construção de elementos xsd:choice
+	# (ver _build_line_summary_item).
+	return service, header, client
 
 
 def _get_signature_for_invoice(document_type, document_name):
@@ -329,6 +332,56 @@ def _write_log(log_name, document_type, document_name, company, status, code=Non
 	return log
 
 
+def _get_line_summary_type(client):
+	"""
+	Tipo XSD anónimo de InvoiceDataType.LineSummary - não tem nome
+	próprio no WSDL (definido inline dentro do próprio elemento), por
+	isso só é acessível navegando a partir do InvoiceDataType, não via
+	client.get_type() direto.
+	"""
+	invoice_data_type = client.get_type(
+		"{http://factemi.at.min_financas.pt/documents}InvoiceDataType"
+	)
+	for name, elem in invoice_data_type.elements:
+		if name == "LineSummary":
+			return elem.type
+	raise InvoiceWebserviceError(_("Não foi possível localizar o tipo LineSummary no WSDL"))
+
+
+def _build_line_summary_item(client, item):
+	"""
+	Constrói um item de LineSummary como objeto zeep tipado, em vez de
+	dict simples, e define o campo do choice (Amount/TotalTaxBase) por
+	atribuição direta DEPOIS de construído - nunca como kwarg do
+	construtor.
+
+	Bug confirmado na versão instalada do zeep (zeep/xsd/elements/
+	indicators.py::Choice.parse_kwargs, ~linha 456): quando o único
+	valor de um xsd:choice fornecido via kwargs é "falsy" em Python (0,
+	0.0, "", False), a deteção de qual ramo foi escolhido nunca chega a
+	marcar found=True, e o dict do choice inteiro é descartado no fim
+	da função - o elemento (aqui, Amount) desaparece silenciosamente do
+	XML enviado, mesmo tendo sido passado corretamente nos kwargs.
+	Confirmado ao vivo (2026-08-30): uma linha de fatura real com
+	Amount=0.0 fazia a AT rejeitar RegisterInvoice com um erro de XSD
+	("found <Tax> mas devia ser TotalTaxBase/Amount" - o próprio
+	<Amount> nunca chegava a ser escrito). Um valor não-zero na mesma
+	linha funcionava sem problema, confirmando que o valor (não a
+	estrutura) era a causa. Construir o objeto sem o campo do choice, e
+	defini-lo a seguir por atribuição de atributo, evita por completo o
+	método com bug (só é invocado a partir de kwargs do construtor, não
+	de atribuição a uma instância já criada).
+	"""
+	item = dict(item)
+	choice_key = "Amount" if "Amount" in item else "TotalTaxBase"
+	choice_value = item.pop(choice_key)
+
+	line_type = _get_line_summary_type(client)
+	line_obj = line_type(**item)
+	setattr(line_obj, choice_key, choice_value)
+	return line_obj
+
+
 def register_invoice(document_type, document_name, log_name=None):
 	"""
 	Envia uma fatura ja submetida ao webservice RegisterInvoice da AT.
@@ -345,10 +398,23 @@ def register_invoice(document_type, document_name, log_name=None):
 						   message=str(e))
 
 	try:
-		service, wsse_header = get_invoice_webservice_client()
+		service, wsse_header, client = get_invoice_webservice_client()
 	except InvoiceWebserviceError as e:
 		return _write_log(log_name, document_type, document_name, company, "Retrying",
 						   message=str(e), payload=payload, bump_retry=True)
+
+	# Reconstrói cada linha como objeto zeep tipado (não dict simples) -
+	# contorna um bug do zeep que descarta silenciosamente Amount/
+	# TotalTaxBase quando o valor é 0 (ver _build_line_summary_item).
+	try:
+		payload["InvoiceData"]["LineSummary"] = [
+			_build_line_summary_item(client, item)
+			for item in payload["InvoiceData"]["LineSummary"]
+		]
+	except Exception as e:
+		frappe.log_error(f"Erro ao construir LineSummary tipado: {str(e)}", "ATInvoiceWebservice")
+		return _write_log(log_name, document_type, document_name, company, "Failed",
+						   message=str(e), payload=payload)
 
 	try:
 		response = service.RegisterInvoice(_soapheaders=[wsse_header], **payload)
@@ -465,7 +531,7 @@ def change_invoice_status(document_type, document_name, new_status, log_name=Non
 	}
 
 	try:
-		service, wsse_header = get_invoice_webservice_client()
+		service, wsse_header, _client = get_invoice_webservice_client()
 	except InvoiceWebserviceError as e:
 		return _write_log(log_name, document_type, document_name, doc.company, "Retrying",
 						   message=str(e), payload=payload, bump_retry=True)
