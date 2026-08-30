@@ -291,6 +291,17 @@ class PortugalComplianceDocumentHooks:
 		except Exception as e:
 			frappe.log_error(f"Erro ao configurar taxonomia AT de IVA para {doc.name}: {str(e)}")
 
+		# 4. Tax Category (2026-08-30, onboarding "Zero Touch"): registos
+		# globais (sem campo company) usados pela sugestao automatica de
+		# categoria fiscal em Customer/Supplier - ver
+		# setup_default_tax_categories() para a auditoria completa de
+		# porque so estes 4 nomes (nao os que pareciam "obvios").
+		from portugal_compliance.setup.tax_setup import setup_default_tax_categories
+		try:
+			results['tax_categories'] = setup_default_tax_categories()
+		except Exception as e:
+			frappe.log_error(f"Erro ao configurar Tax Category para {doc.name}: {str(e)}")
+
 		return results
 
 	def _show_setup_results(self, doc, results):

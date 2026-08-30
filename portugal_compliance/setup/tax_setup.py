@@ -269,3 +269,54 @@ def create_regional_tax_setup_for_company(company):
 			)
 			created[region] = {"error": str(e)}
 	return created
+
+
+# ========== TAX CATEGORY (sugestão automática em Customer/Supplier) ==========
+# Nomes exatos que public/js/customer.js::suggest_tax_category e
+# public/js/supplier.js::suggest_tax_category procuram via
+# frappe.client.get_value antes de sugerir frm.tax_category (2026-08-30,
+# auditoria pre-implementacao: confirmado por grep que NENHUM outro
+# ponto do codigo - nomeadamente document_hooks.py, onde vive a
+# validacao de NIF>1000e - depende de Tax Category existir; e uma
+# conveniencia cosmetica de UI, que ate aqui degradava em silencio
+# (a sugestao simplesmente nunca aparecia) quando os registos nao
+# existiam, sem nunca bloquear nada).
+DEFAULT_TAX_CATEGORIES = [
+	"Portugal - Individual",
+	"Portugal - Empresa",
+	"Portugal - Geral",
+	"Portugal - Fornecedor",
+]
+
+
+def setup_default_tax_categories():
+	"""
+	Garante que os 4 registos de Tax Category usados pela sugestao
+	automatica de categoria fiscal (Customer/Supplier, ao definir
+	Território/País = Portugal) existem - sem isto, a app exigia que o
+	utilizador os criasse manualmente para a sugestao funcionar, o que
+	nao e aceitavel num onboarding "Zero Touch" de SaaS.
+
+	Tax Category e um doctype global do ERPNext (so title/disabled, sem
+	campo company) - por isso esta funcao nao recebe nem precisa de
+	parametro de empresa; corre uma vez, com efeito para o site
+	inteiro, chamada a partir de _execute_compliance_setup() sempre que
+	o compliance e ativado para qualquer empresa. Idempotente via
+	frappe.db.exists - seguro chamar em todas as ativacoes.
+	"""
+	created = []
+	for title in DEFAULT_TAX_CATEGORIES:
+		if frappe.db.exists("Tax Category", title):
+			continue
+		try:
+			frappe.get_doc({
+				"doctype": "Tax Category",
+				"title": title,
+			}).insert(ignore_permissions=True)
+			created.append(title)
+		except Exception as e:
+			frappe.log_error(
+				f"Erro ao criar Tax Category '{title}': {str(e)}",
+				"Portugal Compliance - Tax Setup",
+			)
+	return {"created": created}
