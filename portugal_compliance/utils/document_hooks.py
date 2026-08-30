@@ -473,8 +473,13 @@ class PortugalComplianceDocumentHooks:
 		incluindo rascunhos - por isso nunca usa frappe.throw aqui (ver
 		_validate_tax_exemption_hard, em before_submit, para o bloqueio
 		rigido).
+
+		POS Invoice adicionado 2026-08-30 (estava em falta aqui, apesar
+		de "POS Invoice Item" ja ter o campo at_exemption_reason desde
+		sempre - fixtures/custom_field.json - e de comunicar a AT/entrar
+		no SAF-T exatamente como uma Sales Invoice).
 		"""
-		if doc.doctype not in ("Sales Invoice", "Delivery Note"):
+		if doc.doctype not in ("Sales Invoice", "POS Invoice", "Delivery Note"):
 			return
 		if not getattr(doc, "items", None):
 			return
@@ -511,8 +516,17 @@ class PortugalComplianceDocumentHooks:
 		fiscal submetido e imutavel e legalmente vinculativo, por isso
 		aqui a falta de motivo de isencao bloqueia mesmo a submissao,
 		ao contrario do aviso brando em validate.
+
+		POS Invoice adicionado 2026-08-30: before_submit_document (que
+		chama esta funcao) ja corria para POS Invoice - hooks.py tem
+		"before_submit" ligado a antes de "on_submit" para este doctype,
+		exatamente como Sales Invoice - mas esta funcao devolvia sem
+		validar nada por POS Invoice nao estar nesta tupla. Confirmado
+		que "POS Invoice Item" ja tem o campo at_exemption_reason
+		(fixtures/custom_field.json), por isso a UI ja deixava preencher
+		o motivo - so a validacao em si nao estava a exigi-lo.
 		"""
-		if doc.doctype not in ("Sales Invoice", "Delivery Note"):
+		if doc.doctype not in ("Sales Invoice", "POS Invoice", "Delivery Note"):
 			return
 		if not getattr(doc, "items", None):
 			return
