@@ -36,8 +36,14 @@ frappe.ui.form.on('Stock Entry', {
             // ✅ CONFIGURAR INTERFACE PORTUGUESA
             setup_portuguese_interface(frm);
 
-            // ✅ MOSTRAR STATUS DE COMPLIANCE
-            show_compliance_status(frm);
+            // show_compliance_status removida (2026-08-30, achado pelo
+            // utilizador): mostrava um banner "Não Conforme - Série
+            // não é portuguesa" para QUALQUER Stock Entry com serie
+            // nativa - Stock Entry nao esta em document_hooks.py::
+            // supported_doctypes desde 2026-08-22 (nao e documento
+            // fiscal), por isso "nao conforme" era sempre falso e
+            // enganoso, mesmo depois de destravar as validacoes de
+            // serie/ATCUD nos commits anteriores (c8fbe3d, e0dc336).
 
             // ✅ ADICIONAR BOTÕES PERSONALIZADOS
             add_custom_buttons(frm);
@@ -73,8 +79,14 @@ frappe.ui.form.on('Stock Entry', {
     // ========== EVENTOS DE NAMING SERIES ==========
     naming_series: function(frm) {
         if (frm.doc.naming_series) {
-            // ✅ VALIDAR SÉRIE PORTUGUESA
-            validate_portuguese_series(frm);
+            // validate_portuguese_series removida (2026-08-30, achado
+            // pelo utilizador): limpava (frm.set_value('naming_series',
+            // '')) qualquer serie que nao seguisse o formato
+            // GM2025EMPRESA.####, e avisava mesmo para prefixos != GM -
+            // exatamente o mesmo bloqueio ja corrigido em validate:/
+            // before_submit: (c8fbe3d, e0dc336), so que nesta funcao
+            // ainda apagava o valor escolhido pelo utilizador. Stock
+            // Entry nao e documento fiscal (ver notas anteriores).
 
             // ✅ VERIFICAR STATUS DE COMUNICAÇÃO
             check_series_communication_status(frm);
@@ -262,20 +274,26 @@ function setup_portuguese_interface(frm) {
      * Configurar interface específica para Portugal
      */
 
-    // ✅ ADICIONAR INDICADOR DE COMPLIANCE
-    if (!frm.doc.__islocal) {
-        let compliance_status = get_compliance_status(frm);
-
-        frm.dashboard.add_indicator(
-            __('Portugal Compliance: {0}', [compliance_status.label]),
-            compliance_status.color
-        );
-    }
-
-
     // ✅ CONFIGURAR LAYOUT PORTUGUÊS
     setup_portuguese_layout(frm);
 }
+
+// add_compliance_section, add_stock_movement_section,
+// show_compliance_status e get_compliance_status removidas
+// (2026-08-30, achado pelo utilizador): os dois cartões HTML e o
+// indicador/banner de dashboard que geravam ("Portugal Compliance:
+// Não Conforme", "Não Conforme - Série não é portuguesa", os cartões
+// "Informações de Compliance Português"/"Informações de Movimentação
+// de Stock") assumiam todos que Stock Entry e um documento fiscal com
+// serie/ATCUD proprios - nao e, desde 2026-08-22
+// (document_hooks.py::supported_doctypes nao o inclui). Depois de
+// destravar as validações de série/ATCUD (commits c8fbe3d, e0dc336),
+// estes elementos ficaram ainda mais obviamente errados: mostravam
+// "Não Conforme" (banner, indicador E cartão, em triplicado) por um
+// requisito que a própria app já não impõe. add_compliance_section em
+// particular nunca chegava sequer a renderizar na prática (guardada
+// por frm.doc.atcud_code, que Stock Entry nunca preenche) - código
+// morto desde sempre, não só desde esta correção.
 
 function setup_portuguese_layout(frm) {
     /**
@@ -288,147 +306,6 @@ function setup_portuguese_layout(frm) {
         frm.fields_dict.atcud_code.df.insert_after = 'naming_series';
         frm.refresh_field('atcud_code');
     }
-
-    // ✅ ADICIONAR SEÇÃO DE COMPLIANCE
-    if (!frm.doc.__islocal && frm.doc.atcud_code) {
-        add_compliance_section(frm);
-    }
-
-    // ✅ ADICIONAR SEÇÃO DE MOVIMENTAÇÃO
-    add_stock_movement_section(frm);
-}
-
-function add_compliance_section(frm) {
-    /**
-     * Adicionar seção de informações de compliance
-     */
-
-    let total_qty = calculate_total_qty(frm);
-    let total_value = calculate_total_value(frm);
-
-    let compliance_html = `
-        <div class="portugal-compliance-info" style="
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Informações de Compliance Português - Guia de Movimentação
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>ATCUD:</strong> ${frm.doc.atcud_code || 'Não gerado'}<br>
-                    <strong>Série:</strong> ${frm.doc.naming_series || 'Não definida'}<br>
-                    <strong>Tipo:</strong> ${frm.doc.stock_entry_type || 'Não definido'}
-                </div>
-                <div class="col-md-6">
-                    <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span><br>
-                    <strong>Qtd Total:</strong> ${total_qty}<br>
-                    <strong>Valor Total:</strong> €${total_value.toFixed(2)}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.compliance_section_added) {
-        $(frm.fields_dict.naming_series.wrapper).after(compliance_html);
-        frm.compliance_section_added = true;
-    }
-}
-
-function add_stock_movement_section(frm) {
-    /**
-     * Adicionar seção específica de movimentação de stock
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let stock_html = `
-        <div class="stock-movement-info" style="
-            background: #fff3e0;
-            border: 1px solid #ff9800;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #e65100;">
-                📦 Informações de Movimentação de Stock
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>Tipo Movimentação:</strong> ${frm.doc.stock_entry_type || 'Não definido'}<br>
-                    <strong>Armazém Origem:</strong> ${frm.doc.from_warehouse || 'Não definido'}<br>
-                    <strong>Armazém Destino:</strong> ${frm.doc.to_warehouse || 'Não definido'}
-                </div>
-                <div class="col-md-6">
-                    <strong>Data Movimentação:</strong> ${frappe.datetime.str_to_user(frm.doc.posting_date)}<br>
-                    <strong>Nº Itens:</strong> ${frm.doc.items ? frm.doc.items.length : 0}<br>
-                    <strong>Observações:</strong> ${frm.doc.remarks || 'Nenhuma'}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.stock_section_added) {
-        $(frm.fields_dict.stock_entry_type.wrapper).after(stock_html);
-        frm.stock_section_added = true;
-    }
-}
-
-function show_compliance_status(frm) {
-    /**
-     * Mostrar status de compliance no formulário
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let status = get_compliance_status(frm);
-
-    // ✅ MOSTRAR INDICADOR NO DASHBOARD
-    frm.dashboard.clear_headline();
-    frm.dashboard.set_headline(
-        `<span class="indicator ${status.color}">${status.label}</span> ${status.description}`
-    );
-}
-
-function get_compliance_status(frm) {
-    /**
-     * Obter status de compliance do documento
-     */
-
-    if (!frm.doc.naming_series) {
-        return {
-            label: 'Não Configurado',
-            color: 'red',
-            description: 'Série portuguesa não definida'
-        };
-    }
-
-    if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        return {
-            label: 'Não Conforme',
-            color: 'red',
-            description: 'Série não é portuguesa'
-        };
-    }
-
-    if (!frm.doc.atcud_code) {
-        return {
-            label: 'Pendente',
-            color: 'orange',
-            description: 'ATCUD será gerado automaticamente'
-        };
-    }
-
-    return {
-        label: 'Conforme',
-        color: 'green',
-        description: 'Guia conforme legislação portuguesa'
-    };
 }
 
 // ========== FUNÇÕES DE BOTÕES PERSONALIZADOS ==========
@@ -533,36 +410,6 @@ function setup_automatic_naming_series(frm) {
             }
         }
     });
-}
-
-function validate_portuguese_series(frm) {
-    /**
-     * ✅ CORRIGIDO: Validar se naming series é portuguesa (formato SEM HÍFENS)
-     */
-
-    if (!frm.doc.naming_series) return;
-
-    if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        frappe.msgprint({
-            title: __('Série Inválida'),
-            message: __('Para compliance português, use séries no formato GM2025EMPRESA.####'),
-            indicator: 'red'
-        });
-        frm.set_value('naming_series', '');
-        return;
-    }
-
-    // ✅ VERIFICAR SE É SÉRIE DE GUIA DE MOVIMENTAÇÃO (formato SEM HÍFENS)
-    let prefix = frm.doc.naming_series.replace('.####', '');
-    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: GM
-
-    if (doc_code !== 'GM') {
-        frappe.msgprint({
-            title: __('Série Incorreta'),
-            message: __('Para Stock Entry, use séries GM (Guia de Movimentação)'),
-            indicator: 'orange'
-        });
-    }
 }
 
 function check_series_communication_status(frm) {
@@ -1573,12 +1420,6 @@ frappe.ui.form.on('Stock Entry Detail', {
         // ✅ RECALCULAR TOTAIS QUANDO QUANTIDADE MUDA
         setTimeout(() => {
             calculate_stock_totals(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
         }, 100);
     },
 
@@ -1586,12 +1427,6 @@ frappe.ui.form.on('Stock Entry Detail', {
         // ✅ RECALCULAR TOTAIS QUANDO RATE MUDA
         setTimeout(() => {
             calculate_stock_totals(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
         }, 100);
     },
 
