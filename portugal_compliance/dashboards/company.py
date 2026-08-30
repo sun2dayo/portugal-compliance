@@ -258,11 +258,34 @@ class CompanyDashboard:
 					'action': _('Communicate Series')
 				})
 
-			# Verificar erros recentes
-			recent_errors = frappe.db.count('Error Log', {
-				'creation': ['>=', add_days(today(), -1)],
-				'error': ['like', f'%{self.company_name}%']
-			})
+			# Verificar erros recentes - restrito a falhas que genuinamente
+			# vem do nosso codigo (2026-08-30: um LIKE '%NovaDX%' solto no
+			# texto inteiro do erro apanhava, por exemplo, "No POS Profile
+			# found" - um erro nativo do ERPNext sem nada a ver com
+			# compliance, que so mencionava a empresa porque o Frappe
+			# despeja o payload JSON da POS Invoice numa variavel local do
+			# traceback). Exigir 'File "..."' com portugal_compliance no
+			# caminho garante que e um FRAME real do nosso codigo, nao uma
+			# substring incidental dentro de uma variavel qualquer - por
+			# exemplo, doc_events (o registo global de hooks do site,
+			# presente em qualquer traceback de validate()) lista sempre
+			# os hooks do portugal_compliance para Supplier/Portugal
+			# Series Configuration, mesmo quando o erro nao tem nada a ver
+			# com esta app; um filtro so por "portugal_compliance" sem o
+			# 'File "..."' cairia na mesma armadilha.
+			recent_errors = frappe.db.sql(
+				"""
+				SELECT COUNT(*) FROM `tabError Log`
+				WHERE creation >= %(since)s
+				AND error REGEXP %(frame_pattern)s
+				AND error LIKE %(company)s
+				""",
+				{
+					"since": add_days(today(), -1),
+					"frame_pattern": r'File "[^"]*portugal_compliance[^"]*"',
+					"company": f"%{self.company_name}%",
+				},
+			)[0][0]
 
 			if recent_errors > 5:
 				alerts.append({
