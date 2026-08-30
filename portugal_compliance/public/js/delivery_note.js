@@ -556,12 +556,25 @@ function validate_portuguese_series(frm) {
 
     // ✅ VERIFICAR SE É SÉRIE DE GUIA DE TRANSPORTE (formato SEM HÍFENS)
     let prefix = frm.doc.naming_series.replace('.####', '');
-    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: GT
+    let doc_code = prefix.substring(0, 2); // Primeiros 2 caracteres: GT ou GR
 
-    if (doc_code !== 'GT') {
+    // GR (Guia de Remessa) adicionado 2026-08-30 (achado pelo utilizador):
+    // esta era a unica validacao da app ainda restrita so a GT - o
+    // servidor ja declara ["GT", "GR"] como prefixos validos para
+    // Delivery Note (document_hooks.py, supported_doctypes["Delivery
+    // Note"]["prefixes"], com "GR" inclusive como "code" principal),
+    // e o proprio dropdown de series ja oferece GR2026ZB.#### como
+    // opcao real - este aviso disparava mesmo para uma serie que o
+    // resto da app trata como valida. GD (Guia/Nota de Devolucao) nao
+    // incluido aqui: nao tem ainda provisionamento nem entrada em
+    // RETURN_DOCUMENT_SERIES (api/company_api.py) - so faz sentido
+    // aceitar quando esse suporte existir, nao isoladamente aqui.
+    let VALID_DELIVERY_NOTE_CODES = ['GT', 'GR'];
+
+    if (!VALID_DELIVERY_NOTE_CODES.includes(doc_code)) {
         frappe.msgprint({
             title: __('Série Incorreta'),
-            message: __('Para Delivery Note, use séries GT (Guia de Transporte)'),
+            message: __('Para Delivery Note, use séries GT (Guia de Transporte) ou GR (Guia de Remessa)'),
             indicator: 'orange'
         });
     }

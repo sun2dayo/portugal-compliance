@@ -623,12 +623,22 @@ function validate_portuguese_stock_entry(frm) {
 
     let errors = [];
 
-    // ✅ VALIDAR NAMING SERIES
-    if (!frm.doc.naming_series) {
-        errors.push(__('Naming Series é obrigatória para empresas portuguesas'));
-    } else if (!is_portuguese_naming_series(frm.doc.naming_series)) {
-        errors.push(__('Use naming series portuguesa (formato GM2025EMPRESA.####)'));
-    }
+    // Exigencia de naming_series "GM" removida (2026-08-30, achado pelo
+    // utilizador): Stock Entry (movimentos internos, acertos, entradas
+    // iniciais) nao e um documento emitido a terceiros nos termos da
+    // Portaria 195/2020 - ja tinha sido excluido do ambito fiscal do
+    // lado do servidor em 2026-08-22 (document_hooks.py:
+    // supported_doctypes nao inclui Stock Entry; nunca teve serie
+    // comunicada, nem devia). Esta validacao client-side ficou para
+    // tras a bloquear (frappe.validated = false) o uso de series
+    // nativas do ERPNext (ex: MAT-STE-.YYYY.-) em QUALQUER Stock Entry
+    // de empresa portuguesa, contradizendo essa decisao ja tomada. Sem
+    // suporte real do lado do servidor para emitir GM via Stock Entry
+    // (nao esta em supported_doctypes, nao gera ATCUD, nao comunica
+    // serie), um opt-in aqui seria uma funcionalidade a meio - se essa
+    // emissao vier a ser suportada oficialmente, a validacao volta
+    // junto com o resto do mecanismo (ATCUD, comunicacao de serie),
+    // nao isolada aqui.
 
     // ✅ VALIDAR TIPO DE MOVIMENTAÇÃO
     if (!frm.doc.stock_entry_type) {
