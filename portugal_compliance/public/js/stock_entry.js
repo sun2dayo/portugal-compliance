@@ -790,73 +790,28 @@ function validate_stock_entry_type(frm) {
 
 function validate_before_submit_portuguese(frm) {
     /**
-     * Validações críticas antes da submissão
+     * Validações críticas antes da submissão.
+     *
+     * Exigencia de ATCUD/serie comunicada removida daqui (2026-08-30,
+     * mesmo achado do utilizador que ja tinha corrigido a validacao de
+     * naming_series em validate: - ver comentario em
+     * validate_portuguese_stock_entry). Stock Entry nao esta em
+     * document_hooks.py::supported_doctypes desde 2026-08-22, nunca
+     * gera ATCUD nem comunica serie - o check "ATCUD e obrigatorio"
+     * exigia um campo que estruturalmente NUNCA existe neste ponto (o
+     * ATCUD so e gerado no servidor, DEPOIS de submeter, em qualquer
+     * doctype desta app - ver generate_atcud_on_submit), bloqueando a
+     * submissao de TODO Stock Entry, sempre, sem excecao possivel.
+     *
+     * A verificacao de stock disponivel (para Material Issue/Transfer)
+     * e generica/nao-fiscal - mantida tal como estava.
      */
-
-    return new Promise((resolve, reject) => {
-        let validations = [];
-
-        // ✅ VALIDAR ATCUD OBRIGATÓRIO
-        if (!frm.doc.atcud_code) {
-            validations.push(__('ATCUD é obrigatório para guias de movimentação portuguesas'));
-        }
-
-        // ✅ VALIDAR SÉRIE COMUNICADA
-        if (frm.doc.naming_series) {
-            let prefix = frm.doc.naming_series.replace('.####', '');
-
-            frappe.call({
-                method: 'frappe.client.get_value',
-                args: {
-                    doctype: 'Portugal Series Configuration',
-                    filters: {prefix: prefix, company: frm.doc.company},
-                    fieldname: 'is_communicated'
-                },
-                callback: function(r) {
-                    if (r.message && !r.message.is_communicated) {
-                        validations.push(__('Série GM deve estar comunicada à AT antes da submissão'));
-                    }
-
-                    // ✅ VALIDAR STOCK DISPONÍVEL
-                    if (frm.doc.stock_entry_type === 'Material Issue' ||
-                        frm.doc.stock_entry_type === 'Material Transfer') {
-                        validate_stock_availability(frm).then(() => {
-                            if (validations.length > 0) {
-                                frappe.msgprint({
-                                    title: __('Validação Crítica'),
-                                    message: validations.join('<br>'),
-                                    indicator: 'red'
-                                });
-                                reject();
-                            } else {
-                                resolve();
-                            }
-                        });
-                    } else {
-                        if (validations.length > 0) {
-                            frappe.msgprint({
-                                title: __('Validação Crítica'),
-                                message: validations.join('<br>'),
-                                indicator: 'red'
-                            });
-                            reject();
-                        } else {
-                            resolve();
-                        }
-                    }
-                }
-            });
+    return new Promise((resolve) => {
+        if (frm.doc.stock_entry_type === 'Material Issue' ||
+            frm.doc.stock_entry_type === 'Material Transfer') {
+            validate_stock_availability(frm).then(resolve);
         } else {
-            if (validations.length > 0) {
-                frappe.msgprint({
-                    title: __('Validação Crítica'),
-                    message: validations.join('<br>'),
-                    indicator: 'red'
-                });
-                reject();
-            } else {
-                resolve();
-            }
+            resolve();
         }
     });
 }
