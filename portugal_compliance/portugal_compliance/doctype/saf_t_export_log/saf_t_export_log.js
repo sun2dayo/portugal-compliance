@@ -1,4 +1,13 @@
 frappe.ui.form.on('SAF-T Export Log', {
+    onload: function(frm) {
+        // So faz sentido pre-preencher num documento novo por gravar -
+        // um log ja existente (Pending/Completed/Failed) nunca deve ter
+        // estes campos reescritos so por reabrir o formulario.
+        if (frm.is_new()) {
+            set_default_export_period(frm);
+        }
+    },
+
     refresh: function(frm) {
         // Tornar formulário somente leitura após criação
         if (!frm.doc.__islocal) {
@@ -44,7 +53,11 @@ frappe.ui.form.on('SAF-T Export Log', {
             // Auto-detectar ano fiscal baseado na data
             if (frm.doc.from_date) {
                 frappe.call({
-                    method: 'frappe.utils.get_fiscal_year',
+                    // 'frappe.utils.get_fiscal_year' nao existe em lado
+                    // nenhum do core Frappe (confirmado por grep,
+                    // 2026-08-30) - este call site nunca funcionou. A
+                    // funcao real, whitelisted, e esta (erpnext).
+                    method: 'erpnext.accounts.utils.get_fiscal_year',
                     args: {
                         date: frm.doc.from_date,
                         company: frm.doc.company
@@ -59,6 +72,39 @@ frappe.ui.form.on('SAF-T Export Log', {
         }
     }
 });
+
+function set_default_export_period(frm) {
+    /**
+     * Periodo por omissao ao abrir um SAF-T Export Log novo: mes
+     * anterior ao mes atual (o caso mais comum - submissao mensal do
+     * mes que acabou de fechar) e o ano fiscal que cobre a data de
+     * hoje. So preenche campos ainda vazios - o utilizador pode sempre
+     * alterar para o periodo que quiser antes de gravar.
+     */
+    const previous_month = moment().subtract(1, 'months');
+
+    if (!frm.doc.from_date) {
+        frm.set_value('from_date', previous_month.clone().startOf('month').format('YYYY-MM-DD'));
+    }
+    if (!frm.doc.to_date) {
+        frm.set_value('to_date', previous_month.clone().endOf('month').format('YYYY-MM-DD'));
+    }
+
+    if (!frm.doc.fiscal_year) {
+        frappe.call({
+            method: 'erpnext.accounts.utils.get_fiscal_year',
+            args: {
+                date: frappe.datetime.get_today(),
+                company: frm.doc.company
+            },
+            callback: function(r) {
+                if (r.message && !frm.doc.fiscal_year) {
+                    frm.set_value('fiscal_year', r.message[0]);
+                }
+            }
+        });
+    }
+}
 
 function add_status_indicators(frm) {
     // Limpar indicadores existentes
