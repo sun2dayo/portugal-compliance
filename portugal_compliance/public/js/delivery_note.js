@@ -301,8 +301,10 @@ function setup_portuguese_layout(frm) {
     // formulário (esta última via a lista de items).
     add_customer_nif_badge(frm);
 
-    // ✅ ADICIONAR SEÇÃO DE TRANSPORTE
-    add_transport_section(frm);
+    // add_transport_section removida (2026-08-30): cartão HTML estático
+    // "Informações de Transporte" duplicava campos que o ERPNext core já
+    // mostra nativamente na secção "Transporter Info" (transporter,
+    // transporter_name, driver, driver_name, vehicle_no, lr_no, lr_date).
 }
 
 function add_customer_nif_badge(frm) {
@@ -346,46 +348,6 @@ function get_customer_nif(frm) {
     });
 
     return frm._customer_nif;
-}
-
-function add_transport_section(frm) {
-    /**
-     * Adicionar seção específica de transporte
-     */
-
-    if (frm.doc.__islocal) return;
-
-    let transport_html = `
-        <div class="transport-info" style="
-            background: #e3f2fd;
-            border: 1px solid #90caf9;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #1565c0;">
-                🚛 Informações de Transporte
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>Transportadora:</strong> ${frm.doc.transporter_name || 'Não definida'}<br>
-                    <strong>Nº Guia:</strong> ${frm.doc.lr_no || 'Não definido'}<br>
-                    <strong>Data Expedição:</strong> ${frappe.datetime.str_to_user(frm.doc.posting_date)}
-                </div>
-                <div class="col-md-6">
-                    <strong>Endereço Entrega:</strong> ${frm.doc.shipping_address || 'Não definido'}<br>
-                    <strong>Contacto:</strong> ${frm.doc.contact_person || 'Não definido'}<br>
-                    <strong>Observações:</strong> ${frm.doc.instructions || 'Nenhuma'}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.transport_section_added) {
-        $(frm.fields_dict.customer.wrapper).after(transport_html);
-        frm.transport_section_added = true;
-    }
 }
 
 function show_compliance_status(frm) {

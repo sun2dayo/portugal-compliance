@@ -430,6 +430,17 @@ def enqueue_transport_communication(doc, method=None):
 		"portugal_compliance.utils.at_transport_webservice.register_transport_document",
 		queue="short",
 		timeout=120,
+		# enqueue_after_commit: sem isto, o job podia ser desenfileirado
+		# pelo worker e ler o documento (frappe.get_doc, ligacao/transacao
+		# separada) ANTES do commit desta transacao - que e onde o
+		# atcud_code escrito por generate_atcud_on_submit (db_set, logo
+		# antes deste hook na mesma cadeia de on_submit) se torna visivel
+		# para outras ligacoes. Nessa janela, build_transport_payload()
+		# via register_transport_document lia doc.atcud_code vazio e
+		# comunicava a guia sem ATCUD (AT aceitava na mesma, so com o
+		# aviso "documento nao apresenta um ATCUD valido"). Confirmado
+		# 2026-08-30 - ver Portugal AT Communication Log de GR2026ZB0001.
+		enqueue_after_commit=True,
 		document_type=doc.doctype,
 		document_name=doc.name,
 	)
