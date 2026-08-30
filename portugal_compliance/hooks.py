@@ -157,7 +157,10 @@ doc_events = {
 		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
 		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
-		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"before_submit": [
+			"portugal_compliance.utils.document_hooks.before_submit_document",
+			"portugal_compliance.utils.document_hooks.validate_transport_start_time"
+		],
 		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
 		"on_submit": [
 			"portugal_compliance.utils.document_hooks.generate_atcud_on_submit",

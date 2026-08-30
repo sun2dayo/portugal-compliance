@@ -13,7 +13,7 @@ Document Hooks for Portugal Compliance - VERSÃO OTIMIZADA E CORRIGIDA
 
 import frappe
 from frappe import _
-from frappe.utils import getdate, now, today, cint, flt
+from frappe.utils import getdate, now, now_datetime, get_datetime, today, cint, flt
 import re
 from datetime import datetime, date
 import time
@@ -760,6 +760,49 @@ class PortugalComplianceDocumentHooks:
 			frappe.log_error(f"Erro validação submissão: {str(e)}")
 			raise
 
+	def validate_transport_start_time(self, doc, method=None):
+		"""
+		Hook de before_submit exclusivo da Delivery Note. Bloqueia a
+		submissão se a Data/Hora de Início do Transporte
+		(at_data_hora_inicio_transporte) estiver preenchida com um
+		valor que já não está no futuro.
+
+		Não valida o caso do campo vazio: build_transport_payload()
+		usa posting_date/posting_time como fallback nesse caso
+		(comportamento aceite de propósito - ver
+		at_transport_webservice.py) e a AT já trata esse cenário como
+		um alerta não bloqueante (código -100), nunca como erro
+		fatal. O que esta validação evita é o utilizador escolher
+		manualmente uma data passada: a AT aceita na mesma, mas nunca
+		emite um Código de Transporte real (fica "pendente" no PDF) -
+		confirmado ao vivo em GR2026ZB0001/GR2026ZB0003.
+
+		Usa frappe.utils.now_datetime()/get_datetime(), nunca
+		datetime.now()/utcnow() do Python: o Frappe grava e lê campos
+		Datetime sempre no fuso horário de System Settings (neste
+		site, Atlantic/Azores), não em UTC nem no fuso do próprio
+		servidor - misturar isso teria produzido exatamente o tipo de
+		erro de horas que esta validação existe para evitar.
+		"""
+		if doc.doctype != "Delivery Note":
+			return
+		if not self._is_portuguese_company(doc.company):
+			return
+
+		start_time = getattr(doc, "at_data_hora_inicio_transporte", None)
+		if not start_time:
+			return
+
+		if get_datetime(start_time) <= now_datetime():
+			frappe.throw(
+				_(
+					"Para comunicar o documento à AT e obter o Código de Transporte, "
+					"a Data e Hora de Início do Transporte tem de ser no futuro. "
+					"Por favor, atualize o campo antes de submeter."
+				),
+				title=_("Data de Início de Transporte Inválida"),
+			)
+
 	# validate_portugal_compliance_light() removida (2026-08-30): só
 	# existia para mostrar "Esta série não segue o formato de série
 	# portuguesa recomendado" em Quotation/Sales Order/Purchase Order/
@@ -1339,6 +1382,11 @@ def validate_portugal_compliance(doc, method=None):
 def before_submit_document(doc, method=None):
 	"""Hook para before_submit de documentos"""
 	return portugal_document_hooks.before_submit_document(doc, method)
+
+
+def validate_transport_start_time(doc, method=None):
+	"""Hook para before_submit da Delivery Note - Data/Hora de Início do Transporte tem de estar no futuro"""
+	return portugal_document_hooks.validate_transport_start_time(doc, method)
 
 
 def setup_company_portugal_compliance(doc, method=None):
