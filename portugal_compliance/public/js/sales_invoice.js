@@ -736,7 +736,17 @@ function validate_nif_format(frm, nif, entity_type) {
     if (!nif) return;
 
     frappe.call({
-        method: 'portugal_compliance.utils.document_hooks.validate_portuguese_nif',
+        // 2026-08-30: era document_hooks.validate_portuguese_nif, que
+        // nunca existiu (nem como método de classe nem como função de
+        // módulo) - erro "has no attribute" em toda a consola sempre
+        // que o NIF do cliente mudava. A função real e whitelisted é
+        // jinja_methods.validate_portuguese_nif(nif), já usada
+        // corretamente com esta mesma assinatura em customer.js,
+        // supplier.js, company.js e em todos os outros doctype_js
+        // (purchase_invoice, pos_invoice, delivery_note, quotation,
+        // sales_order, purchase_order, purchase_receipt,
+        // payment_entry) - só este ficheiro tinha o caminho errado.
+        method: 'portugal_compliance.utils.jinja_methods.validate_portuguese_nif',
         args: {nif: nif},
         callback: function(r) {
             if (r.message !== undefined) {
