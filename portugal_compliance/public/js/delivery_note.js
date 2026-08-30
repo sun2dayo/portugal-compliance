@@ -444,6 +444,11 @@ function add_custom_buttons(frm) {
         frm.add_custom_button(__('Imprimir Guia PT'), function() {
             print_portuguese_delivery_note(frm);
         }, __('Imprimir'));
+
+        // ✅ BOTÃO PARA IMPRIMIR GUIA VALORIZADA (COM PREÇOS)
+        frm.add_custom_button(__('Imprimir Guia PT (Com Valor)'), function() {
+            print_portuguese_delivery_note_valued(frm);
+        }, __('Imprimir'));
     }
 
     // ✅ BOTÃO PARA VALIDAR NIF CLIENTE
@@ -1030,12 +1035,47 @@ function validate_all_addresses(frm) {
 
 function print_portuguese_delivery_note(frm) {
     /**
-     * Imprimir guia com formato português
+     * Imprimir guia com formato português. Sem format explícito - usa
+     * o print format default do doctype, que é "Guia de Transporte PT"
+     * (forçado via Property Setter, ver fixtures/property_setter.json -
+     * 2026-08-30). O comentário antigo aqui ("não existe ainda nenhum
+     * print format dedicado") ficou desatualizado com essa correção.
      */
-
-    // Sem format explicito - deixa o Frappe escolher o print format por
-    // defeito (nao existe ainda nenhum print format dedicado para este doctype).
     frappe.set_route("print", frm.doc.doctype, frm.doc.name);
+}
+
+function print_portuguese_delivery_note_valued(frm) {
+    /**
+     * Imprimir guia com o formato comercial "Guia de Transporte
+     * Valorizada PT" (mostra Preço Unitário/Valor Total/Total da
+     * Guia - ver fixtures/print_format.json), em vez do formato
+     * certificado "Guia de Transporte PT" (default do doctype, sem
+     * valores de propósito).
+     *
+     * frm.print_doc() do Frappe core não aceita um print_format
+     * explícito nesta versão (só frm.print_doc(), sem parâmetros -
+     * abre sempre o preview do formato default do doctype). A própria
+     * página de preview do desk (/app/print/<doctype>/<name>) também
+     * não lê nenhum format nem da rota nem de frappe.route_options -
+     * confirmado lendo frappe/printing/page/print/print.js: só usa
+     * frm.meta.default_print_format, sem exceção. A única via real
+     * para forçar um formato específico é o endpoint /printview com
+     * format= na query string (o mesmo que frappe.utils.print() usa
+     * no core) - construído aqui diretamente em vez de chamar essa
+     * função, para não herdar o no_letterhead=1 que ela força quando
+     * nenhum papel timbrado é indicado explicitamente (o que apagaria
+     * o timbre que o botão "Imprimir Guia PT" mostra por omissão).
+     */
+    let url = frappe.urllib.get_full_url(
+        "/printview?doctype=" + encodeURIComponent(frm.doc.doctype) +
+        "&name=" + encodeURIComponent(frm.doc.name) +
+        "&format=" + encodeURIComponent("Guia de Transporte Valorizada PT") +
+        "&trigger_print=1"
+    );
+    let w = window.open(url);
+    if (!w) {
+        frappe.msgprint(__("Por favor ative os pop-ups"));
+    }
 }
 
 // ========== FUNÇÕES AUXILIARES ==========
