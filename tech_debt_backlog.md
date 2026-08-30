@@ -1,11 +1,10 @@
 # Dívida Técnica e Backlog de Evolução — Portugal Compliance
 
-**Versão:** 1.2.0
-**Estado:** ✅ **Todos os itens deste backlog (Parte 1 e Parte 2) estão resolvidos e
-validados ao vivo.** Fechado em 2026-08-29, commits `develop` a partir de `8fe8a30`
-(taxa de IVA regional + granularidade SAF-T) até ao commit desta sprint final
-(34 erros de tarefas agendadas + Bloco B completo). Este ficheiro fica como registo
-histórico de fecho — não há itens pendentes deste backlog para o V1.2.0.
+**Versão:** 1.2.0 (+ Parte 3 aberta para V1.3.0)
+**Estado:** ✅ Backlog V1.2.0 (Parte 1 e Parte 2) resolvido e validado ao vivo, fechado em
+2026-08-29 — ver histórico de fecho abaixo. **Parte 3, aberta em 2026-08-30, tem 1 item
+pendente** (ver secção própria): não bloqueia nem impacta o módulo em produção, mas tem
+impacto potencial na contabilização nativa do inquilino.
 
 ---
 
@@ -123,3 +122,46 @@ sem estes, o Error Log não teria ficado 100% limpo):
   sprint.
 - ~~Correção do Redis em `tasks/all.py`~~ — já corrigido, commits `a4c081d`/`8b05308`.
 - ~~Remover segundo gerador de QR Code~~ — já eliminado, commit `e29edc8`.
+
+---
+
+## Parte 3 — Backlog V1.3.0 (aberto)
+
+### 🔲 Onboarding: retificar Plano de Contas / Default Accounts da Company
+
+**Origem:** reportado pelo utilizador principal, 2026-08-30, ao tentar corrigir
+manualmente `Company.default_receivable_account` (estava configurada como "219 - Perdas
+por imparidade acumuladas - ZB" em vez de uma conta de Clientes real) e descobrir que a
+pesquisa do campo Link não devolve **nenhum** resultado para "211", apesar de a conta
+existir no Plano de Contas. Investigado e confirmado não ser bug do `portugal_compliance`
+nem do core do ERPNext — ver auditoria completa na conversa de 2026-08-30.
+
+**Causa raiz confirmada (consultada diretamente na base de dados):** o Plano de Contas
+desta empresa (NovaDX) tem pelo menos duas contas-grupo de topo com `root_type`
+estruturalmente errado — e `root_type` no Frappe é herdado por toda a subárvore, não é
+editável por conta individual:
+- `2 - Contas a receber e a pagar` está classificada como `root_type=Liability`. A SNC
+  agrupa Clientes (ativo) e Fornecedores (passivo) sob a mesma classe 2, mas o Frappe só
+  permite um único `root_type` por ramo da árvore. Resultado: as 18 contas com
+  `account_type=Receivable` desta empresa (211, 2111–2116, 212, 218, 219, etc.) são
+  **todas** `Liability` — nenhuma passa no filtro nativo do campo *Default Receivable
+  Account* (que exige `root_type=Asset`). É literalmente impossível selecionar qualquer
+  conta de Clientes através da UI sem reestruturar a árvore primeiro.
+- `3 - Inventários e activos biológicos` está classificada como `root_type=Expense`
+  (devia ser Asset) — mesma família de problema; impacto ainda não investigado a fundo.
+
+**Impacto atual:** nenhum no módulo `portugal_compliance` — SAF-T, ATCUD e faturação não
+dependem do `root_type` de Clientes/Inventário. Impacta sim relatórios contabilísticos
+nativos do ERPNext (ex: Balanço) que dependem de `root_type=Asset` para classificar
+Clientes/Inventário corretamente como ativo.
+
+**Proposta de resolução futura (não implementada — decisão de arquitetura pendente):** um
+processo de onboarding que detete este tipo de má classificação na árvore de contas e
+ofereça retificá-la automaticamente (separar Clientes de Fornecedores em ramos-raiz
+distintos com `root_type` correto), preenchendo depois os campos Default
+Receivable/Payable/Cash/Bank Account da Company com as contas corretas resultantes. Por
+decidir: se corre na ativação do compliance (junto de `setup_default_tax_categories`,
+`tax_setup.py`) ou como um passo dedicado à parte — é uma reestruturação de dados
+contabilísticos existentes (mais sensível do que criar registos novos como Tax Category),
+não um mecanismo puramente aditivo/idempotente, por isso precisa de mais cuidado de
+desenho antes de implementar.
