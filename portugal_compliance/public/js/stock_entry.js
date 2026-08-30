@@ -317,19 +317,17 @@ function add_custom_buttons(frm) {
 
     if (frm.doc.__islocal) return;
 
-    // ✅ BOTÃO PARA GERAR ATCUD MANUALMENTE
-    if (!frm.doc.atcud_code && frm.doc.naming_series) {
-        frm.add_custom_button(__('Gerar ATCUD'), function() {
-            generate_atcud_manually(frm);
-        }, __('Portugal Compliance'));
-    }
-
-    // ✅ BOTÃO PARA VERIFICAR SÉRIE
-    if (frm.doc.naming_series) {
-        frm.add_custom_button(__('Verificar Série'), function() {
-            check_series_status(frm);
-        }, __('Portugal Compliance'));
-    }
+    // Botões "Gerar ATCUD"/"Verificar Série" (menu "Portugal
+    // Compliance") removidos (2026-08-30, achado pelo utilizador: o
+    // menu aparecia num Stock Entry ja submetido, ao lado do menu
+    // gemeo "🇵🇹 Portugal Compliance" do ficheiro partilhado -
+    // corrigido em portugal_compliance.js na mesma sessao). "Gerar
+    // ATCUD" nao e so cosmetico - chamava generate_manual_atcud_
+    // certified no servidor, arriscando gerar um ATCUD falso para um
+    // documento que a lei nunca exige assinar (Stock Entry nao esta
+    // em document_hooks.py::supported_doctypes desde 2026-08-22).
+    // "Verificar Série" so mostraria "Série não encontrada" para
+    // qualquer serie nativa.
 
     // ✅ BOTÃO PARA VALIDAR ARMAZÉNS
     if (frm.doc.from_warehouse || frm.doc.to_warehouse) {
@@ -870,97 +868,10 @@ function configure_fields_by_type(frm) {
 
 // ========== FUNÇÕES DE AÇÕES ==========
 
-function generate_atcud_manually(frm) {
-    /**
-     * ✅ CORRIGIDO: Gerar ATCUD manualmente usando API correta
-     */
-
-    frappe.call({
-        method: 'portugal_compliance.utils.atcud_generator.generate_manual_atcud_certified',
-        args: {
-            doctype: frm.doc.doctype,
-            docname: frm.doc.name
-        },
-        callback: function(r) {
-            if (r.message && r.message.success) {
-                frm.reload_doc();
-                frappe.show_alert({
-                    message: __('ATCUD gerado: {0}', [r.message.atcud_code]),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint({
-                    title: __('Erro'),
-                    message: r.message ? r.message.error : __('Erro ao gerar ATCUD'),
-                    indicator: 'red'
-                });
-            }
-        }
-    });
-}
-
-function check_series_status(frm) {
-    /**
-     * Verificar status da série
-     */
-
-    if (!frm.doc.naming_series) {
-        frappe.msgprint(__('Naming series não definida'));
-        return;
-    }
-
-    let prefix = frm.doc.naming_series.replace('.####', '');
-
-    frappe.call({
-        method: 'frappe.client.get',
-        args: {
-            doctype: 'Portugal Series Configuration',
-            filters: {prefix: prefix, company: frm.doc.company}
-        },
-        callback: function(r) {
-            if (r.message) {
-                show_series_status_dialog(frm, r.message);
-            } else {
-                frappe.msgprint(__('Série não encontrada na configuração'));
-            }
-        }
-    });
-}
-
-function show_series_status_dialog(frm, series_data) {
-    /**
-     * Mostrar dialog com status da série
-     */
-
-    let dialog = new frappe.ui.Dialog({
-        title: __('Status da Série GM'),
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'series_info'
-            }
-        ]
-    });
-
-    let html = `
-        <div class="series-status-info">
-            <h5>${series_data.series_name}</h5>
-            <table class="table table-bordered">
-                <tr><td><strong>Prefixo:</strong></td><td>${series_data.prefix}</td></tr>
-                <tr><td><strong>Tipo:</strong></td><td>Guia de Movimentação</td></tr>
-                <tr><td><strong>Empresa:</strong></td><td>${series_data.company}</td></tr>
-                <tr><td><strong>Ativa:</strong></td><td>${series_data.is_active ? 'Sim' : 'Não'}</td></tr>
-                <tr><td><strong>Comunicada:</strong></td><td>${series_data.is_communicated ? 'Sim' : 'Não'}</td></tr>
-                <tr><td><strong>Código AT:</strong></td><td>${series_data.validation_code || 'Não disponível'}</td></tr>
-                <tr><td><strong>Sequência Atual:</strong></td><td>${series_data.current_sequence}</td></tr>
-                <tr><td><strong>Total Emitidos:</strong></td><td>${series_data.total_documents_issued}</td></tr>
-            </table>
-        </div>
-    `;
-
-    dialog.fields_dict.series_info.$wrapper.html(html);
-    dialog.show();
-}
+// generate_atcud_manually, check_series_status e
+// show_series_status_dialog removidas (2026-08-30) - ver nota em
+// add_custom_buttons. Stock Entry nao gera ATCUD nem tem serie fiscal
+// desde 2026-08-22 (document_hooks.py::supported_doctypes).
 
 function validate_all_warehouses(frm) {
     /**
@@ -1498,18 +1409,8 @@ function setup_keyboard_shortcuts(frm) {
      * Configurar atalhos de teclado para Portugal Compliance
      */
 
-    // ✅ CTRL+G para gerar ATCUD
-    frappe.ui.keys.add_shortcut({
-        shortcut: 'ctrl+g',
-        action: () => {
-            if (!frm.doc.atcud_code && frm.doc.naming_series) {
-                generate_atcud_manually(frm);
-            }
-        },
-        description: __('Gerar ATCUD'),
-        ignore_inputs: true,
-        page: frm.page
-    });
+    // Atalho Ctrl+G ("Gerar ATCUD") removido junto com o botão e a
+    // função - ver nota em add_custom_buttons.
 
     // ✅ CTRL+S para verificar stock
     frappe.ui.keys.add_shortcut({

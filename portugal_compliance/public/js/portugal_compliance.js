@@ -46,10 +46,24 @@ window.portugal_compliance = {
         atcud_pattern: /^[A-Z0-9]{8,12}$/,
         nif_pattern: /^\d{9}$/,
         series_pattern: /^[A-Z]{2,4}-\d{4}-[A-Z0-9]{1,4}$/,
+        // Corrigida 2026-08-30 (achado pelo utilizador: "❌ ATCUD
+        // Missing"/menu "🇵🇹 Portugal Compliance"/indicador de série a
+        // aparecer num Stock Entry submetido). Esta lista nunca tinha
+        // sido atualizada com as remocoes de doctypes fiscais de
+        // 2026-08-22/24 (document_hooks.py::supported_doctypes,
+        // autoritativo) - controla isSupportedDoctype() ->
+        // enhanceForm() (indicador ATCUD, menu "Portugal Compliance",
+        // indicador de serie, validateBeforeSave, onNamingSeriesChange
+        // via $(document).on(...)), por isso 7 doctypes que ja nao sao
+        // fiscais (Purchase Invoice, Purchase Receipt, Journal Entry,
+        // Stock Entry, Quotation, Sales Order, Purchase Order -
+        // "Material Request" nunca esteve sequer na lista real do
+        // servidor) continuavam a mostrar indicadores/menus fiscais
+        // enganosos. Em falta: "POS Invoice", que É fiscal e nunca
+        // tinha recebido este tratamento. Lista agora identica a
+        // document_hooks.py::supported_doctypes.
         supported_doctypes: [
-            'Sales Invoice', 'Purchase Invoice', 'Payment Entry',
-            'Delivery Note', 'Purchase Receipt', 'Journal Entry', 'Stock Entry',
-            'Quotation', 'Sales Order', 'Purchase Order', 'Material Request'
+            'Sales Invoice', 'POS Invoice', 'Payment Entry', 'Delivery Note'
         ]
     },
 
