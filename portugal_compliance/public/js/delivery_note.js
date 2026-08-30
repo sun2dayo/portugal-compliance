@@ -96,6 +96,10 @@ frappe.ui.form.on('Delivery Note', {
             // ✅ CARREGAR ENDEREÇO DE ENTREGA
             load_delivery_address_info(frm);
         }
+        // ✅ ATUALIZAR BADGE DE NIF - limpa a cache (get_customer_nif
+        // nunca a invalidava sozinha, ficava presa ao cliente anterior)
+        frm._customer_nif = undefined;
+        add_customer_nif_badge(frm);
     },
 
     // ========== EVENTOS DE ENDEREÇOS ==========
@@ -290,54 +294,58 @@ function setup_portuguese_layout(frm) {
         frm.refresh_field('atcud_code');
     }
 
-    // ✅ ADICIONAR SEÇÃO DE COMPLIANCE
-    if (!frm.doc.__islocal && frm.doc.atcud_code) {
-        add_compliance_section(frm);
-    }
+    // ✅ NIF do cliente - pequeno badge junto ao campo Customer
+    // (2026-08-30): substitui o antigo cartão "Informações de
+    // Compliance Português" (removido) - ATCUD, Série, Cliente, Peso
+    // Total e Qtd Total já eram nativamente visíveis/deriváveis no
+    // formulário (esta última via a lista de items).
+    add_customer_nif_badge(frm);
 
     // ✅ ADICIONAR SEÇÃO DE TRANSPORTE
     add_transport_section(frm);
 }
 
-function add_compliance_section(frm) {
+function add_customer_nif_badge(frm) {
     /**
-     * Adicionar seção de informações de compliance
+     * Pequeno badge com o NIF do cliente, junto ao campo Customer.
      */
+    $(frm.fields_dict.customer.wrapper).find('.customer-nif-badge').remove();
+    if (frm.doc.__islocal || !frm.doc.customer) return;
 
-    let total_weight = calculate_total_weight(frm);
-    let total_qty = calculate_total_qty(frm);
+    let nif = get_customer_nif(frm);
+    let badge_html = `<div class="customer-nif-badge text-muted small" style="margin-top: 4px;">
+        <strong>NIF:</strong> ${nif || 'Não definido'}
+    </div>`;
+    $(frm.fields_dict.customer.wrapper).append(badge_html);
+}
 
-    let compliance_html = `
-        <div class="portugal-compliance-info" style="
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Informações de Compliance Português - Guia de Transporte
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>ATCUD:</strong> ${frm.doc.atcud_code || 'Não gerado'}<br>
-                    <strong>Série:</strong> ${frm.doc.naming_series || 'Não definida'}<br>
-                    <strong>Cliente:</strong> ${frm.doc.customer_name || ''}
-                </div>
-                <div class="col-md-6">
-                    <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span><br>
-                    <strong>Peso Total:</strong> ${total_weight} kg<br>
-                    <strong>Qtd Total:</strong> ${total_qty}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.compliance_section_added) {
-        $(frm.fields_dict.naming_series.wrapper).after(compliance_html);
-        frm.compliance_section_added = true;
+function get_customer_nif(frm) {
+    /**
+     * Obter NIF do cliente (mesmo padrão de sales_invoice.js/
+     * pos_invoice.js - frappe.client.get_value síncrono, cacheado em
+     * frm._customer_nif e invalidado explicitamente no handler
+     * customer: acima quando o cliente muda).
+     */
+    if (frm._customer_nif !== undefined) {
+        return frm._customer_nif;
     }
+
+    if (!frm.doc.customer) return null;
+
+    frappe.call({
+        method: 'frappe.client.get_value',
+        args: {
+            doctype: 'Customer',
+            filters: {name: frm.doc.customer},
+            fieldname: 'tax_id'
+        },
+        async: false,
+        callback: function(r) {
+            frm._customer_nif = r.message ? r.message.tax_id : null;
+        }
+    });
+
+    return frm._customer_nif;
 }
 
 function add_transport_section(frm) {
@@ -1380,12 +1388,6 @@ frappe.ui.form.on('Delivery Note Item', {
         // ✅ RECALCULAR PESO QUANDO QUANTIDADE MUDA
         setTimeout(() => {
             calculate_total_weight(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
         }, 100);
     },
 
@@ -1393,12 +1395,6 @@ frappe.ui.form.on('Delivery Note Item', {
         // ✅ RECALCULAR PESO QUANDO PESO UNITÁRIO MUDA
         setTimeout(() => {
             calculate_total_weight(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
         }, 100);
     }
 });

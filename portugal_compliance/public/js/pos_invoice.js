@@ -96,6 +96,10 @@ frappe.ui.form.on('POS Invoice', {
             // ✅ VERIFICAR LIMITE SEM NIF
             check_pos_nif_limit(frm);
         }
+        // ✅ ATUALIZAR BADGE DE NIF - limpa a cache (get_customer_nif
+        // nunca a invalidava sozinha, ficava presa ao cliente anterior)
+        frm._customer_nif = undefined;
+        add_customer_nif_badge(frm);
     },
 
     // ========== EVENTOS DE TOTAL ==========
@@ -289,61 +293,34 @@ function setup_portuguese_layout(frm) {
         frm.refresh_field('atcud_code');
     }
 
-    // ✅ ADICIONAR SEÇÃO DE COMPLIANCE
-    if (!frm.doc.__islocal && frm.doc.atcud_code) {
-        add_compliance_section(frm);
-    }
+    // ✅ NIF do cliente - pequeno badge junto ao campo Customer
+    // (2026-08-30): substitui o antigo cartão "Informações de
+    // Compliance Português" (removido) - a maioria dos seus campos
+    // (ATCUD, Série, Cliente, totais) já eram nativamente visíveis no
+    // formulário. O aviso "NIF Obrigatório" (quando grand_total > 1000
+    // sem NIF preenchido) mantém-se, agora como estilo do próprio badge
+    // em vez de uma linha à parte.
+    add_customer_nif_badge(frm);
 
     // ✅ ADICIONAR SEÇÃO POS
     add_pos_section(frm);
 }
 
-function add_compliance_section(frm) {
+function add_customer_nif_badge(frm) {
     /**
-     * Adicionar seção de informações de compliance
+     * Pequeno badge com o NIF do cliente, junto ao campo Customer -
+     * a vermelho quando o NIF é legalmente obrigatório
+     * (check_nif_required) e ainda não está preenchido.
      */
+    $(frm.fields_dict.customer.wrapper).find('.customer-nif-badge').remove();
+    if (frm.doc.__islocal || !frm.doc.customer || frm.doc.customer === 'Consumidor Final') return;
 
-    let tax_info = calculate_tax_breakdown(frm);
-    let nif_required = check_nif_required(frm);
-
-    let compliance_html = `
-        <div class="portugal-compliance-info" style="
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Informações de Compliance Português - Fatura POS
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>ATCUD:</strong> ${frm.doc.atcud_code || 'Não gerado'}<br>
-                    <strong>Série:</strong> ${frm.doc.naming_series || 'Não definida'}<br>
-                    <strong>Cliente:</strong> ${frm.doc.customer_name || 'Consumidor Final'}
-                </div>
-                <div class="col-md-6">
-                    <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span><br>
-                    <strong>Total s/ IVA:</strong> €${(frm.doc.net_total || 0).toFixed(2)}<br>
-                    <strong>Total IVA:</strong> €${tax_info.total_tax.toFixed(2)}
-                </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-md-12">
-                    <strong>Total c/ IVA:</strong> €${(frm.doc.grand_total || 0).toFixed(2)}
-                    ${nif_required ? '<span class="ml-3 text-warning"><strong>⚠️ NIF Obrigatório</strong></span>' : ''}
-                    ${frm.doc.qr_code ? '<span class="ml-3"><strong>QR Code:</strong> <span class="indicator green">Gerado</span></span>' : ''}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.compliance_section_added) {
-        $(frm.fields_dict.naming_series.wrapper).after(compliance_html);
-        frm.compliance_section_added = true;
-    }
+    let nif = get_customer_nif(frm);
+    let missing_required = check_nif_required(frm) && !nif;
+    let badge_html = `<div class="customer-nif-badge small ${missing_required ? 'text-danger' : 'text-muted'}" style="margin-top: 4px;">
+        <strong>NIF:</strong> ${nif || (missing_required ? '⚠️ Obrigatório e não definido' : 'Não definido')}
+    </div>`;
+    $(frm.fields_dict.customer.wrapper).append(badge_html);
 }
 
 function add_pos_section(frm) {
@@ -1489,12 +1466,7 @@ frappe.ui.form.on('POS Invoice Item', {
         setTimeout(() => {
             validate_portuguese_taxes(frm);
             check_simplified_invoice_limit(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
+            add_customer_nif_badge(frm);
         }, 100);
     },
 
@@ -1503,12 +1475,7 @@ frappe.ui.form.on('POS Invoice Item', {
         setTimeout(() => {
             validate_portuguese_taxes(frm);
             check_simplified_invoice_limit(frm);
-            if (frm.compliance_section_added) {
-                // Atualizar seção de compliance
-                $('.portugal-compliance-info').remove();
-                frm.compliance_section_added = false;
-                add_compliance_section(frm);
-            }
+            add_customer_nif_badge(frm);
         }, 100);
     }
 });
@@ -1685,11 +1652,7 @@ function setup_change_observers(frm) {
                 check_simplified_invoice_limit(frm);
 
                 // Atualizar seções visuais
-                if (frm.compliance_section_added) {
-                    $('.portugal-compliance-info').remove();
-                    frm.compliance_section_added = false;
-                    add_compliance_section(frm);
-                }
+                add_customer_nif_badge(frm);
 
                 if (frm.pos_section_added) {
                     $('.pos-info').remove();

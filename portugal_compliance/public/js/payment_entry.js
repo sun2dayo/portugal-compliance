@@ -293,60 +293,18 @@ function setup_portuguese_layout(frm) {
         frm.refresh_field('atcud_code');
     }
 
-    // ✅ ADICIONAR SEÇÃO DE COMPLIANCE
-    if (!frm.doc.__islocal && frm.doc.atcud_code) {
-        add_compliance_section(frm);
-    }
-
     // ✅ ADICIONAR SEÇÃO DE PAGAMENTO
     add_payment_section(frm);
 }
 
-function add_compliance_section(frm) {
-    /**
-     * Adicionar seção de informações de compliance
-     */
-
-    let payment_info = get_payment_summary(frm);
-
-    let compliance_html = `
-        <div class="portugal-compliance-info" style="
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-            <h6 style="margin-bottom: 10px; color: #495057;">
-                🇵🇹 Informações de Compliance Português - Recibo
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>ATCUD:</strong> ${frm.doc.atcud_code || 'Não gerado'}<br>
-                    <strong>Série:</strong> ${frm.doc.naming_series || 'Não definida'}<br>
-                    <strong>Entidade:</strong> ${frm.doc.party_name || 'Não definida'}
-                </div>
-                <div class="col-md-6">
-                    <strong>Status:</strong> <span class="indicator ${get_compliance_status(frm).color}">${get_compliance_status(frm).label}</span><br>
-                    <strong>Tipo:</strong> ${get_payment_type_display(frm.doc.payment_type)}<br>
-                    <strong>Valor:</strong> €${(frm.doc.paid_amount || 0).toFixed(2)}
-                </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-md-12">
-                    <strong>Modo:</strong> ${frm.doc.mode_of_payment || 'Não definido'}
-                    <span class="ml-3"><strong>Data:</strong> ${frappe.datetime.str_to_user(frm.doc.posting_date)}</span>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // ✅ ADICIONAR HTML AO FORMULÁRIO
-    if (!frm.compliance_section_added) {
-        $(frm.fields_dict.naming_series.wrapper).after(compliance_html);
-        frm.compliance_section_added = true;
-    }
-}
+// add_compliance_section removida (2026-08-30): o cartão "Informações
+// de Compliance Português" duplicava campos já nativamente visíveis no
+// formulário (ATCUD, Série, Entidade/party_name, Tipo/payment_type,
+// Valor/paid_amount, Modo/mode_of_payment, Data/posting_date) - ao
+// contrário de Sales Invoice/POS Invoice, o Payment Entry nunca
+// mostrava um NIF aqui (Party pode ser Customer, Supplier, etc., não
+// é sempre um "Cliente"), por isso não há um badge equivalente a
+// manter.
 
 function add_payment_section(frm) {
     /**
@@ -1577,13 +1535,6 @@ function setup_change_observers(frm) {
         setTimeout(() => {
             if (frm.doc.paid_amount) {
                 validate_payment_amount(frm);
-
-                // Atualizar seção de compliance
-                if (frm.compliance_section_added) {
-                    $('.portugal-compliance-info').remove();
-                    frm.compliance_section_added = false;
-                    add_compliance_section(frm);
-                }
             }
         }, 100);
     });
@@ -1593,13 +1544,6 @@ function setup_change_observers(frm) {
         setTimeout(() => {
             if (frm.doc.payment_type) {
                 configure_fields_by_payment_type(frm);
-
-                // Atualizar seção de compliance
-                if (frm.compliance_section_added) {
-                    $('.portugal-compliance-info').remove();
-                    frm.compliance_section_added = false;
-                    add_compliance_section(frm);
-                }
 
                 // Atualizar seção de pagamento
                 if (frm.payment_section_added) {
@@ -1616,13 +1560,6 @@ function setup_change_observers(frm) {
         setTimeout(() => {
             if (frm.doc.mode_of_payment) {
                 configure_payment_mode_fields(frm);
-
-                // Atualizar seção de compliance
-                if (frm.compliance_section_added) {
-                    $('.portugal-compliance-info').remove();
-                    frm.compliance_section_added = false;
-                    add_compliance_section(frm);
-                }
             }
         }, 100);
     });
