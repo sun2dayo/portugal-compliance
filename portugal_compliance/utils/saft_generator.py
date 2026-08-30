@@ -134,6 +134,32 @@ class SAFTGenerator:
 		fora desta passagem (ver decisoes documentadas nas notas abaixo).
 		"""
 		company_address = self._get_company_address(company_doc.name)
+
+		# Falhar cedo com mensagem clara em vez de deixar o XML ser gerado
+		# com AddressDetail/City/PostalCode vazios e so descobrir o
+		# problema tarde, na validacao XSD (minLength=1 nesses 3 campos) -
+		# foi exatamente isso que aconteceu com o export SAFT-EXP-2026-0006
+		# da NovaDX (2026-08-30): Company sem nenhuma Address associada.
+		if not company_address:
+			frappe.throw(_(
+				"A empresa {0} não tem morada fiscal configurada. "
+				"Adicione uma Morada (Address) à empresa - com Rua, Cidade "
+				"e Código Postal preenchidos - antes de gerar o SAF-T."
+			).format(company_doc.name))
+
+		missing_fields = []
+		if not (company_address.address_line1 or "").strip():
+			missing_fields.append(_("Rua/Morada"))
+		if not (company_address.city or "").strip():
+			missing_fields.append(_("Cidade"))
+		if not (company_address.pincode or "").strip():
+			missing_fields.append(_("Código Postal"))
+		if missing_fields:
+			frappe.throw(_(
+				"A morada fiscal da empresa {0} está incompleta. "
+				"Campo(s) em falta em {1}: {2}."
+			).format(company_doc.name, company_address.name, ", ".join(missing_fields)))
+
 		context = {
 			# Header information
 			"company": company_doc,
