@@ -1507,6 +1507,14 @@ frappe.ui.form.on('POS Invoice Payment', {
 
 frappe.ui.form.on('POS Invoice', {
     onload: function(frm) {
+        // ✅ REFORÇO CLIENT-SIDE (defesa em profundidade): atcud_code/
+        // qr_code_image já têm no_copy=1 (2026-08-30), que impede
+        // frappe.model.mapper (make_return_doc, botão "Return / Credit
+        // Note") de copiar estes campos - esta chamada e uma rede de
+        // segurança adicional, para o utilizador nunca ver um ATCUD/QR
+        // Code herdado da fatura original numa devolução nova.
+        clear_inherited_fiscal_fields_on_return(frm);
+
         // ✅ CONFIGURAÇÃO INICIAL QUANDO FORMULÁRIO CARREGA
         if (is_portuguese_company(frm)) {
             // ✅ CONFIGURAR TOOLTIPS PORTUGUESES
@@ -1517,6 +1525,16 @@ frappe.ui.form.on('POS Invoice', {
         }
     }
 });
+
+function clear_inherited_fiscal_fields_on_return(frm) {
+    if (frm.is_new() && frm.doc.is_return) {
+        ['atcud_code', 'qr_code', 'qr_code_image'].forEach(function(fieldname) {
+            if (frm.doc[fieldname]) {
+                frm.set_value(fieldname, '');
+            }
+        });
+    }
+}
 
 function setup_portuguese_tooltips(frm) {
     /**

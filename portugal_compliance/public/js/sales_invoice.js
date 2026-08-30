@@ -1508,6 +1508,33 @@ function show_series_info(frm) {
     });
 }
 
+// ========== LIMPEZA DE CAMPOS FISCAIS HERDADOS (NOTA DE CRÉDITO) ==========
+
+frappe.ui.form.on('Sales Invoice', {
+    onload: function(frm) {
+        // ✅ REFORÇO CLIENT-SIDE (defesa em profundidade): atcud_code/
+        // qr_code_image já têm no_copy=1 (2026-08-30), o que impede
+        // frappe.model.mapper (usado por make_return_doc, o botão
+        // "Return / Credit Note") de copiar estes campos da fatura
+        // original para o rascunho novo. Mas no_copy só protege esse
+        // caminho especifico - este handler e uma rede de segurança
+        // adicional, para o utilizador nunca ver, nem por um instante,
+        // um ATCUD/QR Code herdado da fatura original numa Nota de
+        // Crédito nova.
+        clear_inherited_fiscal_fields_on_return(frm);
+    }
+});
+
+function clear_inherited_fiscal_fields_on_return(frm) {
+    if (frm.is_new() && frm.doc.is_return) {
+        ['atcud_code', 'qr_code', 'qr_code_image'].forEach(function(fieldname) {
+            if (frm.doc[fieldname]) {
+                frm.set_value(fieldname, '');
+            }
+        });
+    }
+}
+
 // ========== EVENTOS DE ITEMS ==========
 
 frappe.ui.form.on('Sales Invoice Item', {
