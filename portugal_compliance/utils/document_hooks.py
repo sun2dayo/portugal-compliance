@@ -1545,6 +1545,7 @@ def validate_transport_start_time(doc, method=None):
 FISCAL_RECORD_DOCTYPES = ("Sales Invoice", "POS Invoice", "Delivery Note", "Payment Entry")
 
 
+@frappe.whitelist()
 def has_existing_fiscal_records(company):
 	"""
 	True se a empresa já tem pelo menos um documento fiscal submetido
@@ -1553,7 +1554,18 @@ def has_existing_fiscal_records(company):
 	Company depois de já ter emitido documentos reais. `frappe.db.exists`
 	pára na primeira ocorrência (não conta o total), suficiente para uma
 	pergunta puramente booleana.
+
+	Whitelisted (2026-09-01) para uso direto do client-side
+	(company.js::refresh) - o bloqueio real e inatacável já existe no
+	servidor (validate_company_fiscal_lock); isto serve apenas para a UI
+	aplicar read-only aos campos ANTES do clique, evitando o "falso
+	positivo" do diálogo de confirmação client-side disparar sem que a
+	alteração possa alguma vez ser gravada. Não expõe informação sensível
+	(devolve só um booleano), mas confirma permissão de leitura na
+	Company mesmo assim, por defeito em profundidade.
 	"""
+	if not frappe.has_permission("Company", "read", company):
+		frappe.throw(_("Sem permissão para consultar esta empresa"), frappe.PermissionError)
 	if not company:
 		return False
 	for doctype in FISCAL_RECORD_DOCTYPES:

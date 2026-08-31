@@ -96,6 +96,18 @@ if (typeof frappe === 'undefined' || !frappe.ui || !frappe.ui.form) {
                     setup_company_validations(frm);
                 }
 
+                // ✅ TRANCA FISCAL VISUAL (2026-09-01): o servidor já bloqueia
+                // (validate_company_fiscal_lock, document_hooks.py) qualquer
+                // alteração a country/tax_id/portugal_compliance_enabled depois
+                // de a empresa já ter documentos fiscais emitidos - mas o
+                // diálogo de confirmação "Desativar Portugal Compliance?" e o
+                // toast de "desativado" abaixo (portugal_compliance_enabled
+                // change handler) são puramente client-side e disparam ANTES
+                // de qualquer chamada ao servidor, dando um falso positivo ao
+                // utilizador. Aplicar read-only aqui, no refresh, impede o
+                // clique em si - o handler de change nunca chega a correr.
+                apply_fiscal_lock_read_only(frm);
+
                 console.log('✅ Company refresh concluído');
             } catch (error) {
                 console.error('❌ Erro no refresh da Company:', error);
@@ -1269,6 +1281,43 @@ function validate_abbreviation_format(abbr) {
 }
 
 // ========== FUNÇÕES DE COMPLIANCE ==========
+
+function apply_fiscal_lock_read_only(frm) {
+    /**
+     * Espelha no ecrã, de forma preventiva, o bloqueio que já existe no
+     * servidor (document_hooks.py::validate_company_fiscal_lock): uma
+     * vez que a empresa tem pelo menos um documento fiscal submetido,
+     * País, NIF e a própria checkbox de compliance tornam-se read-only.
+     * A verificação em si (has_existing_fiscal_records) corre sempre no
+     * servidor - este handler só decide se desenha os campos como
+     * editáveis ou não; nunca é a fonte de verdade da regra.
+     */
+    const LOCKED_FIELDS = ['portugal_compliance_enabled', 'country', 'tax_id'];
+
+    if (frm.is_new()) {
+        LOCKED_FIELDS.forEach(fieldname => frm.set_df_property(fieldname, 'read_only', 0));
+        return;
+    }
+
+    frappe.call({
+        method: 'portugal_compliance.utils.document_hooks.has_existing_fiscal_records',
+        args: { company: frm.doc.name },
+        callback: function(r) {
+            const locked = !!r.message;
+            LOCKED_FIELDS.forEach(fieldname => {
+                frm.set_df_property(fieldname, 'read_only', locked ? 1 : 0);
+                frm.refresh_field(fieldname);
+            });
+            if (locked) {
+                frm.set_df_property(
+                    'portugal_compliance_enabled', 'description',
+                    __('Já existem documentos fiscais emitidos para esta empresa - País, NIF e este campo ficaram permanentemente bloqueados (Portaria n.º 363/2010).')
+                );
+                frm.refresh_field('portugal_compliance_enabled');
+            }
+        }
+    });
+}
 
 function show_portugal_compliance_option(frm) {
     /**
