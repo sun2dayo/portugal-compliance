@@ -106,7 +106,10 @@ doc_events = {
 	# (validacoes rigidas) ja terem corrido sem erro. Ver
 	# document_hooks.generate_atcud_on_submit para o detalhe e o motivo.
 	"Sales Invoice": {
-		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
+		"before_insert": [
+			"portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
+			"portugal_compliance.utils.document_hooks.before_insert_document"
+		],
 		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
@@ -130,7 +133,10 @@ doc_events = {
 	# document_hooks.py: entrada "Purchase Invoice" removida de
 	# supported_doctypes no mesmo commit.
 	"POS Invoice": {
-		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
+		"before_insert": [
+			"portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
+			"portugal_compliance.utils.document_hooks.before_insert_document"
+		],
 		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
@@ -143,6 +149,7 @@ doc_events = {
 		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
 	},
 	"Payment Entry": {
+		"before_insert": "portugal_compliance.utils.document_hooks.before_insert_document",
 		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
@@ -154,7 +161,10 @@ doc_events = {
 
 	# ========== DOCUMENTOS DE TRANSPORTE ==========
 	"Delivery Note": {
-		"before_insert": "portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
+		"before_insert": [
+			"portugal_compliance.utils.document_hooks.reset_fiscal_fields_on_return_clone",
+			"portugal_compliance.utils.document_hooks.before_insert_document"
+		],
 		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
 		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
 		"before_submit": [

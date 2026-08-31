@@ -712,6 +712,46 @@ class PortugalComplianceDocumentHooks:
 				title=_("Série Não Autorizada"),
 			)
 
+	def before_insert_document(self, doc, method=None):
+		"""
+		Hook before_insert (2026-08-31). Reaproveita _validate_tax_exemption_hard
+		- a mesma validação rígida já usada em before_submit_document -
+		mas aqui, antes de Document.insert() chamar set_new_name(), que
+		é o passo que atribui/consome definitivamente o número de série
+		fiscal (contador atómico nativo do Frappe, nunca decrementa,
+		mesmo que o rascunho seja depois apagado).
+
+		Achado ao vivo: uma POS Invoice com uma linha isenta (0%) sem
+		motivo de isenção preenchido ficava presa em Rascunho ao falhar
+		em before_submit - mas o número da série (ex. FS2026ZB0001) já
+		tinha sido consumido no insert() do rascunho, antes de qualquer
+		validação correr. O documento seguinte (FS2026ZB0002) submetia
+		normalmente, criando um "buraco" na numeração ATCUD da série
+		(a sequência do ATCUD vem diretamente do sufixo de doc.name).
+
+		Mover a validação para validate() não resolveria nada - lido em
+		frappe/model/document.py::Document.insert(): self.set_new_name()
+		corre ANTES de self.run_before_save_methods() (que chama
+		validate()). before_insert é o único hook do ciclo de vida que
+		corre antes da atribuição do nome, por isso é o único ponto onde
+		bloquear aqui evita mesmo o consumo do número.
+
+		Não inclui _validate_nif_threshold aqui de propósito: depende de
+		grand_total/paid_amount, só calculados pelo controller nativo do
+		ERPNext dentro do seu próprio validate() - ainda não existem de
+		forma fiável neste ponto do ciclo de vida. Continua só em
+		before_submit_document, como camada de segurança secundária -
+		tal como _validate_tax_exemption_hard também continua lá, dupla
+		validação deliberada para o caso de um rascunho válido no
+		momento da criação ser editado para um estado inválido antes de
+		ser submetido.
+		"""
+		if not self._is_portuguese_company(
+			doc.company) or doc.doctype not in self.supported_doctypes:
+			return
+
+		self._validate_tax_exemption_hard(doc)
+
 	def before_submit_document(self, doc, method=None):
 		"""✅ OTIMIZADO: Hook before_submit"""
 		try:
@@ -1421,6 +1461,11 @@ def validate_portugal_compliance(doc, method=None):
 def before_submit_document(doc, method=None):
 	"""Hook para before_submit de documentos"""
 	return portugal_document_hooks.before_submit_document(doc, method)
+
+
+def before_insert_document(doc, method=None):
+	"""Hook para before_insert de documentos - ver nota no método de classe"""
+	return portugal_document_hooks.before_insert_document(doc, method)
 
 
 def validate_transport_start_time(doc, method=None):
