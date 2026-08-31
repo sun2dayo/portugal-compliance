@@ -269,11 +269,11 @@ Se ainda não tiver itens/clientes de teste:
 5. Grave (**Save**) e depois **Submit** (o botão de submissão definitiva, que confirma:
    *"Permanently Submit FT2026NDX0001?"*).
 6. Ao submeter, o documento fica **imediatamente assinado e com ATCUD atribuído** — não há um
-   passo manual separado. Na barra lateral do documento, uma caixa
-   **"Informações de Compliance Português - Fatura de Venda"** mostra:
-   - **ATCUD**: código único (ex. `AAJFJ93MZ2-0001`), com o estado **Conforme** a verde.
-   - **Total s/ IVA** e **Total c/ IVA** do documento.
-   - O **QR Code** propriamente dito, já pronto para impressão.
+   passo manual separado. O campo **ATCUD** (ex. `AAJFJ93MZ2-0001`) fica visível diretamente no
+   próprio formulário, junto dos totais e do estado do documento já nativamente mostrados pelo
+   ERPNext (não há uma caixa de resumo separada a duplicar esta informação). Junto ao campo
+   **Customer**, um pequeno badge mostra o **NIF do cliente** — o único dado que não estava já
+   visível em mais lado nenhum do formulário.
 7. Para ver a fatura como o cliente a receberia, use **Imprimir › Imprimir Fatura PT** (o
    formato de impressão dedicado do módulo). O documento impresso mostra o cabeçalho da
    empresa, o número da fatura, o ATCUD, o QR Code, a tabela de artigos com IVA discriminado
@@ -350,9 +350,19 @@ três documentos não têm.
    guias de transporte portuguesas."* Se a morada ainda não existir, crie-a em **+ Create a new
    Address** — e lembre-se de a associar ao Cliente correto na tabela **Links** da própria
    morada, ou o sistema recusa aceitá-la como morada de entrega desse cliente.
-5. Grave e submeta. Tal como os outros documentos, fica com ATCUD e QR Code próprios. Repare
+5. Preencha a **Data/Hora de Início do Transporte** (`transport_start_datetime`) com um valor
+   no **futuro** — a AT não aceita a comunicação de um transporte cujo início já passou no
+   momento da submissão. Uma data/hora no passado é recusada com uma mensagem clara antes de
+   sequer contactar o webservice.
+6. Grave e submeta. Tal como os outros documentos, fica com ATCUD e QR Code próprios. Repare
    que, no QR Code, o campo de tipo de documento mostra corretamente **`GR`** — o código real
    da série usada — coerente com o prefixo `GR2026NDX` visível no número do documento.
+7. No menu **Imprimir**, além do botão **Imprimir Guia PT** (formato legal padrão, sem
+   valores), existe também **Imprimir Guia PT (Com Valor)** — a mesma guia, mas com uma coluna
+   de Preço Unitário e Valor Total por linha e um total geral no rodapé. Útil quando o
+   destinatário precisa de conferir os valores transportados (ex. devoluções, transferências
+   entre armazéns faturadas à parte), sem alterar em nada o formato legal padrão nem o que é
+   comunicado à AT — a escolha do formato de impressão é puramente visual.
 
 ---
 

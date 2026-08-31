@@ -217,7 +217,61 @@ não são efetivamente isentas.
 
 ---
 
-## 6. Documentos Anulados
+## 6. Moeda Base (EUR) e Descontos Globais (2026-08-31)
+
+`get_sales_invoices_data()` foi auditada e corrigida em dois pontos, ambos ligados a como o
+ERPNext calcula e guarda valores por linha e por documento — não a erros de fórmula do
+próprio módulo.
+
+### 6.1. Moeda de Transação vs. Moeda Base
+
+O ERPNext guarda cada valor monetário duas vezes: uma vez na **moeda de transação** do
+documento (`net_total`, `grand_total`, `rate`, `amount` — o que aparece no ecrã se a fatura
+for emitida em USD, por exemplo) e outra vez já convertida para a **moeda base da empresa**
+(`base_net_total`, `base_grand_total`, `base_rate`, `base_net_amount`), aplicando
+`conversion_rate` internamente. O SAF-T (PT) exige valores em EUR — a moeda base de qualquer
+empresa portuguesa — independentemente da moeda em que uma fatura específica foi emitida.
+
+**Defeito corrigido**: a versão anterior selecionava e usava os campos de moeda de
+**transação** (`si.net_total`, `si.total_taxes_and_charges`, `si.grand_total`, `sii.rate`,
+`sii.amount`) diretamente no XML, com `si.conversion_rate` selecionado mas nunca de facto
+utilizado (código morto, removido). Numa fatura em EUR isto não tinha efeito visível — moeda
+de transação e moeda base coincidem — mas uma fatura em USD ou qualquer outra moeda
+estrangeira reportava ao SAF-T os valores errados, sem qualquer conversão à taxa de câmbio.
+Confirmado ao vivo com uma fatura de teste em USD e uma taxa de câmbio real
+(`Currency Exchange`, USD→EUR): antes da correção, os totais no XML batiam com o valor em
+dólares, não em euros. Corrigido trocando todos os campos usados (linha e cabeçalho) para os
+equivalentes `base_*`:
+
+```python
+# get_sales_invoices_data - SELECT corrigido
+si.base_net_total, si.base_total_taxes_and_charges, si.base_grand_total,
+sii.base_rate, sii.base_net_amount
+```
+
+### 6.2. Desconto Global (`additional_discount_amount`)
+
+**Defeito corrigido**: a construção da linha usava `Item.amount`/`base_amount` — campo que só
+reflete o desconto **de linha** (`discount_percentage`/`discount_amount` preenchidos
+diretamente no item). Confirmado por leitura de
+`erpnext/controllers/taxes_and_totals.py::apply_discount_amount()`: quando a fatura tem um
+desconto **global** (`additional_discount_amount`, aplicado ao cabeçalho, ex. "10% de desconto
+em toda a fatura"), o ERPNext distribui-o proporcionalmente por cada linha, mas grava o
+resultado apenas em `Item.net_amount`/`base_net_amount` — nunca em `amount`/`base_amount`, que
+permanecem com o valor pré-desconto-global. O total do cabeçalho (`grand_total`) já refletia
+corretamente o desconto; era só a discriminação por linha do SAF-T que o ignorava, produzindo
+um ficheiro onde a soma das linhas não batia com o total do documento sempre que um desconto
+global era usado. Corrigido usando `net_amount`/`base_net_amount` (e `base_rate`) em vez de
+`amount`/`base_amount` na construção de cada linha de `SourceDocuments`.
+
+> Para uma fatura normal em EUR sem desconto global (o caso comum), `base_*` e `net_amount`
+> coincidem exatamente com os valores usados antes da correção — sem regressão. O impacto real
+> é limitado às faturas em moeda estrangeira e/ou com desconto global aplicado, mas nesses
+> casos era um erro fiscal genuíno, não cosmético.
+
+---
+
+## 7. Documentos Anulados
 
 Uma fatura anulada (`docstatus=2`) **não desaparece** do SAF-T — a lei exige o registo da
 anulação, não a sua omissão:
@@ -229,9 +283,9 @@ WHERE si.docstatus IN (1, 2)  # inclui anuladas
 
 ```python
 is_cancelled = row.docstatus == 2
-invoice["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.total_taxes_and_charges))
-invoice["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.net_total))
-invoice["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.grand_total))
+invoice["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.base_total_taxes_and_charges))
+invoice["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_net_total))
+invoice["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_grand_total))
 ```
 
 ```xml
@@ -246,7 +300,7 @@ sem efeito fiscal.
 
 ---
 
-## 7. Praça Fiscal (Continente/Açores/Madeira)
+## 8. Praça Fiscal (Continente/Açores/Madeira)
 
 `TaxCountryRegion` — tanto na `TaxTable` mestra como por linha de `SourceDocuments` — é
 extraído estruturalmente de `Account.at_tax_region`, nunca adivinhado a partir da
@@ -263,16 +317,20 @@ implementar à parte.
 
 ---
 
-## 8. Retenção na Fonte
+## 9. Retenção na Fonte
 
 `_withholding_tax_rows(invoice_name)` mapeia linhas de `Sales Taxes and Charges` marcadas com
 `is_tax_withholding_account=1` (campo nativo do ERPNext, populado quando uma *Tax Withholding
 Category* é aplicada):
 
 ```sql
-SELECT description, tax_amount FROM `tabSales Taxes and Charges`
+SELECT description, base_tax_amount FROM `tabSales Taxes and Charges`
 WHERE parent = %s AND is_tax_withholding_account = 1
 ```
+
+> Corrigido de `tax_amount` para `base_tax_amount` na mesma auditoria da secção 6 — mesma
+> razão: `tax_amount` é a moeda de transação, `base_tax_amount` é a moeda base (EUR) exigida
+> pelo SAF-T.
 
 `WithholdingTaxType` (IRS/IRC/IS) — campo opcional no XSD — é deliberadamente omitido: não
 tem correspondência fiável no modelo de dados do ERPNext, e inventar um valor seria pior do
@@ -280,7 +338,7 @@ que não o reportar.
 
 ---
 
-## 9. Estrutura de Ficheiros
+## 10. Estrutura de Ficheiros
 
 | Ficheiro | Função |
 | :--- | :--- |
@@ -295,7 +353,7 @@ que não o reportar.
 
 ---
 
-## 10. Resolução de Problemas
+## 11. Resolução de Problemas
 
 | Sintoma | Causa | Solução |
 | :--- | :--- | :--- |
@@ -305,6 +363,8 @@ que não o reportar.
 | `download_saft_file` devolve `{"status": "error", "message": "Export not completed"}` | Export com `status` diferente de `"Completed"` (ainda `In Progress` ou `Failed`) | Verificar `SAF-T Export Log` — um export inválido nunca fica disponível para download por desenho. |
 | `GeneralLedgerEntries` ausente do ficheiro | Não é um erro — `TaxAccountingBasis="F"` | Só exigido sob base `C`/`I` (contabilidade integrada), fora do âmbito atual do módulo. |
 | Faturas de fornecedor aparecem na tabela de Suppliers mas não em SourceDocuments | Comportamento correto — Purchase Invoice só popula masterdata | Ver Pilar 5 em [manual_funcionalidades_compliance.md](manual_funcionalidades_compliance.md). |
+| Soma das linhas de uma fatura não bate com o total do documento no SAF-T | Desconto global (`additional_discount_amount`) só refletido em `net_amount`/`base_net_amount`, não em `amount`/`base_amount` | Corrigido nesta versão — ver secção 6.2. Confirmar que a instalação já tem a correção (`get_sales_invoices_data` a usar `base_net_amount`). |
+| Totais do SAF-T não batem com os valores mostrados no documento em moeda estrangeira | Query usava campos de moeda de transação em vez de `base_*` (moeda base/EUR) | Corrigido nesta versão — ver secção 6.1. O SAF-T exige sempre EUR, independentemente da moeda de emissão da fatura. |
 
 ---
 

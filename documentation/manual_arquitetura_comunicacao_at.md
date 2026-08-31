@@ -96,6 +96,7 @@ sequenceDiagram
     activate Hooks
     Hooks->>Hooks: _validate_tax_exemption_hard (bloqueia se faltar isenção)
     Hooks->>Hooks: verifica série comunicada (bloqueia se não)
+    Hooks->>Hooks: _load_private_key() (bloqueia se chave ausente/ilegível - 2026-08-31)
     deactivate Hooks
     note right of Frappe: Se qualquer validação falhar aqui,<br/>toda a transação sofre rollback -<br/>nenhum ATCUD chega a ser gerado
     Frappe->>Hooks: on_submit: generate_atcud_on_submit

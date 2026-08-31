@@ -24,6 +24,43 @@ mínimo/máximo de chave — é uma responsabilidade de provisionamento, não de
 
 ---
 
+## 1.1. Pré-requisito de Submissão — Escudo de Chave Ausente (2026-08-31)
+
+Até esta data, uma chave de assinatura ausente ou ilegível era um **falha silenciosa**:
+`generate_atcud_for_document()` capturava `SignatureError` internamente, deixava o ATCUD
+gerar-se na mesma (sem hash real) e limitava-se a anexar uma linha de comentário no documento
+— *"Assinatura digital NAO gerada - configure a chave em Portugal Auth Settings"* — sem nunca
+bloquear a submissão. Um documento fiscal podia assim ficar definitivamente submetido sem
+assinatura RSA-SHA1 nenhuma.
+
+`before_submit_document()` ([document_hooks.py](portugal_compliance/utils/document_hooks.py))
+ganhou um bloqueio prévio explícito, para qualquer DocType com `requires_atcud=True` em
+`supported_doctypes` (não restrito aos 4 `FISCAL_IMMUTABLE_DOCTYPES` — cobre também Delivery
+Note, que tem `fiscal_document=False` mas continua obrigado a ATCUD/assinatura pela Portaria
+363/2010):
+
+```python
+if config.get("requires_atcud"):
+    from portugal_compliance.utils.signature import _load_private_key, SignatureError
+    try:
+        _load_private_key()
+    except SignatureError as e:
+        frappe.throw(
+            _("Emissão bloqueada: A Chave Privada de Assinatura Digital não está configurada "
+              "no Portugal Auth Settings. O documento não pode ser selado legalmente.") + f" ({str(e)})",
+            title=_("Assinatura Digital em Falta"),
+        )
+```
+
+Reutiliza `_load_private_key()` (secção 6) em vez de reimplementar a verificação — os mesmos
+três erros que a função já lançava (caminho vazio, ficheiro ilegível, PEM inválido) agora
+chegam a interromper a transação **antes** de qualquer ATCUD ser queimado, não apenas depois
+de o documento já estar imutável. Testado ao vivo: remover temporariamente
+`invoice_signing_key_path` faz a submissão falhar de imediato (`docstatus` permanece `0`,
+`atcud_code` permanece vazio); restaurar o caminho permite a submissão normal.
+
+---
+
 ## 2. Regras de Encadeamento (Chaining)
 
 Cada documento assina uma string que inclui a hash Base64 do documento **anterior da mesma

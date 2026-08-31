@@ -63,7 +63,7 @@ fiscais — ver secção 8.
 | :--- | :--- | :--- |
 | `series_name` | Data | Nome descritivo (obrigatório) |
 | `company` | Link (Company) | Empresa (obrigatório) |
-| `document_type` | Select | DocType do ERPNext associado (obrigatório) — inclui opções fora do âmbito fiscal atual (Purchase Invoice, Stock Entry, Journal Entry, etc.), mantidas por compatibilidade histórica |
+| `document_type` | Select | DocType do ERPNext associado (obrigatório) — inclui opções fora do âmbito fiscal atual (Purchase Invoice, Stock Entry, Journal Entry, etc.), mantidas por compatibilidade histórica sem uso ativo; distinto de opções como Quotation/Sales Order/Purchase Order/Purchase Receipt/Material Request, que **são** efetivamente usadas — desde 2026-08-31, `api/series_api.py::get_available_portugal_series_certified` consulta séries por `(company, document_type)` para o auto-preenchimento de naming series nesses doctypes não-fiscais, uma funcionalidade real, não apenas um valor de compatibilidade |
 | `prefix` | Data | Prefixo real, sem hífenes (ex: `RG2026N`) (obrigatório) |
 | `naming_series` | Data | `{prefix}.####` |
 | `is_active` | Check | `0` após finalização ou anulação — bloqueia fisicamente novos documentos (`_validate_series_not_inactive`) |

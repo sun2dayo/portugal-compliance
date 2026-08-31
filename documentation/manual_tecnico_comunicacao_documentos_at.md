@@ -142,7 +142,39 @@ chega à AT no próximo SAF-T (`InvoiceStatus="A"`, valores a `0.00`).
 
 ## 4. Comunicação de Transporte (`envioDocumentoTransporte`)
 
-### 4.1. Especificidades face às Faturas
+### 4.1. Gatilho e Proteção Contra Condição de Corrida
+
+Hook `on_submit` de Delivery Note:
+[document_hooks.py](portugal_compliance/hooks.py) →
+`at_transport_webservice.enqueue_transport_communication`, mesmo padrão de despacho
+assíncrono do canal de faturas (secção 3.1):
+
+```python
+def enqueue_transport_communication(doc, method=None):
+    method_setting = frappe.db.get_single_value("Portugal Auth Settings", "transport_communication_method")
+    if method_setting != "Tempo Real (Webservice)":
+        return
+    frappe.enqueue(
+        "portugal_compliance.utils.at_transport_webservice.register_transport_document",
+        queue="short", timeout=120,
+        document_type=doc.doctype, document_name=doc.name,
+        enqueue_after_commit=True,
+    )
+```
+
+> **`enqueue_after_commit=True` (2026-08-31).** Sem este parâmetro, `frappe.enqueue` despacha
+> o job para o Redis Queue imediatamente, dentro da mesma transação HTTP que ainda está a
+> submeter o documento — um worker RQ suficientemente rápido podia começar a ler o Delivery
+> Note (via `SAFTGenerator.get_sales_invoices_data`, secção 3.2) **antes** de o `COMMIT` da
+> transação principal tornar visível o ATCUD/assinatura recém-gerados a outras conexões à base
+> de dados, resultando num payload sem ATCUD ou com dados a meio da gravação. Com este
+> parâmetro, o Frappe adia o `enqueue` real para `frappe.db.after_commit` — o job só entra na
+> fila depois de a transação que o submeteu ter terminado com sucesso. Aplicado apenas ao
+> canal de transporte nesta correção; o canal de faturas (`enqueue_invoice_communication`,
+> secção 3.1) **ainda não tem este parâmetro** — risco equivalente, ainda por corrigir, fora
+> do âmbito desta atualização de documentação.
+
+### 4.2. Especificidades face às Faturas
 
 * **Portas assimétricas testes/produção** (701/401) — ao contrário do webservice de
   faturação, que usa 723/443. Um erro comum de configuração é assumir que a porta de
@@ -160,7 +192,7 @@ chega à AT no próximo SAF-T (`InvoiceStatus="A"`, valores a `0.00`).
 * **Aceite mesmo sem ATCUD** (a AT devolve um aviso, não um erro), mas como a série GR já está
   comunicada e a gerar ATCUD real, é sempre enviado quando existe.
 
-### 4.2. Códigos de Resposta
+### 4.3. Códigos de Resposta
 
 ```python
 SUCCESS_CODES = {"0"}
@@ -261,6 +293,8 @@ scheduler_events = {
 | Retries param ao fim de ~4h sem sucesso | 8 tentativas esgotadas, backoff atingiu o teto | `next_retry_date` fica `None` — reenviar manualmente via `register_invoice`/`register_transport_document`, ou investigar `at_response_message` no log. |
 | Fatura marcada "Failed" mas a AT já a tem registada | Código de duplicado não reconhecido | Confirmar que o código devolvido está em `DUPLICATE_CODES` (`-3`, `-10`) — a AT pode devolver qualquer um dos dois. |
 | `HashCharacters` no payload não bate com o QR Code impresso | Campo confundido com o `<Hash>` completo do SAF-T | `HashCharacters` são só os 4 caracteres de controlo (`ATCUD Log.signature_hash_control`), o mesmo valor do campo `Q` do QR Code — nunca a assinatura completa. |
+| Submissão de uma Guia de Transporte recusada com data/hora de início no passado | `validate_transport_start_time` (hook `validate` de Delivery Note) rejeita `transport_start_datetime` anterior ao momento atual | Comportamento correto — a AT trata isto como comunicação retroativa inválida na criação do documento (distinto do código de alerta `-100`, secção 4.3, que é sobre a resposta *da AT* a uma comunicação já enviada). Corrigir a data/hora antes de gravar. |
+| Guia de Transporte / Fatura mostra "Código AT: pendente" logo a seguir à submissão, mesmo com o canal de tempo real ativo | Artefacto de temporização esperado, não uma falha | `enqueue_after_commit=True` (secção 4.1) adia intencionalmente o despacho do job até ao commit da transação de submissão — entre o `Submit` e a fila `short` processar o job (tipicamente segundos, não minutos), o `Portugal Invoice Communication Log` ainda está em `Pending`. Atualizar a página ou consultar o log alguns segundos depois. |
 
 ---
 

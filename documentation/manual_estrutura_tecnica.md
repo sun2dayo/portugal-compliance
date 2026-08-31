@@ -77,7 +77,7 @@ campo a campo de cada um.
 | Ficheiro | Superfície |
 | :--- | :--- |
 | `atcud_api.py` | `regenerate_atcud`, `bulk_generate_atcud`, `validate_atcud`, estatísticas de ATCUD. Allowlist de doctypes suportados alinhada com `FISCAL_IMMUTABLE_DOCTYPES`. |
-| `series_api.py` | `get_available_document_types`, `test_series_generation`, estatísticas de séries. |
+| `series_api.py` | `get_available_document_types`, `test_series_generation`, `get_series_status`, `get_available_portugal_series_certified` (2026-08-31: wrapper whitelisted sobre `get_series_status`, filtrando séries inativas — corrige o auto-preenchimento de série nos Form Scripts, que antes apontavam para caminhos Python inexistentes), estatísticas de séries. |
 | `company_api.py` | Ativação de compliance português numa empresa; séries de devolução (`RETURN_DOCUMENT_SERIES`). |
 | `saft_api.py` | `generate_saft_export`, `download_saft_file`, listagem de exports. |
 

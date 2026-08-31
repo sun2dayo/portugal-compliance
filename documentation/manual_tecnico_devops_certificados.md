@@ -123,6 +123,16 @@ Reconstruído em cada pedido SOAP — nunca reutilizado entre chamadas (nonce de
 série (ver [manual_tecnico_series_atcud.md](manual_tecnico_series_atcud.md), secção 3.4).
 Se for perdida ou comprometida:
 
+> **Impacto operacional (2026-08-31).** `invoice_signing_key_path` deixou de ser apenas um
+> requisito para gerar uma assinatura válida — é agora um **bloqueio rígido de submissão**
+> (`before_submit_document`, ver
+> [manual_tecnico_hash_documentos.md](manual_tecnico_hash_documentos.md), secção 1.1). Isto
+> muda o risco de uma rotação de chave: uma janela em que o campo fica temporariamente vazio
+> ou aponta para um ficheiro ilegível já não degrada silenciosamente (documento sem
+> assinatura, mas submetido) — **impede a submissão de qualquer Sales Invoice, POS Invoice,
+> Payment Entry ou Delivery Note** até o caminho ser corrigido. Planear a rotação para não
+> deixar essa janela aberta durante horário de faturação ativa.
+
 1. Gerar uma nova chave privada RSA e atualizar `invoice_signing_key_path` /
    `invoice_signing_key_version` (incrementar a versão, para auditoria).
 2. **Obrigatório**: qualquer série ainda ativa que dependa da continuidade de encadeamento
@@ -151,6 +161,7 @@ autenticação, não de assinatura de documentos).
 | `at_webservice.test_connection()` (whitelisted) | Testa configuração do webservice de séries — mTLS + credenciais presentes, sem submeter nada. |
 | `at_invoice_webservice.test_connection()` (whitelisted) | Equivalente para o webservice de faturas. |
 | `signature.verify_signing_key_configured()` (whitelisted) | Confirma que a chave de assinatura está configurada, sem expor o caminho a utilizadores sem permissão de leitura em `Portugal Auth Settings`. |
+| Tentativa de submissão de um documento fiscal (Sales Invoice/POS Invoice/Payment Entry/Delivery Note) | Desde 2026-08-31, é também um diagnóstico prático: se `invoice_signing_key_path` estiver vazio ou o ficheiro for ilegível, a submissão falha de imediato com *"Emissão bloqueada: A Chave Privada de Assinatura Digital não está configurada..."* — confirma em produção, sem consultar o ficheiro diretamente no servidor. |
 | `openssl x509 -in <cert> -text -noout` | Inspeção manual de validade/emissor de um certificado, fora do módulo. |
 | `openssl rsa -in <key> -check` | Confirma que uma chave privada é matematicamente válida. |
 
