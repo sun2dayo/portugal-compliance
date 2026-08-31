@@ -433,6 +433,19 @@ Empresa usado no Passo 4.
 Abra a série que quer gerir. Consoante o estado em que ela se encontra, verá botões
 diferentes no topo do documento, agrupados sob o menu **Portugal Compliance**.
 
+> **Nota Importante — Escalabilidade do Número de Sequência.** O padrão visual da série
+> (campo **Naming Series**, ex. `FT2026ZB.####`) mostra 4 algarismos (`####`), mas isto é
+> apenas o número mínimo de zeros à esquerda usado para preencher os primeiros documentos —
+> **não é um limite máximo**. Ao emitir o documento n.º 10.000 de uma série, o sistema passa
+> automaticamente para 5 algarismos (de `FT2026ZB9999` para `FT2026ZB10000`), depois para 6
+> ao chegar aos 100.000, e assim sucessivamente, sem qualquer intervenção manual. Isto não
+> quebra a comunicação com a AT nem a validade legal do ATCUD: o Código Único de Documento é
+> sempre `código_de_validação-sequência`, com a sequência a acompanhar naturalmente o número
+> real do documento, tal como acontece em qualquer software de faturação certificado do
+> mercado. Numa empresa de grande volume (ex. um POS movimentado), pode portanto confiar que
+> uma série nunca "esgota" nem precisa de ser encerrada e substituída apenas por ter
+> ultrapassado 9.999 documentos.
+
 ### 9.1. Comunicação Individual de uma Série
 
 Se criar uma série nova a meio do ano — por exemplo, ao adicionar manualmente uma segunda
