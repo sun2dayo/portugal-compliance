@@ -241,6 +241,72 @@ class PortugalComplianceDocumentHooks:
 				indicator="green"
 			)
 
+	def validate_company_fiscal_lock(self, doc, method=None):
+		"""
+		Hook validate de Company (2026-09-01) - "Ponto de Não-Retorno" fiscal
+		exigido pela Portaria 363/2010, que proíbe a manipulação ou
+		ocultação das regras de faturação.
+
+		Duas responsabilidades distintas, deliberadamente na mesma função
+		por serem faces da mesma garantia ("uma empresa portuguesa nunca
+		opera fora do motor de compliance"):
+
+		1. Ativação automática: se País = Portugal e o compliance ainda
+		   não estava ativo, ativa-o aqui - cobre tanto uma Company nova
+		   como uma já existente que muda de País para Portugal. Não
+		   duplica o bloqueio já existente para a direção inversa (impedir
+		   desativar depois de já ter estado ativo) - esse já existe,
+		   incondicional (nem depende de haver documentos fiscais
+		   emitidos), em
+		   regional/portugal.py::validate_portugal_company_settings_safe.
+		   As duas funções juntas fecham o ciclo completo: nunca fica
+		   inativo enquanto o País for Portugal, seja qual for o caminho
+		   usado para lá chegar.
+
+		2. Bloqueio de País/NIF: uma vez que a empresa já tem pelo menos
+		   um documento fiscal submetido (ver has_existing_fiscal_records),
+		   alterar o País ou o NIF base corromperia a coerência entre os
+		   documentos já assinados/comunicados à AT e a identidade fiscal
+		   de quem os emitiu - o ficheiro SAF-T e o próprio ATCUD
+		   assumem que esses dois campos nunca mudam depois de um
+		   documento existir. Ao contrário do bloqueio de campos fiscais
+		   em `enforce_fiscal_field_lock` (por documento, ativa a partir
+		   do primeiro documento SUBMETIDO desse documento em concreto),
+		   este é ao nível da Company inteira - qualquer documento fiscal
+		   já submetido, de qualquer um dos 4 doctypes, bloqueia a
+		   alteração destes 2 campos para sempre.
+		"""
+		if doc.country == "Portugal" and not cint(doc.get("portugal_compliance_enabled")):
+			doc.portugal_compliance_enabled = 1
+			frappe.msgprint(
+				_(
+					"Portugal Compliance foi ativado automaticamente por esta empresa "
+					"ter o País definido como Portugal - não é permitido operar uma "
+					"empresa portuguesa neste sistema sem o motor de compliance fiscal "
+					"ativo (Portaria n.º 363/2010)."
+				),
+				title=_("Compliance Ativado Automaticamente"),
+				indicator="blue",
+			)
+
+		before = doc.get_doc_before_save()
+		if not before:
+			return
+
+		if not has_existing_fiscal_records(doc.name):
+			return
+
+		if doc.country != before.country or doc.tax_id != before.tax_id:
+			frappe.throw(
+				_(
+					"Ação bloqueada: Já existem documentos fiscais emitidos para esta "
+					"Empresa. Para garantir a integridade do ficheiro SAF-T, não é "
+					"permitido desativar as regras de compliance, nem alterar o País ou "
+					"NIF base."
+				),
+				title=_("Alteração Bloqueada — Documentos Fiscais Existentes"),
+			)
+
 	def _should_activate_compliance(self, doc):
 		"""Verificar se deve ativar compliance"""
 		return (doc.country == "Portugal" and
@@ -1471,6 +1537,34 @@ def before_insert_document(doc, method=None):
 def validate_transport_start_time(doc, method=None):
 	"""Hook para before_submit da Delivery Note - Data/Hora de Início do Transporte tem de estar no futuro"""
 	return portugal_document_hooks.validate_transport_start_time(doc, method)
+
+
+# Doctypes fiscais efetivamente cobertos pelo motor de compliance (mesmo
+# âmbito de FISCAL_IMMUTABLE_DOCTYPES) - usados aqui, não importados dali,
+# para não criar uma dependência circular a esta altura do ficheiro.
+FISCAL_RECORD_DOCTYPES = ("Sales Invoice", "POS Invoice", "Delivery Note", "Payment Entry")
+
+
+def has_existing_fiscal_records(company):
+	"""
+	True se a empresa já tem pelo menos um documento fiscal submetido
+	(docstatus=1) num dos 4 doctypes fiscais - usada por
+	validate_company_fiscal_lock para travar alterações a País/NIF da
+	Company depois de já ter emitido documentos reais. `frappe.db.exists`
+	pára na primeira ocorrência (não conta o total), suficiente para uma
+	pergunta puramente booleana.
+	"""
+	if not company:
+		return False
+	for doctype in FISCAL_RECORD_DOCTYPES:
+		if frappe.db.exists(doctype, {"company": company, "docstatus": 1}):
+			return True
+	return False
+
+
+def validate_company_fiscal_lock(doc, method=None):
+	"""Hook para validate de Company - ver nota no método de classe"""
+	return portugal_document_hooks.validate_company_fiscal_lock(doc, method)
 
 
 def setup_company_portugal_compliance(doc, method=None):

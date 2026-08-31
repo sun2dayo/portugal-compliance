@@ -212,7 +212,10 @@ doc_events = {
 		# removido (2026-08-30): Company deixou de ter campos de
 		# credenciais/métodos de comunicação AT - Portugal Auth Settings é
 		# a única fonte de verdade. Ver document_hooks.py.
-		"validate": "portugal_compliance.regional.portugal.validate_portugal_company_settings_safe"
+		"validate": [
+			"portugal_compliance.regional.portugal.validate_portugal_company_settings_safe",
+			"portugal_compliance.utils.document_hooks.validate_company_fiscal_lock"
+		]
 	},
 
 	# ========== VALIDAÇÃO DE ENTIDADES ==========
