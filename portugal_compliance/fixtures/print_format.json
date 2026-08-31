@@ -2,7 +2,7 @@
  {
   "absolute_value": 0,
   "align_labels_right": 0,
-  "css": null,
+  "css": "@media screen {\n    /* Frappe já dá ao .print-format uma \"folha A4 flutuante\" nativa\n       (max-width/min-height/background/border-radius, ver\n       templates/styles/standard.css) - só reforçamos com sombra, sem\n       redeclarar width/padding/min-height e arriscar um valor\n       ligeiramente diferente do nativo. */\n    .print-format-preview {\n        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);\n    }\n\n    /* Simulação do rodapé: NÃO tentamos desenhar linhas de quebra de\n       página a cada 297mm - a pré-visualização HTML é um scroll\n       contínuo, sem o motor de paginação do wkhtmltopdf, e qualquer\n       posição calculada aqui divergiria da quebra real do PDF (fontes,\n       margens e o próprio layout engine são diferentes). Em vez disso,\n       o rodapé fica fixo (\"sticky\") ao fundo da folha enquanto se faz\n       scroll pelos artigos - o utilizador vê sempre o texto que se vai\n       repetir por página, sem uma simulação de posição que poderia\n       enganar mais do que ajudar. A paginação exata fica para o botão\n       \"PDF\", que já reflete o resultado real (verificado com pypdf).\n    */\n    .print-format-preview #footer-html {\n        position: sticky;\n        bottom: 0;\n        background: #fff;\n        margin-top: 10mm;\n        box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);\n    }\n\n    .print-format-preview table thead tr th {\n        background: #f5f5f5;\n    }\n\n    .print-format-preview table tbody tr {\n        border-bottom: 1px solid #eee;\n    }\n}\n",
   "custom_format": 1,
   "default_print_language": "en",
   "disabled": 0,
@@ -18,7 +18,7 @@
   "margin_left": 15.0,
   "margin_right": 15.0,
   "margin_top": 15.0,
-  "modified": "2026-09-01 00:20:47.693504",
+  "modified": "2026-09-01 00:34:07.035517",
   "module": "Portugal Compliance",
   "name": "Factura PT",
   "page_number": "Hide",
