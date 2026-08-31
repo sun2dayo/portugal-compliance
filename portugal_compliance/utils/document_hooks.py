@@ -724,6 +724,45 @@ class PortugalComplianceDocumentHooks:
 
 			config = self.supported_doctypes[doc.doctype]
 
+			if config.get("requires_atcud"):
+				# Escudo de pre-requisitos de assinatura (2026-08-31,
+				# pedido explicito do utilizador apos o teste ao vivo da
+				# cadeia de hashes): sign_document() ja e chamada em
+				# generate_atcud_on_submit, mas essa chamada e
+				# deliberadamente permissiva - captura SignatureError,
+				# regista em Error Log e deixa o ATCUD continuar sem
+				# assinatura (HashCharacters cai para "0"), porque a
+				# decisao de bloquear ou nao pertence a uma camada de
+				# politica, nao ao gerador de ATCUD em si (ver nota nesse
+				# ficheiro). Este e essa camada: reutiliza
+				# _load_private_key() - a MESMA verificacao exata que a
+				# assinatura real faria dali a poucos passos (caminho
+				# preenchido, ficheiro existe, e legivel, contem uma
+				# chave PEM valida) - mas aqui, antes da submissao se
+				# tornar irreversivel (docstatus 0->1, documento
+				# imutavel), a mesma falha passa a bloquear em vez de
+				# degradar em silencio.
+				#
+				# Gate em requires_atcud isolado, nao em
+				# "fiscal_document and requires_atcud" como o bloco da
+				# serie comunicada acima: Delivery Note tem
+				# fiscal_document=False mas requires_atcud=True (nao e
+				# fatura, mas tem ATCUD e assinatura por lei na mesma,
+				# Portaria 363/2010) - com o gate duplo este escudo
+				# nunca teria corrido para guias de transporte.
+				from portugal_compliance.utils.signature import _load_private_key, SignatureError
+				try:
+					_load_private_key()
+				except SignatureError as e:
+					frappe.throw(
+						_(
+							"Emissão bloqueada: A Chave Privada de Assinatura Digital não "
+							"está configurada no Portugal Auth Settings. O documento não "
+							"pode ser selado legalmente."
+						) + f" ({str(e)})",
+						title=_("Assinatura Digital em Falta"),
+					)
+
 			if config.get("fiscal_document") and config.get("requires_atcud"):
 				# O ATCUD ainda nao existe nesta fase - so e gerado em
 				# on_submit, depois de todas as validacoes (incluindo
