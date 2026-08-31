@@ -162,17 +162,19 @@ def enqueue_transport_communication(doc, method=None):
     )
 ```
 
-> **`enqueue_after_commit=True` (2026-08-31).** Sem este parâmetro, `frappe.enqueue` despacha
-> o job para o Redis Queue imediatamente, dentro da mesma transação HTTP que ainda está a
-> submeter o documento — um worker RQ suficientemente rápido podia começar a ler o Delivery
-> Note (via `SAFTGenerator.get_sales_invoices_data`, secção 3.2) **antes** de o `COMMIT` da
-> transação principal tornar visível o ATCUD/assinatura recém-gerados a outras conexões à base
-> de dados, resultando num payload sem ATCUD ou com dados a meio da gravação. Com este
-> parâmetro, o Frappe adia o `enqueue` real para `frappe.db.after_commit` — o job só entra na
-> fila depois de a transação que o submeteu ter terminado com sucesso. Aplicado apenas ao
-> canal de transporte nesta correção; o canal de faturas (`enqueue_invoice_communication`,
-> secção 3.1) **ainda não tem este parâmetro** — risco equivalente, ainda por corrigir, fora
-> do âmbito desta atualização de documentação.
+> **`enqueue_after_commit=True`.** Sem este parâmetro, `frappe.enqueue` despacha o job para o
+> Redis Queue imediatamente, dentro da mesma transação HTTP que ainda está a submeter o
+> documento — um worker RQ suficientemente rápido podia começar a ler o Delivery Note (via
+> `SAFTGenerator.get_sales_invoices_data`, secção 3.2) **antes** de o `COMMIT` da transação
+> principal tornar visível o ATCUD/assinatura recém-gerados a outras conexões à base de dados,
+> resultando num payload sem ATCUD ou com dados a meio da gravação. Com este parâmetro, o
+> Frappe adia o `enqueue` real para `frappe.db.after_commit` — o job só entra na fila depois de
+> a transação que o submeteu ter terminado com sucesso. Aplicado primeiro ao canal de
+> transporte (2026-08-30) e depois, com a mesma correção, ao canal de faturas
+> (`enqueue_invoice_communication`, secção 3.1) em 2026-08-31 — confirmado ao vivo numa
+> submissão real de Sales Invoice: o payload `RegisterInvoice` resultante já continha o ATCUD e
+> o `HashCharacters` completos, sem regressão no fluxo de comunicação (resposta da AT: sucesso,
+> código `0`).
 
 ### 4.2. Especificidades face às Faturas
 
