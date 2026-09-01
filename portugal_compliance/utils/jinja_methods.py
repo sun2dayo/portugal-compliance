@@ -1062,6 +1062,33 @@ def get_legal_text_footer():
 		return ""
 
 
+def get_compliance_version_notice():
+	"""
+	Linha "Documento Eletrónico certificado com Módulo Compliance Portugal
+	X.Y.Z - ERPNext A.B.C by NovaDX.pt" para os Print Formats fiscais.
+
+	As versões vêm sempre de __version__ dos próprios módulos instalados,
+	nunca de um texto hardcoded no template - assim nunca ficam
+	desatualizadas depois de um upgrade. frappe.get_attr() não está
+	disponível dentro do sandbox Jinja dos Print Formats (só os métodos
+	explicitamente registados em hooks.py "jinja"."methods" o estão),
+	por isso esta função existe como o único ponto de acesso seguro à
+	versão a partir de um template.
+	"""
+	try:
+		import erpnext
+		import portugal_compliance
+
+		pc_version = getattr(portugal_compliance, "__version__", "?")
+		erpnext_version = getattr(erpnext, "__version__", "?")
+		return (
+			f"Documento Eletrónico certificado com Módulo Compliance Portugal "
+			f"{pc_version} - ERPNext {erpnext_version} by NovaDX.pt"
+		)
+	except Exception:
+		return ""
+
+
 def get_company_info_complete(company):
 	"""
 	✅ NOVO: Obter informações completas da empresa
@@ -1491,6 +1518,7 @@ JINJA_METHODS = [
 	get_company_address_formatted,
 	format_customer_address,
 	get_legal_text_footer,
+	get_compliance_version_notice,
 	get_company_info_complete,
 
 	# ========== MÉTODOS QR CODE E SAF-T ==========

@@ -402,7 +402,11 @@ jinja = {
 
 		# ✅ MÉTODOS QR CODE
 		"portugal_compliance.utils.jinja_methods.get_qr_code_data",
-		"portugal_compliance.utils.jinja_methods.generate_qr_code_image"
+		"portugal_compliance.utils.jinja_methods.generate_qr_code_image",
+
+		# ✅ RODAPÉ LEGAL - versão dos módulos (frappe.get_attr não está
+		# disponível no sandbox Jinja dos Print Formats)
+		"portugal_compliance.utils.jinja_methods.get_compliance_version_notice"
 	]
 }
 
