@@ -401,6 +401,8 @@ jinja = {
 		"portugal_compliance.utils.jinja_methods.get_item_effective_tax_rate",
 		"portugal_compliance.utils.tax_breakdown.get_tax_breakdown_by_at_code",
 		"portugal_compliance.utils.jinja_methods.format_tax_breakdown",
+		"portugal_compliance.utils.tax_breakdown.register_exemption_note",
+		"portugal_compliance.utils.tax_breakdown.render_exemption_legend",
 
 		# ✅ MÉTODOS QR CODE
 		"portugal_compliance.utils.jinja_methods.get_qr_code_data",

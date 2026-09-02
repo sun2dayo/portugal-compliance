@@ -182,3 +182,42 @@ def get_tax_breakdown_by_at_code(doc):
 		)
 
 	return regions
+
+
+def register_exemption_note(item, exemption_notes):
+	"""
+	Regista o código de Motivo de Isenção (Portaria 302/2016) da linha, se
+	existir, num namespace Jinja partilhado ({% set exemption_notes =
+	namespace(codes=[]) %}, declarado antes do loop de items no Print
+	Format) e devolve o sobrescrito de referência "(n)" a colocar junto ao
+	nome/taxa do artigo - ou "" se a linha não for isenta.
+
+	Extraído em 2026-09-02 da lógica já em produção em "Factura PT"
+	(duplicada por copiar/colar até então) para deixar de estar repetida
+	em cada novo Print Format - única fonte de verdade para a numeração
+	das notas, partilhada com render_exemption_legend() abaixo.
+	"""
+	code = getattr(item, "at_exemption_reason", None)
+	if not code:
+		return ""
+	if code not in exemption_notes.codes:
+		exemption_notes.codes.append(code)
+	return f"<sup>({exemption_notes.codes.index(code) + 1})</sup>"
+
+
+def render_exemption_legend(exemption_notes, style="font-size: 9px; color: #555;"):
+	"""
+	Gera o bloco HTML da legenda de Motivos de Isenção acumulados via
+	register_exemption_note() ao longo do loop de items - um "(n) M0x -
+	<descrição>" por código distinto encontrado, pela mesma ordem/número
+	usados nos sobrescritos. Devolve "" se não houver nenhuma linha
+	isenta no documento.
+	"""
+	if not exemption_notes.codes:
+		return ""
+	rows = []
+	for i, code in enumerate(exemption_notes.codes, start=1):
+		reason = frappe.db.get_value("AT Tax Exemption", code, "description")
+		text = f"{code} - {reason}" if reason else code
+		rows.append(f"<div>({i}) {text}</div>")
+	return f'<div style="{style}">' + "".join(rows) + "</div>"
