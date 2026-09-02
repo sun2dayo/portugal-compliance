@@ -42,13 +42,17 @@ DISK_SHADOWED_FORMATS = {
 }
 
 
-def ensure_native_print_formats_compliant():
-	"""Chamada em after_migrate. Garante que os Print Formats nativos da
-	ERPNext para os 4 doctypes fiscais tem ATCUD/QR/assinatura/texto de
-	certificacao injetados. Idempotente: so escreve quando o marcador nao
-	esta presente no html atual, ou (para os 3 disk-shadowed) quando o
-	module ainda nao e o nosso - serve tanto para o rollout inicial como
-	para a auto-reparacao apos um bench update que reimporte o original."""
+def ensure_native_print_formats_compliant(app_name=None):
+	"""Chamada em after_migrate E em after_app_install. Garante que os Print
+	Formats nativos da ERPNext para os 4 doctypes fiscais tem ATCUD/QR/
+	assinatura/texto de certificacao injetados. Idempotente: so escreve
+	quando o marcador nao esta presente no html atual, ou (para os 3
+	disk-shadowed) quando o module ainda nao e o nosso - serve tanto para o
+	rollout inicial (bench migrate) como para uma instalacao nova (bench
+	install-app, onde after_migrate NAO corre) e para a auto-reparacao apos
+	um bench update que reimporte o original. `app_name` e aceite e
+	ignorado apenas porque after_app_install invoca os seus hooks com
+	frappe.get_attr(fn)(name) - ver hooks.py."""
 	if not _any_active_portuguese_company():
 		return
 
@@ -105,11 +109,13 @@ _LETTERHEAD_LOGO_SRC_PATTERN = re.compile(
 )
 
 
-def ensure_letter_head_logo_uses_base64():
-	"""Chamada em after_migrate. Garante que o <img> do logo na letterhead
-	"Company Letterhead - Grey" usa get_company_logo_base64() em vez de
-	frappe.utils.get_url() - idempotente e auto-reparavel pelo mesmo
-	motivo e mecanismo de ensure_native_print_formats_compliant() acima."""
+def ensure_letter_head_logo_uses_base64(app_name=None):
+	"""Chamada em after_migrate E em after_app_install. Garante que o <img>
+	do logo na letterhead "Company Letterhead - Grey" usa
+	get_company_logo_base64() em vez de frappe.utils.get_url() - idempotente
+	e auto-reparavel pelo mesmo motivo e mecanismo de
+	ensure_native_print_formats_compliant() acima, incluindo a mesma razao
+	para aceitar e ignorar `app_name`."""
 	if not _any_active_portuguese_company():
 		return
 	name = "Company Letterhead - Grey"

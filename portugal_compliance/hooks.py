@@ -82,7 +82,9 @@ before_uninstall = "portugal_compliance.regional.portugal.before_uninstall"
 
 # ✅ HOOK PARA ATUALIZAÇÕES
 after_app_install = [
-    "portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters"
+    "portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters",
+    "portugal_compliance.utils.native_print_format_compliance.ensure_native_print_formats_compliant",
+    "portugal_compliance.utils.native_print_format_compliance.ensure_letter_head_logo_uses_base64"
 ]
 
 # ✅ MIGRATION HOOKS
