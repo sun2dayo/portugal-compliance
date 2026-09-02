@@ -91,7 +91,8 @@ after_migrate = [
 	"portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters",
 	"portugal_compliance.utils.document_hooks.force_track_changes_property_setters",
 	"portugal_compliance.utils.document_hooks.set_pos_invoice_default_print_format",
-	"portugal_compliance.utils.native_print_format_compliance.ensure_native_print_formats_compliant"
+	"portugal_compliance.utils.native_print_format_compliance.ensure_native_print_formats_compliant",
+	"portugal_compliance.utils.native_print_format_compliance.ensure_letter_head_logo_uses_base64"
 ]
 
 
@@ -389,6 +390,7 @@ jinja = {
 		# ✅ MÉTODOS DE VALIDAÇÃO
 		"portugal_compliance.utils.jinja_methods.validate_portuguese_nif",
 		"portugal_compliance.utils.jinja_methods.get_company_nif",
+		"portugal_compliance.utils.jinja_methods.get_company_logo_base64",
 		"portugal_compliance.utils.jinja_methods.get_customer_nif",
 		"portugal_compliance.utils.jinja_methods.get_supplier_nif",
 

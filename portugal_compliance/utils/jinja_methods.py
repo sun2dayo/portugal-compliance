@@ -1534,3 +1534,50 @@ JINJA_METHODS = [
 	format_compliance_info,
 	get_compliance_summary_for_print
 ]
+
+
+def get_company_logo_base64(company):
+	"""
+	Devolve o logo da Company como data URI base64 em vez do URL
+	/private/files/... .
+
+	Necessário sempre que o logo aparece dentro de conteúdo
+	id="header-html"/"footer-html" (ex.: dentro da letterhead partilhada
+	"Company Letterhead - Grey"): frappe.utils.pdf.prepare_options()
+	chama read_options_from_html() - que já extrai e escreve em disco o
+	ficheiro temporário do cabeçalho/rodapé para o wkhtmltopdf - ANTES de
+	chamar inline_private_images() na mesma função (ver
+	frappe/utils/pdf.py). Um <img src="/private/files/..."> normal
+	nunca chega a ser convertido para base64 nessa zona, por muito válida
+	que a sessão esteja - falha sempre a carregar no PDF real (só parece
+	funcionar no preview do Desk, que renderiza a página inteira de uma
+	vez, sem esta extração). Confirmado ao vivo em 2026-09-02.
+
+	Gerar o base64 aqui, no momento do render do template, contorna o
+	bug de ordem de operações por completo - não depende de quando/onde
+	o inline_private_images() do core é chamado.
+	"""
+	try:
+		logo_url = frappe.db.get_value("Company", company, "company_logo")
+		if not logo_url:
+			return ""
+
+		from urllib.parse import urlparse
+		from frappe.core.doctype.file.utils import find_file_by_url
+
+		path = urlparse(logo_url).path
+		file = find_file_by_url(path)
+		if not file or not file.is_private:
+			# Ficheiro público - o URL normal já funciona em qualquer
+			# contexto, não precisa de inlining.
+			return frappe.utils.get_url(logo_url)
+
+		import base64
+		import mimetypes
+
+		mime_type = mimetypes.guess_type(path)[0] or "image/png"
+		b64 = base64.b64encode(file.get_content()).decode()
+		return f"data:{mime_type};base64,{b64}"
+	except Exception:
+		frappe.log_error(title="get_company_logo_base64", message=frappe.get_traceback())
+		return ""
