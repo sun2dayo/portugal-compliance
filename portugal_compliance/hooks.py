@@ -340,6 +340,7 @@ fixtures = [
 				"Sales Invoice-main-default_print_format",
 				"POS Invoice-main-default_print_format",
 				"Payment Entry-main-default_print_format",
+				"Delivery Note-main-default_print_format",
 			]]
 		]
 	},
