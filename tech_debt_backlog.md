@@ -165,3 +165,38 @@ decidir: se corre na ativação do compliance (junto de `setup_default_tax_categ
 contabilísticos existentes (mais sensível do que criar registos novos como Tax Category),
 não um mecanismo puramente aditivo/idempotente, por isso precisa de mais cuidado de
 desenho antes de implementar.
+
+
+---
+
+### 🔲 Logotipo sobredimensionado no preview do Desk (POS Invoice / Return POS Invoice)
+
+**Origem:** reportado pelo utilizador, 2026-09-02, ao rever os exemplos dos 11 Print
+Formats nativos com compliance injetada — o formato "POS Invoice" (recibo térmico)
+mostra o logotipo da empresa esticado à largura total do documento no preview
+`/desk/print/POS Invoice/...`, mesmo após tentativa de correção via CSS `!important`
+na letterhead partilhada "Company Letterhead - Grey".
+
+**Causa raiz:** não totalmente confirmada. Isolado que o problema é específico da rota
+de preview HTML do Desk (`frappe.www.printview.get_html_and_style()`) — o PDF real
+gerado via `frappe.utils.print_format.download_pdf()` (o que efetivamente se
+imprime/descarrega) não está afetado, mesmo no estado pristine sem qualquer correção
+(confirmado lado a lado). Hipótese testada e descartada: hack global da Frappe em
+`templates/styles/standard.css` (`body:last-child .print-format td img { width: 100%
+!important }`) a vencer por especificidade CSS a regra própria da letterhead
+(`.letter-head .logo { width: 90px }`) — adicionar `!important`+`max-width` a essa
+regra não resolveu o preview de forma fiável (persistiu após a correção, confirmado por
+captura de ecrã do utilizador), pelo que a causa real ainda não está identificada.
+
+**Impacto atual:** nenhum no PDF real gerado/impresso (confirmado ao vivo). Afeta
+apenas a aparência do preview no ecrã do Desk para os 2 formatos térmicos sem logotipo
+explícito no corpo (POS Invoice; Return POS Invoice tem a mesma arquitetura, não
+testado a fundo mas provavelmente com o mesmo sintoma).
+
+**Estado:** tentativa de correção revertida (commit `3ca88eb`, 2026-09-02) — letterhead
+e os 2 formatos térmicos repostos ao estado original + compliance apenas (ATCUD/QR/
+rodapé legal, sem tocar em logotipo). Não prioritário agora, por decisão do utilizador.
+
+**Próximo passo, quando retomado:** investigar diretamente a diferença de renderização
+entre a rota de preview e a rota de PDF real para este documento específico — provável
+diferença de CSS injetado ou de contexto DOM entre as duas rotas, ainda não isolada.
