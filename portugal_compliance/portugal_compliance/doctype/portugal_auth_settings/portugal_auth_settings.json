@@ -210,6 +210,18 @@
             "options": "Email",
             "depends_on": "eval:doc.saft_communication_method=='Email (Contabilista)'",
             "description": "Endereço para onde o ficheiro SAF-T mensal é enviado automaticamente, além de ficar disponível para download."
+        },
+        {
+            "fieldname": "cancelled_documents_section",
+            "fieldtype": "Section Break",
+            "label": "Impressão de Documentos Anulados"
+        },
+        {
+            "fieldname": "allow_print_cancelled_documents",
+            "label": "Permitir Impressão de Documentos Anulados",
+            "fieldtype": "Check",
+            "default": "0",
+            "description": "Desativado (omissão): comportamento nativo do ERPNext - o ícone \"Print\" fica oculto e a impressão bloqueada num documento anulado (docstatus=2), tal como em qualquer outra empresa não portuguesa. Ativado: espelha o valor para o campo nativo Print Settings.allow_print_for_cancelled, desbloqueando a impressão de qualquer documento anulado no site inteiro (é uma definição global do Frappe, não específica desta app) - necessário para o ponto 5.2 do guião de certificação AT (imprimir uma fatura anulada com a menção \"DOCUMENTO ANULADO\" visível)."
         }
     ]
 }

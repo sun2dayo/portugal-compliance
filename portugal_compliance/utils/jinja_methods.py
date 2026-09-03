@@ -1089,6 +1089,38 @@ def get_compliance_version_notice():
 		return ""
 
 
+def get_cancelled_document_banner(doc):
+	"""
+	Aviso visível e destacado de documento fiscal anulado (docstatus=2),
+	para o ponto 5.2 do guião de certificação AT - só chega a ser
+	impresso quando a impressão de documentos anulados está ativa
+	(Portugal Auth Settings -> allow_print_cancelled_documents, que
+	espelha o campo nativo Print Settings.allow_print_for_cancelled;
+	ver PortugalAuthSettings.on_update). Sem essa ativação, o Frappe já
+	bloqueia a própria rota de impressão antes de este template alguma
+	vez renderizar (frappe.www.printview), por isso não há aqui
+	nenhuma verificação extra da definição - só do docstatus.
+
+	Texto próprio ("DOCUMENTO ANULADO"), nunca a chave partilhada
+	"CANCELLED" que o Frappe usa nativamente em qualquer doctype
+	submetível do site (Pedido de Férias, Encomenda, etc.) - sobrescrever
+	a tradução dessa chave para ficar mais visível poluiria também esses
+	documentos sem qualquer relação fiscal. _() aqui traduz uma chave
+	exclusiva desta função (ver portugal_compliance/translations/pt.csv),
+	isolada de qualquer outro "cancelado" do sistema.
+	"""
+	if not doc or getattr(doc, "docstatus", None) != 2:
+		return ""
+	return (
+		'<div class="pt-cancelled-banner" '
+		'style="text-align:center;border:3px solid #c0392b;'
+		'background:#fdecea;color:#c0392b;padding:10px 6px;'
+		'margin:8px 0 14px 0;font-weight:700;font-size:22px;'
+		'letter-spacing:2px;border-radius:6px;">'
+		f'{_("DOCUMENTO ANULADO")}</div>'
+	)
+
+
 def get_company_info_complete(company):
 	"""
 	✅ NOVO: Obter informações completas da empresa
