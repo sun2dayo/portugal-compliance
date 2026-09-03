@@ -54,7 +54,9 @@ portugal_compliance/
 | `at_webservice.py` | Cliente SOAP do webservice de Séries (`registarSerie`, `consultarSeries`, `finalizarSerie`, `anularSerie`) + funções de baixo nível partilhadas (mTLS, WS-Security). |
 | `at_invoice_webservice.py` | Cliente SOAP de Faturas em tempo real (`RegisterInvoice`, `ChangeInvoiceStatus`). |
 | `at_transport_webservice.py` | Cliente SOAP de Documentos de Transporte (`envioDocumentoTransporte`). |
-| `saft_generator.py` | `SAFTGenerator` — coleta de dados, render Jinja, hash do ficheiro, contagem de registos. |
+| `saft_generator.py` | `SAFTGenerator` — coleta de dados, render Jinja, hash do ficheiro, contagem de registos; `generate_saft_background()` (job) e `_send_saft_export_email()` (2026-09-03). |
+| `saft_scheduler.py` (2026-09-03) | `ensure_monthly_saft_generated()` — geração automática mensal, registada em `scheduler_events["daily"]` a par de `tasks/daily.py` (secção 2.7). |
+| `native_print_format_compliance.py` (2026-09-02/03) | `ensure_native_print_formats_compliant()`/`ensure_letter_head_logo_uses_base64()` — auto-reparação (`after_migrate`) dos 11 Print Formats nativos da ERPNext (ver [manual_funcionalidades_compliance.md](manual_funcionalidades_compliance.md), Pilar 3). |
 | `series_adapter.py`, `series_manager.py`, `naming_series_customizer.py`, `compliance_hooks.py` | ⚠️ **Código morto** — não referenciados em `hooks.py` (ver secção 5). |
 
 ### 2.2. `portugal_compliance/doctype/` — DocTypes do Módulo
@@ -78,7 +80,7 @@ campo a campo de cada um.
 | :--- | :--- |
 | `atcud_api.py` | `regenerate_atcud`, `bulk_generate_atcud`, `validate_atcud`, estatísticas de ATCUD. Allowlist de doctypes suportados alinhada com `FISCAL_IMMUTABLE_DOCTYPES`. |
 | `series_api.py` | `get_available_document_types`, `test_series_generation`, `get_series_status`, `get_available_portugal_series_certified` (2026-08-31: wrapper whitelisted sobre `get_series_status`, filtrando séries inativas — corrige o auto-preenchimento de série nos Form Scripts, que antes apontavam para caminhos Python inexistentes), estatísticas de séries. |
-| `company_api.py` | Ativação de compliance português numa empresa; séries de devolução (`RETURN_DOCUMENT_SERIES`). |
+| `company_api.py` | Ativação de compliance português numa empresa (`_execute_compliance_setup`, com o efetivo aprovisionamento de séries delegado a `document_hooks.py`, secção 2.1); séries de devolução (`RETURN_DOCUMENT_SERIES`, `ensure_return_series_for_company` — POS Invoice partilha a série de Sales Invoice via `"shares_series_with"`, nunca cria a sua própria, ver [manual_tecnico_series_atcud.md](manual_tecnico_series_atcud.md) secção 1.1). |
 | `saft_api.py` | `generate_saft_export`, `download_saft_file`, listagem de exports. |
 
 ### 2.4. `page/compliance_dashboard/` — Dashboard AT
@@ -102,7 +104,7 @@ estatísticas, alertas de expiração de certificado, tabela "Séries por tipo d
 | Ficheiro | Função |
 | :--- | :--- |
 | `overrides/payment_entry.py` | Ajustes pontuais ao comportamento nativo de Payment Entry necessários para o fluxo fiscal (ex: conta de destino em recebimentos). |
-| `regional/portugal.py` | Ponto de integração com o mecanismo nativo `erpnext.regional` do ERPNext (não confundir com a lógica fiscal própria do módulo, que vive em `utils/`). |
+| `regional/portugal.py` | Ponto de integração com o mecanismo nativo `erpnext.regional` do ERPNext (não confundir com a lógica fiscal própria do módulo, que vive em `utils/`). **Nunca conteve** `setup_all_series_for_company` (essa função só existe em `api/company_api.py`) — um import morto que apontava para aqui causava, até 2026-09-03, uma falha silenciosa na criação automática de séries; ver Nota Metodológica, secção 5, e [manual_funcionalidades_compliance.md](manual_funcionalidades_compliance.md) secção 6. |
 
 ### 2.7. `tasks/` — Tarefas Agendadas
 
@@ -110,7 +112,7 @@ estatísticas, alertas de expiração de certificado, tabela "Séries por tipo d
 | :--- | :--- | :--- |
 | `all.py` | `scheduler_events["all"]` | Métricas diárias em cache, tarefas de alta frequência. |
 | `hourly.py` | `scheduler_events["hourly"]` | `retry_invoice_communications()` — processador do backoff exponencial (ver [manual_tecnico_comunicacao_documentos_at.md](manual_tecnico_comunicacao_documentos_at.md)). |
-| `daily.py` | `scheduler_events["daily"]` | `check_certificate_expiry` e afins. |
+| `daily.py` | `scheduler_events["daily"]` | `check_certificate_expiry` e afins. **Não é o único** registado neste evento — `scheduler_events["daily"]` também inclui `saft_scheduler.ensure_monthly_saft_generated` (secção 2.1), num ficheiro separado. |
 | `weekly.py` | `scheduler_events["weekly"]` | Relatórios semanais de compliance. |
 | `monthly.py` | `scheduler_events["monthly"]` | Lembrete/preparação da exportação SAF-T mensal. |
 | `yearly.py` | `scheduler_events["yearly"]` | Relatório executivo anual e score de compliance — **não** cria séries novas para o ano seguinte (gestão anual de séries continua manual, ver limitação em [CERTIFICATION.md](CERTIFICATION.md)). |
@@ -189,9 +191,24 @@ sítios, sem que um substitua claramente o outro:
   `ATCUD Log.qr_code_string`, sem impacto no que é impresso ou comunicado à AT, mas
   inconsistente como pista de auditoria.
 
+**C. Import morto silenciosamente absorvido (2026-09-03)** — o caso mais perigoso dos três,
+porque o código *corria* sem qualquer erro visível.
+`document_hooks.py::_create_dynamic_portugal_series_certified` importava
+`portugal_compliance.regional.portugal.setup_all_series_for_company` — função que nunca
+existiu nesse módulo. O `ImportError` resultante caía sempre, silenciosamente, num fallback
+incompleto (só 4 das 5 séries base, sem a série de devolução NC) — nenhuma exceção, nenhum
+log, nenhum sintoma óbvio, só um gap de compliance invisível até uma auditoria dedicada.
+Corrigido sem introduzir uma segunda armadilha: a correção "óbvia" (apontar o import para
+`api/company_api.py::setup_all_series_for_company`, que parecia ser "a" implementação
+completa) teria criado recursão infinita — essa função começa precisamente por chamar o
+método que estava a ser corrigido. Ver
+[manual_tecnico_series_atcud.md](manual_tecnico_series_atcud.md), secção 1.1.
+
 **Regra prática**: antes de assumir que uma função é "a" implementação de uma
 funcionalidade, confirmar com `grep` que está de facto referenciada em `hooks.py` ou chamada
 a partir de um módulo que o esteja — e, para valores estáticos por DocType (como
 `DOCUMENT_SIGNING_SPEC`, `get_document_type_code`), confirmar que continuam alinhados com o
 `document_code` real das séries em produção, não apenas com o que fazia sentido quando o
-mapeamento foi escrito.
+mapeamento foi escrito. Antes de "corrigir" um import morto apontando-o para uma função
+"óbvia" com nome parecido, ler o corpo dessa função em busca de chamadas de volta ao código
+que se está a editar — um nome igual em dois ficheiros não implica que sejam intercambiáveis.

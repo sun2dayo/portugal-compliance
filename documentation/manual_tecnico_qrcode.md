@@ -283,6 +283,18 @@ documento sem necessidade de o reimprimir.
 > usam `get_qr_code_data()` diretamente. Sem impacto no que é comunicado à AT ou impresso;
 > inconsistência da trilha de auditoria a corrigir num commit dedicado.
 
+> **`print_hide` obrigatório nestes dois campos (corrigido 2026-09-03).** `qr_code` e
+> `qr_code_image` são campos reais do doctype, com `print_hide=1` explicitamente definido nos
+> 4 doctypes fiscais (Sales Invoice, POS Invoice, Payment Entry, Delivery Note) — sem isto, os
+> Print Formats "de layout dinâmico" da própria ERPNext (auto-gerados a partir da lista de
+> campos do doctype, ex. nativo "Sales Invoice Return") listam automaticamente **todos** os
+> campos não escondidos: apareceu a etiqueta "QR Code (string AT)" com a string em bruto, e o
+> campo `qr_code_image` duplicava a imagem do QR Code já injetada manualmente pelo template
+> (secção 6). Os Print Formats próprios desta app nunca mostravam o problema — não usam o
+> layout dinâmico, chamam `get_qr_code_data()` diretamente. Ao criar qualquer novo campo
+> interno/técnico nestes doctypes, `print_hide=1` deve ser o default, não uma correção a
+> posteriori.
+
 ---
 
 ## 6. Injeção nos Print Formats
@@ -346,3 +358,4 @@ que um PDF gerado em testes nunca seja confundível com um documento fiscal real
 | QR Code não aparece no PDF | Print Format errado selecionado, ou `qr_data` vazio (documento sem ATCUD) | Confirmar Print Format ativo em `Portugal Auth Settings`/Property Setter `default_print_format`; confirmar que o documento tem `atcud_code`. |
 | `ATCUD Log.qr_code_string` não bate com o QR impresso | Segundo gerador em `atcud_generator.py` (ver secção 5) | Sem impacto no impresso/comunicado — a inconsistência é só na pista de auditoria interna. |
 | Valores a zero em `J`/`K` mesmo havendo vendas em Açores/Madeira | Conta de imposto usada na linha sem `at_tax_region` preenchido | Confirmar que a conta SNC regional (`setup/tax_setup.py`) foi criada e associada ao Item Tax Template correto. |
+| QR Code aparece duplicado, ou o texto "QR Code (string AT)" aparece no PDF | `print_hide=1` em falta em `qr_code`/`qr_code_image` (corrigido 2026-09-03, secção 5) | Só acontece em Print Formats de layout dinâmico da própria ERPNext (não os próprios desta app) — confirmar `print_hide` nos 2 campos nos 4 doctypes fiscais. |

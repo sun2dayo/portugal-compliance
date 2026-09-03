@@ -126,9 +126,13 @@ Tributária: credenciais, certificados e o modo sandbox/produção.
 3. Clique em **Save**.
 4. Ao gravar, o sistema mostra automaticamente uma caixa de diálogo **"Compliance Português
    Ativado!"** a confirmar, em poucos segundos:
-   - **4 séries criadas** — as quatro séries fiscais base (Fatura, Fatura Simplificada,
-     Recibo, Guia de Remessa) ficam criadas automaticamente, já com o prefixo correto no
-     formato `TIPO+ANO+SIGLA` (ex. `FT2026NDX`).
+   - **5 séries criadas** — as quatro séries fiscais base (Fatura, Fatura Simplificada,
+     Recibo, Guia de Remessa) mais a série de Nota de Crédito (NC, para devoluções e
+     estornos) ficam criadas automaticamente, já com o prefixo correto no formato
+     `TIPO+ANO+SIGLA` (ex. `FT2026NDX`). A Fatura Simplificada (POS Invoice) **não** tem uma
+     série de Nota de Crédito própria — uma devolução feita a partir do POS usa a mesma série
+     NC das devoluções normais, numa única sequência partilhada (a AT não distingue as duas,
+     só a numeração tem de ser sequencial e sem buracos).
    - **4 Property Setters configurados** — os campos de série (naming series) dos documentos
      de venda passam a mostrar só as séries portuguesas válidas, evitando escolhas incorretas.
    - **Custom fields criados** — os campos fiscais adicionais (ATCUD, referências de isenção,
@@ -139,15 +143,20 @@ Tributária: credenciais, certificados e o modo sandbox/produção.
    - Uma nota **"Importante"** lembra: comunique as séries à AT antes de emitir documentos —
      um documento emitido com uma série ainda não comunicada não tem validade fiscal.
 5. Feche a caixa de diálogo. Na própria ficha da empresa, uma caixa **"Séries Portuguesas
-   Configuradas"** mostra a tabela com as 4 séries, o respetivo tipo de documento e o estado
+   Configuradas"** mostra a tabela com as 5 séries, o respetivo tipo de documento e o estado
    (Ativa/Inativa, Comunicada Sim/Não).
+6. Ainda na mesma gravação, o campo **"Invoice Type Created via POS Screen"** de **POS
+   Settings** (Vendas › POS › Configurações do PDV) fica automaticamente em **"POS Invoice"**
+   — o ecrã do PDV passa a emitir sempre `POS Invoice` (série FS), nunca `Sales Invoice`. Só
+   acontece se o campo ainda estiver no valor de fábrica do ERPNext ("Sales Invoice") — uma
+   escolha já feita manualmente por um administrador nunca é substituída.
 
-> **Importante — a checkbox só cria as 4 séries transacionais base.** Marcar "Portugal
-> Compliance Enabled" cria automaticamente as séries de Fatura, Fatura Simplificada, Recibo e
-> Guia de Remessa — mas **não** cria a série de estorno (Nota de Crédito / NC), usada para
-> devoluções e notas de crédito. Depois de ativar a checkbox, clique sempre em **Gerar Séries
-> Base** (menu **Portugal Compliance**, ver 4.1) para provisionar também a série NC e deixar a
-> configuração fiscal da empresa 100% completa antes de emitir o primeiro documento.
+> **Nota histórica**: em instalações anteriores a 2026-09-03, a checkbox só criava as 4
+> séries base, sem a série NC — era preciso clicar manualmente em **Gerar Séries Base** (menu
+> **Portugal Compliance**, ver 4.1) depois. Corrigido — a checkbox sozinha já deixa a
+> configuração fiscal da empresa 100% completa. O botão "Gerar Séries Base" continua
+> disponível, útil se as séries tiverem sido apagadas ou para uma empresa ativada antes da
+> correção (idempotente, não duplica as séries já existentes).
 
 ### 4.1. Outras ações no menu Portugal Compliance da Empresa
 
@@ -221,13 +230,14 @@ cálculo de cada ATCUD (Código Único de Documento).
    aparece a mensagem **"Comunicação Iniciada — Processo de comunicação iniciado. Verifique os
    logs para detalhes."**
 5. Volte a abrir a ficha da empresa (ou atualize a página). A caixa de estado
-   **"Portugal Compliance - Status"** deve agora mostrar **Séries Comunicadas: 4** e cada série
+   **"Portugal Compliance - Status"** deve agora mostrar **Séries Comunicadas: 5** e cada série
    na tabela passa a **Comunicada: Sim**.
 6. Se quiser confirmar o detalhe técnico de cada série (código de validação devolvido pela AT,
-   ambiente usado, data de comunicação), consulte **Portugal Compliance › Portugal Series
-   Configuration** e abra qualquer uma das quatro séries.
+   ambiente usado — "Teste" ou "Produção", refletindo o `sandbox_mode` real de Portugal Auth
+   Settings no momento da comunicação —, data de comunicação), consulte **Portugal Compliance
+   › Portugal Series Configuration** e abra qualquer uma das cinco séries.
 
-Na simulação real que serviu de base a este manual, as quatro séries ficaram assim depois de
+Na simulação real que serviu de base a este manual, as cinco séries ficaram assim depois de
 comunicadas:
 
 | Prefixo | Tipo de Documento | Estado |
@@ -236,6 +246,7 @@ comunicadas:
 | `FS2026NDX` | Fatura Simplificada (POS Invoice) | Ativa · Comunicada |
 | `RG2026NDX` | Recibo (Payment Entry) | Ativa · Comunicada |
 | `GR2026NDX` | Guia de Remessa (Delivery Note) | Ativa · Comunicada |
+| `NC2026NDX` | Nota de Crédito (Sales Invoice, partilhada com devoluções de POS Invoice) | Ativa · Comunicada |
 
 ---
 
@@ -364,6 +375,30 @@ três documentos não têm.
    entre armazéns faturadas à parte), sem alterar em nada o formato legal padrão nem o que é
    comunicado à AT — a escolha do formato de impressão é puramente visual.
 
+### 6.6. Devoluções e Notas de Crédito (2026-09-03)
+
+Uma Nota de Crédito estorna, no todo ou em parte, uma Fatura (Sales Invoice) ou uma Fatura
+Simplificada (POS Invoice) já emitida — nunca edita nem apaga o documento original, que
+permanece intacto por lei (Portaria n.º 363/2010).
+
+1. Abra o documento original já submetido e clique em **Create › Return / Credit Note**.
+2. O ERPNext preenche automaticamente as quantidades e valores em negativo — ajuste-os se for
+   uma devolução parcial.
+3. Grave e submeta. A Nota de Crédito recebe o seu **próprio ATCUD** e a sua **própria cadeia
+   de assinatura** (nunca herda nada do documento original), na série `NC2026NDX` — a mesma
+   série, quer o documento original seja Sales Invoice ou POS Invoice (secção 4).
+4. No PDF impresso, procure a caixa destacada **"Referente à Fatura: {número do documento
+   original}"** — obrigatória para a AT, junto ao ATCUD. Não confundir com o campo "V/ Ref.",
+   que mostra a nota de encomenda do cliente (`po_no`), não a fatura original.
+
+> **Anulação (Cancel) é diferente de Nota de Crédito.** Cancelar um documento na primeira
+> submissão (antes de o cliente o receber) é a via correta para um erro imediato — o ATCUD
+> mantém-se registado para auditoria, o documento aparece no SAF-T mensal com `InvoiceStatus`
+> anulado e valores a zero, e, se o método de comunicação de faturas estiver em Tempo Real, a
+> AT é notificada da anulação automaticamente. A Nota de Crédito é para quando o cliente já
+> tem o documento em mãos — as duas vias são legais e servem propósitos diferentes, nunca
+> use uma para simular a outra.
+
 ---
 
 ## 7. Passo 6 — Gerar a Exportação SAF-T
@@ -392,6 +427,16 @@ inspeção ou, nalguns regimes, mensalmente por obrigação legal.
 > corretamente recusa produzir um ficheiro que a AT rejeitaria à entrada. Preencha a morada e
 > crie um novo SAF-T Export Log; não há necessidade de repetir mais nenhum passo anterior.
 
+> **Geração automática mensal (desde 2026-09-03), sem precisar de criar o registo à mão.** Em
+> **Portugal Auth Settings**, secção "Comunicação SAF-T Mensal": `saft_communication_method`
+> — `Manual` (o ficheiro fica pronto para download todos os meses, no dia configurado em
+> `saft_send_day`, omissão dia 5 — o prazo legal) ou `Email (Contabilista)` (também enviado
+> automaticamente por email para `saft_recipient_email`). **Não existe** opção de envio
+> automático à AT por webservice — a AT não disponibiliza nenhum para isso; a submissão em si
+> continua a ser sempre manual, por upload no Portal das Finanças. Os passos acima continuam
+> válidos para gerar um SAF-T ad-hoc (ex. um período fora do ciclo mensal, ou pedido de um
+> inspetor) a qualquer momento.
+
 ---
 
 ## 8. Passo 7 — Consultar o Dashboard AT
@@ -403,7 +448,7 @@ O Dashboard AT dá uma visão consolidada, em tempo real, do estado de complianc
 2. No topo, um indicador de estado geral (ex. **"Fully Compliant"**) resume, de forma visual,
    se a empresa está com tudo em ordem.
 3. Um conjunto de indicadores numéricos mostra, entre outros:
-   - **Séries Ativas** e **Séries Comunicadas** (ex. `4` e `4 / 4`).
+   - **Séries Ativas** e **Séries Comunicadas** (ex. `5` e `5 / 5`, incluindo a série NC).
    - **% Comunicação** — a percentagem de séries ativas já comunicadas à AT (deve estar em
      100%; qualquer valor abaixo disso indica séries pendentes que precisam de ser comunicadas
      antes de serem usadas).

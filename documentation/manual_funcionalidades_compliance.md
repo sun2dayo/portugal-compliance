@@ -130,12 +130,50 @@ praças fiscais (Continente/Açores/Madeira), impresso tanto em Print Formats t�
 (recibos/faturas simplificadas) como A4. Ver
 [manual_tecnico_qrcode.md](manual_tecnico_qrcode.md).
 
+**Compliance nos 11 Print Formats nativos da ERPNext (2026-09-02/03).** Além dos Print
+Formats próprios da app (`fixtures/print_format.json`), a ERPNext expõe Print Formats
+"standard" para os mesmos 4 doctypes fiscais (ex. "Sales Invoice Standard", "POS Invoice
+with Item Image", "Delivery Note Standard") — qualquer utilizador pode selecioná-los
+manualmente no diálogo de impressão, e sem intervenção saíam sem ATCUD/QR/assinatura. Todos
+os 11 (mais o par de formatos que a própria ERPNext serve a partir de ficheiro em disco —
+"Sales Auditing Voucher", "Sales Invoice Return", "Bank and Cash Payment Voucher" — adotados
+sob `module="Portugal Compliance"` para que a resolução de caminho deixe de encontrar o
+ficheiro em disco) foram injetados com os mesmos 4 elementos: ATCUD, QR Code, assinatura/
+certificado, e, onde aplicável, Motivo de Isenção de IVA e Código AT de Transporte (ver
+abaixo). Mecanismo de auto-reparação: `utils/native_print_format_compliance.py::
+ensure_native_print_formats_compliant()`, em `after_migrate` — um `bench update` que
+reimporte um destes ficheiros da própria ERPNext (raro, mas possível) fica corrigido
+automaticamente no mesmo comando, antes do site voltar a aceitar pedidos.
+
+**Motivo de Isenção de IVA (M01–M07, Portaria 302/2016).** Quando uma linha tem
+`at_exemption_reason` preenchido, aparece um número de nota sobrescrito junto ao artigo e uma
+legenda no rodapé com o código e a descrição — `register_exemption_note()`/
+`render_exemption_legend()` em `jinja_methods`/`tax_breakdown.py`, reutilizadas em todos os
+formatos (próprios e nativos) que têm itens.
+
+**Referência à fatura original nas Notas de Crédito (2026-09-03).** Um bloco condicional
+destacado (`{% if doc.is_return and doc.return_against %}`) mostra "Referente à Fatura:
+{{ doc.return_against }}" em todos os formatos de Sales Invoice/POS Invoice relevantes —
+exigido pelos inspetores da AT, não estava presente em nenhum formato antes desta correção. O
+campo "V/ Ref." pré-existente (`doc.po_no`) serve outro propósito (nota de encomenda do
+cliente) e não foi alterado.
+
+**Código AT (Transporte) nos formatos nativos de Delivery Note.** `at_codigo_transporte`
+(ver [manual_tecnico_comunicacao_documentos_at.md](manual_tecnico_comunicacao_documentos_at.md),
+secção 4) e a tabela de dados de transporte (Transportador/Matrícula/
+Motorista/Guia de Remessa/Início Transporte) foram adicionados a "Delivery Note Standard" e
+"Delivery Note with Item Image" — antes só os formatos próprios ("Guia de Transporte PT")
+mostravam estes dados.
+
 ### Pilar 4 — Interoperabilidade (SAF-T)
 
 Ficheiro SAF-T (PT) v1.04_01, validado rigorosamente contra o XSD oficial (XML Schema 1.1),
 com tratamento correto de documentos anulados (`InvoiceStatus="A"`, valores a `0.00`, ATCUD e
-hash originais preservados) e do Regime de IVA de Caixa. Ver
-[manual_tecnico_exportacao_saft.md](manual_tecnico_exportacao_saft.md).
+hash originais preservados) e do Regime de IVA de Caixa. Desde 2026-09-03, a geração mensal é
+automática (dia configurável, omissão dia 5) e o ficheiro pode ser enviado por email ao
+contabilista — nunca submetido automaticamente à AT, que não disponibiliza nenhum webservice
+para isso (confirmado por auditoria aos manuais oficiais, não assumido). Ver
+[manual_tecnico_exportacao_saft.md](manual_tecnico_exportacao_saft.md), secção 10.
 
 ### Pilar 5 — Separação de Dados
 
@@ -231,6 +269,7 @@ delete/email/export/print/report/share — guarda credenciais e a chave privada 
 | **Credenciais WS-Security** | `at_username`, `at_password`, `mtls_certificate_path`, `mtls_private_key_path`, `at_public_certificate_path` | Autenticação dupla (mTLS + WS-Security) exigida por todos os webservices da AT. |
 | **Comunicação de Faturas** | `invoice_communication_method` (Offline/Tempo Real) | Determina se `enqueue_invoice_communication` efetivamente despacha uma chamada de rede. |
 | **Comunicação de Transporte** | `transport_communication_method` (Tempo Real/Desativado) | Equivalente para Delivery Note. |
+| **Comunicação SAF-T Mensal** (2026-09-03) | `saft_communication_method` (Manual/Email Contabilista), `saft_send_day` (1–28, omissão 5), `saft_recipient_email` | Geração automática mensal (nunca webservice — a AT não disponibiliza um). Ver [manual_tecnico_exportacao_saft.md](manual_tecnico_exportacao_saft.md), secção 10. |
 | **Regime de IVA de Caixa** | `cash_vat_scheme` | Determina `PaymentType` (RC/RG) nos recibos do SAF-T — não o sentido do pagamento. |
 
 > **Nota — Arquitetura de Chave Dupla.** A chave usada para assinar documentos
@@ -255,3 +294,33 @@ Python é "a" implementação de uma funcionalidade, confirmar que está de fact
 `hooks.py` (`doc_events`, `scheduler_events`, `override_doctype_class`) ou chamada a partir de
 outro módulo que o esteja. `grep` ao nome da função em todo o repositório é o teste mais
 rápido — se o único resultado for a própria definição, é código morto.
+
+**Duas variantes deste problema encontradas e corrigidas em 2026-09**, ambas *dentro* de
+código que corria (ao contrário dos módulos parelelos acima, que nunca eram sequer chamados):
+
+1. **Import morto silencioso, sempre apanhado por um `except`**:
+   `document_hooks.py::_create_dynamic_portugal_series_certified` importava
+   `portugal_compliance.regional.portugal.setup_all_series_for_company` — função que nunca
+   existiu nesse módulo (confirmado por `grep` total ao repositório, não assumido). O
+   `ImportError` resultante era sempre silenciosamente apanhado e caía sempre num fallback
+   incompleto, sem que nenhuma exceção ou log alertasse para o facto — a ativação automática
+   de compliance numa empresa nova nunca criava a série de devolução (NC), só a via manual
+   ("Gerar Séries Base"), que chamava a função certa por um caminho diferente. Ver
+   [manual_tecnico_series_atcud.md](manual_tecnico_series_atcud.md), secção 1.1, para a
+   correção completa (incluindo o quase-erro de recursão infinita ao tentar "corrigir" o
+   import apontando-o para a função "óbvia").
+2. **Hook nunca disparado na instalação nova**: as funções de auto-reparação de compliance
+   (formatos nativos, letterhead) só estavam registadas em `after_migrate` — que **não** corre
+   durante `bench install-app`. Uma instalação nova ficava sem compliance nos 8 formatos
+   nativos só-DB até alguém correr `bench migrate` manualmente. Corrigido registando-as também
+   em `after_app_install` — mas isso exigiu adicionar um parâmetro `app_name=None` não usado a
+   ambas: ao contrário de `after_migrate` (chamado sem argumentos), `after_app_install` chama
+   cada hook com `frappe.get_attr(fn)(app_name)` — um argumento posicional — confirmado
+   diretamente em `frappe/installer.py`, não assumido a partir do nome do hook.
+
+Em ambos os casos, a lição é a mesma: **verificar o comportamento real do framework
+(`grep`/leitura direta do código do Frappe) antes de "corrigir" um caminho de código que
+parece óbvio** — nos dois casos, a correção que pareceria mais natural à primeira vista
+(apontar para a função "certa" mais completa; registar a função tal como está num segundo
+hook) teria introduzido um bug novo (recursão infinita; `TypeError` em todo `bench
+install-app` futuro) em vez de resolver o original.

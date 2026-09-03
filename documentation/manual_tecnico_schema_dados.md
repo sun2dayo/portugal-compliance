@@ -40,7 +40,7 @@ fiscais — ver secção 8.
 | `certificate_password` | Password | Password do certificado acima |
 | `at_webservice_url` | Data | URL base do webservice (default sandbox) |
 | `sandbox_mode` | Check | `1` = ambiente de testes (default) |
-| `auto_create_series` | Check | `1` (default) = ao ativar Portugal Compliance numa Company, cria automaticamente as 4 séries base (comportamento histórico, preservado); `0` = requer criação manual ("Gerar Séries Base" na Company) |
+| `auto_create_series` | Check | `1` (default) = ao ativar Portugal Compliance numa Company, cria automaticamente as 5 séries base — FT/FS/RG/GR mais NC (corrigido 2026-09-03, ver [manual_tecnico_series_atcud.md](manual_tecnico_series_atcud.md) secção 1.1); `0` = requer criação manual ("Gerar Séries Base" na Company) |
 | `validate_nif` | Check | `1` (default) = avisa (sem bloquear) quando o NIF de um Customer/Supplier português falha o módulo 11; ignora explicitamente `999999990` |
 | `require_customer_nif` | Check | `0` (default) = bloqueia (`frappe.throw`) a gravação de um Customer português sem `tax_id`; mantido inativo por omissão para não impedir vendas a consumidor final (retalho/POS) |
 | `session_tokens` | Table (`Portugal Session Token`) | Tokens de sessão, se aplicável ao fluxo de autenticação |
@@ -54,6 +54,9 @@ fiscais — ver secção 8.
 | `at_public_certificate_path` | Data | Certificado público da AT (cifra do bloco WS-Security) |
 | `invoice_communication_method` | Select | `Offline (SAF-T Mensal)` (default) / `Tempo Real (Webservice)` |
 | `transport_communication_method` | Select | `Tempo Real (Webservice)` (default) / `Desativado` |
+| `saft_communication_method` (2026-09-03) | Select | `Manual` (default) / `Email (Contabilista)` — nunca uma opção de webservice AT, que não existe. Ver [manual_tecnico_exportacao_saft.md](manual_tecnico_exportacao_saft.md), secção 10. |
+| `saft_send_day` (2026-09-03) | Select (1–28) | Dia do mês da geração automática do SAF-T do mês anterior (default `5`) |
+| `saft_recipient_email` (2026-09-03) | Data | Email do contabilista — só relevante com `saft_communication_method = "Email (Contabilista)"` |
 
 ---
 
@@ -76,7 +79,7 @@ fiscais — ver secção 8.
 | `communication_date` | Datetime | Data/hora da comunicação — usada na validação do prazo de 1 dia para `anularSerie` |
 | `communication_attempts` / `last_communication_attempt` | Int / Datetime | Telemetria de tentativas |
 | `validation_code` | Data | `codValidacaoSerie` devolvido pela AT — `None` após anulação |
-| `at_environment` | Select | `Produção` / `Teste` |
+| `at_environment` | Select | `Produção` / `Teste` — refletido a partir de `Portugal Auth Settings.sandbox_mode` no momento da comunicação (corrigido 2026-09-03; antes disso o campo nunca era escrito, ficava sempre no default "Produção"). Ver [manual_tecnico_series_atcud.md](manual_tecnico_series_atcud.md), secção 2.4. |
 | `communication_response` | Long Text | Última resposta bruta da AT |
 | `last_at_check` | Datetime | Última consulta via `consultarSeries` |
 | `document_code` | Data | Código real do tipo de documento (FT/NC/FS/RG/GR/...) — **fonte de verdade** usada em todo o módulo (SAF-T, QR Code, comunicação em tempo real) |
@@ -143,6 +146,7 @@ fiscais — ver secção 8.
 | `xsd_validation_errors` | Long Text | Lista de erros reais do XSD (até 50 ocorrências / 5000 caracteres) |
 | `file_path` / `file_size` / `file_hash` | — | Localização, tamanho e SHA-256 do ficheiro gerado |
 | `total_records` | — | Contagem de registos incluídos |
+| `export_reason` | Select | `Monthly Submission` / `Annual Submission` / `Audit Request` / `Tax Inspection` / `Manual Export` / `System Test`. Desde 2026-09-03, `"Monthly Submission"` é a única razão usada pela geração automática (`saft_scheduler.py`) e a condição de gatilho do envio por email ao contabilista — ver [manual_tecnico_exportacao_saft.md](manual_tecnico_exportacao_saft.md), secção 10.3. |
 
 `download_saft_file` (api/saft_api.py) recusa servir qualquer registo cujo `status` não seja
 `"Completed"`.

@@ -204,6 +204,18 @@ ALERT_CODES = {"-100"}  # "data de início inferior à atual" - aviso, não erro
 `-100` é tratado como sucesso: a AT está apenas a informar que a data de início do transporte
 já passou (comunicação tardia), não a rejeitar o documento.
 
+### 4.4. Persistência e Impressão do Código AT
+
+Uma comunicação bem-sucedida devolve `ATDocCodeID` — persistido em
+`Delivery Note.at_codigo_transporte` (`doc.db_set(...)`, mesmo padrão do ATCUD). Impresso nos
+Print Formats de transporte (próprios e, desde 2026-09-02/03, também "Delivery Note Standard"
+e "Delivery Note with Item Image") como `Código AT: {{ doc.at_codigo_transporte or "pendente"
+}}` — "pendente" antes de a comunicação ter sucesso (ex: `Portugal Auth Settings.
+transport_communication_method = "Desativado"`, ou a chamada ainda em retry). Não confundir
+com o ATCUD (assinatura própria do documento, sempre presente a partir do `submit`) — o
+Código AT é especificamente o identificador devolvido por este webservice, só existe quando a
+comunicação em tempo real está ativa e teve sucesso.
+
 ---
 
 ## 5. Mecanismo de Retry com Backoff Exponencial

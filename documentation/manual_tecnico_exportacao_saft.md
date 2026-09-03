@@ -338,12 +338,84 @@ que não o reportar.
 
 ---
 
-## 10. Estrutura de Ficheiros
+## 10. Geração Automática Mensal e Envio por Email (2026-09-03)
+
+Não existe nenhum webservice da AT para upload do ficheiro SAF-T — confirmado por auditoria
+direta aos manuais oficiais de integração da AT (não assumido). O único webservice de
+faturação (perfil WFA, `RegisterInvoice`/`fatcorews`, ver
+[manual_tecnico_comunicacao_documentos_at.md](manual_tecnico_comunicacao_documentos_at.md))
+comunica documentos um a um — quando esse canal está em Tempo Real
+(`Portugal Auth Settings.invoice_communication_method`), a obrigação de comunicar o SAF-T
+mensal à AT deixa de existir na prática. O ficheiro gerado aqui serve sempre para arquivo e
+para download/envio ao contabilista — **nunca** para submissão automática à AT, que não
+existe como webservice. `saf_t_export_log.py::submit_to_at()` reflete isto: lança sempre
+`NotImplementedError`, documentado no próprio docstring.
+
+### 10.1. Configuração — `Portugal Auth Settings`
+
+Secção "Comunicação SAF-T Mensal":
+
+| Campo | Tipo | Omissão | Descrição |
+| :--- | :--- | :--- | :--- |
+| `saft_communication_method` | Select | `Manual` | `Manual` (fica disponível para download em `SAF-T Export Log`) ou `Email (Contabilista)` (também enviado por email). Nunca uma terceira opção de webservice — ver acima. |
+| `saft_send_day` | Select (1–28) | `5` | Dia do mês em que o SAF-T do mês anterior é gerado automaticamente — o prazo legal (Portaria 302/2016). |
+| `saft_recipient_email` | Data (Email) | — | Só relevante quando `saft_communication_method = "Email (Contabilista)"`. |
+
+### 10.2. Geração — `utils/saft_scheduler.py`
+
+`ensure_monthly_saft_generated()`, registada em `scheduler_events["daily"]` (hooks.py). Só
+atua no dia configurado em `saft_send_day`; gera o SAF-T do **mês anterior** para cada empresa
+portuguesa com compliance ativo. Idempotente: não cria um segundo log se já existir um para a
+mesma empresa/período (`Pending`, `In Progress` ou `Completed`) — seguro correr todos os dias,
+e seguro voltar a correr no mesmo dia.
+
+Não duplica lógica de geração: cria apenas o registo `SAF-T Export Log`
+(`export_type="Invoicing"`, `export_reason="Monthly Submission"`), reutilizando o fluxo real já
+existente e validado (`after_insert` → `saft_generator.generate_saft_background`, secção 3
+acima) — o mesmo caminho que um utilizador percorre manualmente pela UI.
+
+> **Armadilha já apanhada uma vez**: `bench migrate` corre a sincronização de fixtures
+> *antes* de `after_migrate`. Se um `Print Format` ou `Custom Field` fixture-tracked
+> (`module="Portugal Compliance"`) for editado na DB sem correr `bench export-fixtures`
+> logo a seguir, a próxima migração reverte-o silenciosamente para o estado antigo — mesmo
+> que um marcador de "já está correto" continue presente. Não é específico do SAF-T, mas
+> foi descoberto a testar esta funcionalidade: qualquer alteração deste tipo tem de ser
+> seguida de `bench export-fixtures` **antes** do próximo `bench migrate`, nunca depois.
+
+### 10.3. Envio por Email — `_send_saft_export_email()`
+
+Chamada em `saft_generator.py::generate_saft_background()`, imediatamente a seguir a
+`status="Completed"`. Só dispara quando **ambas** as condições se verificam:
+
+1. `export_log.export_reason == "Monthly Submission"` — a única razão usada pela geração
+   automática mensal; um export ad-hoc (`Audit Request`, `System Test`, regeneração manual de
+   um período qualquer) nunca vai parar à caixa de correio do contabilista sem essa intenção
+   explícita.
+2. `Portugal Auth Settings.saft_communication_method == "Email (Contabilista)"`.
+
+Assunto: `SAF-T (Faturação) - {Empresa} - {Mês}/{Ano}` (reutiliza
+`get_month_name_portuguese()` de `jinja_methods.py`, mesma convenção dos Print Formats). Corpo
+HTML simples, cita o número de certificado real (nunca hardcoded). Anexa o XML gerado
+diretamente da memória (`saft_xml`), sem reler do disco.
+
+**Resiliência (best-effort, por desenho)**: todo o passo de email está dentro do seu próprio
+`try/except`, isolado do fluxo principal — uma falha (SMTP não configurado, servidor da
+empresa em baixo, etc.) fica só registada no Error Log, nunca reverte nem marca como `Failed`
+um SAF-T já gerado e validado com sucesso. O ficheiro fica sempre disponível para download
+manual. Verificado ao vivo: sem nenhuma Conta de Email de saída configurada, a geração
+completa normalmente e o envio falha exatamente como esperado
+(`frappe.exceptions.OutgoingEmailError`), sem afetar o export. Com uma conta real configurada,
+o email é injetado corretamente na fila (`Email Queue`) do Frappe.
+
+---
+
+## 11. Estrutura de Ficheiros
 
 | Ficheiro | Função |
 | :--- | :--- |
-| [utils/saft_generator.py](portugal_compliance/utils/saft_generator.py) | Classe `SAFTGenerator` — coleta de dados, render, hash, contagem de registos. |
-| [doctype/saf_t_export_log/saf_t_export_log.py](portugal_compliance/portugal_compliance/doctype/saf_t_export_log/saf_t_export_log.py) | `validate_xml_content()` — validação XSD 1.1 real. |
+| [utils/saft_generator.py](portugal_compliance/utils/saft_generator.py) | Classe `SAFTGenerator` — coleta de dados, render, hash, contagem de registos; `generate_saft_background()` (job) e `_send_saft_export_email()` (secção 10.3). |
+| [utils/saft_scheduler.py](portugal_compliance/utils/saft_scheduler.py) | `ensure_monthly_saft_generated()` — geração automática mensal, secção 10.2. |
+| [doctype/saf_t_export_log/saf_t_export_log.py](portugal_compliance/portugal_compliance/doctype/saf_t_export_log/saf_t_export_log.py) | `validate_xml_content()` — validação XSD 1.1 real; `submit_to_at()` — sempre `NotImplementedError` (secção 10). |
 | [templates/saft_t/main.xml](portugal_compliance/templates/saft_t/main.xml) | Composição dos 3 blocos (Header/MasterFiles/SourceDocuments). |
 | [templates/saft_t/header.xml](portugal_compliance/templates/saft_t/header.xml) | Cabeçalho: empresa, `TaxAccountingBasis`, ano fiscal. |
 | [templates/saft_t/master_files.xml](portugal_compliance/templates/saft_t/master_files.xml) | Customers, Suppliers, Products, TaxTable. |
@@ -353,7 +425,7 @@ que não o reportar.
 
 ---
 
-## 11. Resolução de Problemas
+## 12. Resolução de Problemas
 
 | Sintoma | Causa | Solução |
 | :--- | :--- | :--- |
@@ -365,10 +437,15 @@ que não o reportar.
 | Faturas de fornecedor aparecem na tabela de Suppliers mas não em SourceDocuments | Comportamento correto — Purchase Invoice só popula masterdata | Ver Pilar 5 em [manual_funcionalidades_compliance.md](manual_funcionalidades_compliance.md). |
 | Soma das linhas de uma fatura não bate com o total do documento no SAF-T | Desconto global (`additional_discount_amount`) só refletido em `net_amount`/`base_net_amount`, não em `amount`/`base_amount` | Corrigido nesta versão — ver secção 6.2. Confirmar que a instalação já tem a correção (`get_sales_invoices_data` a usar `base_net_amount`). |
 | Totais do SAF-T não batem com os valores mostrados no documento em moeda estrangeira | Query usava campos de moeda de transação em vez de `base_*` (moeda base/EUR) | Corrigido nesta versão — ver secção 6.1. O SAF-T exige sempre EUR, independentemente da moeda de emissão da fatura. |
+| SAF-T mensal não é gerado automaticamente no dia esperado | `saft_send_day` não é o dia de hoje, ou nenhuma empresa portuguesa tem compliance ativo | `ensure_monthly_saft_generated()` só atua no dia configurado — verificar `Portugal Auth Settings.saft_send_day`. |
+| Email ao contabilista nunca chega, sem erro visível | `saft_communication_method` não está em "Email (Contabilista)", ou o export não tem `export_reason="Monthly Submission"` | Verificar as duas condições na secção 10.3 — um export manual/ad-hoc nunca envia email por desenho, não é um bug. |
+| Email falha com `OutgoingEmailError` | Sem Conta de Email de saída (`enable_outgoing=1`) configurada no site | Configurar em Definições > Contas de Email. A geração do SAF-T não é afetada — o ficheiro continua disponível para download manual. |
 
 ---
 
 **Nota Legal**: o ficheiro SAF-T (PT) referente a um mês deve ser submetido até ao dia 5 do
 mês seguinte à emissão dos documentos, salvo prazo diferente comunicado pela AT. Este módulo
-gera e valida o ficheiro; a submissão em si (upload manual no Portal das Finanças, ou
-`submit_to_at()` quando aplicável) é uma ação distinta da geração aqui descrita.
+gera, valida e (opcionalmente, secção 10.3) envia o ficheiro por email ao contabilista — a
+submissão em si é sempre manual, por upload no Portal das Finanças (`e-fatura`). Não existe
+nenhum webservice da AT para automatizar este último passo (secção 10) — `submit_to_at()`
+lança sempre `NotImplementedError`, por desenho, não por lacuna a preencher.

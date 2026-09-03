@@ -29,6 +29,43 @@ registarSerie (AT) ──► Ativa ──┬──► finalizarSerie (AT) ──
 `document_code`, `naming_series`, `prefix`, `current_sequence`, `is_active`,
 `is_communicated`, `validation_code`, `communication_date`, `total_documents_issued`.
 
+### 1.1. Criação Automática (Zero-Touch) e Série de Devolução — NC
+
+Antes de qualquer registo na AT, as séries têm de existir como registos `Portugal Series
+Configuration`. Duas vias, convergindo para o mesmo estado final:
+
+- **Automática** (ativação de compliance numa Empresa portuguesa nova):
+  `document_hooks.py::PortugalDocumentHooks._create_dynamic_portugal_series_certified`.
+- **Manual** (botão "Gerar Séries Base" na Empresa): `api.company_api.
+  setup_all_series_for_company` → `create_company_series`.
+
+Ambas criam as 4 séries base (FT, FS, RG, GR) **e** aprovisionam a série de devolução (NC,
+`api.company_api.RETURN_DOCUMENT_SERIES`).
+
+> **Bug corrigido, 2026-09-03**: a via automática nunca criava a série NC. Causa: o método
+> importava `portugal_compliance.regional.portugal.setup_all_series_for_company`, função que
+> nunca existiu nesse módulo — o `ImportError` resultante era sempre apanhado silenciosamente
+> e caía sempre num fallback incompleto (só as 4 séries base). Só quem clicava manualmente em
+> "Gerar Séries Base" (que chamava a função certa por outro caminho) recebia a série NC.
+> Corrigido — mas **não** apontando o import para `company_api.setup_all_series_for_company`
+> como pareceria óbvio: essa função começa precisamente por chamar o método que estava a ser
+> corrigido, o que teria criado recursão infinita direta entre os dois ficheiros. A correção
+> replica a mesma lógica de aprovisionamento de devolução localmente, sem essa chamada
+> circular. Qualquer falha de infraestrutura neste processo fica agora registada no Error Log
+> — nunca mais absorvida em silêncio.
+
+**POS Invoice partilha a série NC de Sales Invoice** (não tem série própria, pedido explícito
+do utilizador): `RETURN_DOCUMENT_SERIES["POS Invoice"]` tem `"shares_series_with": "Sales
+Invoice"`. A AT não distingue "NC de fatura" de "NC de talão" — o `tipoDoc` enviado ao
+webservice de séries é sempre `"NC"` (secção 2.1 abaixo) independentemente do documento de origem;
+só a numeração tem de ser sequencial e sem buracos, não exclusiva por doctype. Uma loja (POS)
+e o back-office emitem notas de crédito na mesma sequência partilhada. Mecanismo:
+`reset_fiscal_fields_on_return_clone` (hook `before_insert` de devoluções) lê
+`shares_series_with` para saber sob que `document_type` a série está realmente registada em
+`Portugal Series Configuration`, distinto de `doc.doctype` quando há partilha — nenhuma outra
+validação no módulo (ATCUD, série comunicada) exige que os dois coincidam, todas resolvem por
+`naming_series`/prefixo, nunca por `document_type` estrito.
+
 ---
 
 ## 2. Fase 1 — Registo da Série (`registarSerie`)
@@ -80,12 +117,23 @@ frappe.db.set_value("Portugal Series Configuration", doc.name, {
     "is_communicated": 1,
     "validation_code": result.get("validation_code"),
     "communication_date": frappe.utils.now(),
+    "at_environment": at_environment,  # "Teste" ou "Produção" — ver nota abaixo
 })
 ```
 
 > **O código de validação é único por série**, não por documento — todos os documentos
 > emitidos sob a mesma série partilham o mesmo `validation_code`; o que os distingue é a
 > sequência.
+
+> **`at_environment` (corrigido 2026-09-03)**: até esta correção, os três sítios que gravam
+> uma comunicação bem-sucedida (`series_api.py::communicate_series_to_at`, e as duas em
+> `company_api.py` — série de devolução automática e comunicação em lote) nunca escreviam
+> este campo, que ficava sempre no default de fábrica ("Produção") mesmo quando a chamada
+> real usava o sandbox. Corrigido lendo `Portugal Auth Settings.sandbox_mode` no momento da
+> comunicação — o mesmo critério, já existente, que
+> `at_webservice.py::get_series_webservice_client()` usa para escolher a porta real (722
+> testes / 422 produção): `"Teste" if sandbox_mode else "Produção"`. As únicas opções válidas
+> do campo Select são "Produção"/"Teste" — nunca "Sandbox".
 
 ### 2.5. Imutabilidade Pós-Comunicação (2026-08-24)
 
@@ -358,7 +406,9 @@ só atua sobre documentos sem `atcud_code` ainda.
 | [utils/signature.py](portugal_compliance/utils/signature.py) | Especificação de assinatura, `sign_document()`, `verify_signature_chain()`, `export_signing_public_key()`. |
 | [utils/atcud_generator.py](portugal_compliance/utils/atcud_generator.py) | `ATCUDGenerator` — orquestra assinatura + sequência + persistência em `ATCUD Log`. |
 | [utils/at_webservice.py](portugal_compliance/utils/at_webservice.py) | `registarSerie`, `consultarSeries`, `finalizarSerie`, `anularSerie` — `ATWebserviceClient`. |
-| [utils/document_hooks.py](portugal_compliance/utils/document_hooks.py) | Hooks `on_submit`/`validate`/`before_submit` que disparam a geração (só em `on_submit`) e bloqueiam séries inativas/documentos com validações pendentes. |
+| [utils/document_hooks.py](portugal_compliance/utils/document_hooks.py) | Hooks `on_submit`/`validate`/`before_submit` que disparam a geração (só em `on_submit`) e bloqueiam séries inativas/documentos com validações pendentes; `_create_dynamic_portugal_series_certified` e `reset_fiscal_fields_on_return_clone` (secção 1.1). |
+| [api/company_api.py](portugal_compliance/api/company_api.py) | `setup_all_series_for_company`/`create_company_series` (botão "Gerar Séries Base"), `ensure_return_series_for_company`, `RETURN_DOCUMENT_SERIES` (secção 1.1). |
+| [api/series_api.py](portugal_compliance/api/series_api.py) | `communicate_series_to_at` — o botão "Comunicar à AT" da UI. |
 | [doctype/atcud_log/atcud_log.py](portugal_compliance/portugal_compliance/doctype/atcud_log/atcud_log.py) | Controller do log — retry de persistência pendente. |
 | [wsdl/Comunicacao_Series.wsdl](portugal_compliance/wsdl/Comunicacao_Series.wsdl) | Contrato SOAP oficial (`registarSerie`, `consultarSeries`, `finalizarSerie`, `anularSerie`). |
 
@@ -375,3 +425,6 @@ só atua sobre documentos sem `atcud_code` ainda.
 | ATCUD ausente num documento submetido | Série correspondente `is_active=0`, ou não comunicada (`is_communicated=0`) | `_validate_series_not_inactive` já bloqueia a submissão neste caso — o documento nunca deveria ter chegado a `submit` sem ATCUD. |
 | Submissão falha com "Emissão bloqueada: A Chave Privada de Assinatura Digital não está configurada..." | `invoice_signing_key_path` vazio, ou o ficheiro não existe/não é legível pelo utilizador dos workers do Frappe (desde 2026-08-31) | Comportamento correto, não um bug — `before_submit_document` bloqueia deliberadamente qualquer documento com `requires_atcud=True` (inclui Delivery Note) enquanto a chave não estiver configurada; ver [manual_tecnico_hash_documentos.md](manual_tecnico_hash_documentos.md), secção 1.1. |
 | Duas faturas da mesma série com a mesma `previous_signature_hash` | Corrida entre pedidos concorrentes sem o lock de série | Confirmar que `_lock_series_for_signing` corre **antes** da leitura, nunca depois — ver secção 3.4. |
+| Empresa portuguesa ativada, mas sem série NC | Instalação anterior a 2026-09-03 — a via automática nunca a criava (secção 1.1) | Correr o botão "Gerar Séries Base" na Empresa uma vez, ou atualizar para uma versão com a correção (idempotente, não duplica as séries já existentes). |
+| Devolução de POS Invoice recusada com "Não existe uma série de Nota de Crédito (NC) configurada" | Série NC de Sales Invoice ainda não foi comunicada à AT (`is_active=1` mas `is_communicated=0`, ou instalação anterior a 2026-09-03) | POS Invoice partilha a série NC de Sales Invoice, secção 1.1 — comunicá-la à AT resolve para os dois doctypes ao mesmo tempo. |
+| `at_environment` mostra "Produção" para uma série comunicada contra o sandbox | Instalação anterior a 2026-09-03 — o campo nunca era escrito (secção 2.4) | Cosmético, não afeta o `validation_code` real — recomunicar a série (idempotente) atualiza o campo. |
