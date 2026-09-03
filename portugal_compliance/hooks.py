@@ -196,19 +196,46 @@ doc_events = {
 	# registos já existentes em ATCUD Log destes doctypes mantêm-se
 	# intactos para efeitos de auditoria.
 
-	# Quotation/Sales Order/Purchase Order/Material Request: hook de
-	# validate removido (2026-08-30). Só existia para mostrar "Esta
-	# série não segue o formato de série portuguesa recomendado" -
-	# ecoava, do lado do servidor, exatamente a mesma nagging de série
-	# fiscal que já tínhamos removido do lado do cliente nestes 5
-	# doctypes (ver commit 700e2d6, portugal_compliance.js). Confirmado
-	# ao vivo pelo utilizador: aparecia em quase todas as criações/
-	# submissões de Quotation, Sales Order e Purchase Order mesmo com
-	# série nativa do ERPNext - nao deveria ser mais aplicavel, dado que
-	# nenhum destes doctypes é fiscal (ver nota acima) e usar séries
-	# nativas passou a ser o comportamento esperado, não um desvio a
-	# assinalar. validate_portugal_compliance_light() removida de
-	# document_hooks.py no mesmo commit (não tinha mais nenhuma lógica).
+	# Quotation e Sales Order RECUPERADOS aqui (2026-09-03) depois de
+	# 700e2d6 (2026-08-30) os ter removido por engano - ver o historico
+	# completo em document_hooks.py::supported_doctypes (mesmo local,
+	# mesma data). Resumo: 700e2d6 confundiu "sem efeito de IVA" com
+	# "sem obrigacao de ATCUD" - a FAQ oficial da AT (Ambito de
+	# Aplicacao de Series/ATCUD) cita o DL 28/2019 e inclui
+	# explicitamente "notas de encomenda" nos documentos fiscalmente
+	# relevantes; Orcamento coberto pelo mesmo criterio aberto (ponto
+	# 5.12 do oficio de certificacao). Sem reset_fiscal_fields_on_return_clone
+	# (nenhum dos dois tem conceito de devolucao) nem comunicacao a
+	# webservice por documento (so a serie e comunicada, via
+	# SeriesWSService - nao existe webservice de registo documento-a-
+	# documento para "documentos de conferencia", so para faturas/
+	# guias de transporte).
+	"Quotation": {
+		"before_insert": "portugal_compliance.utils.document_hooks.before_insert_document",
+		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
+		"on_submit": "portugal_compliance.utils.document_hooks.generate_atcud_on_submit",
+		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
+		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
+	},
+	"Sales Order": {
+		"before_insert": "portugal_compliance.utils.document_hooks.before_insert_document",
+		"before_save": "portugal_compliance.utils.document_hooks.enforce_fiscal_field_lock",
+		"validate": "portugal_compliance.utils.document_hooks.validate_portugal_compliance",
+		"before_submit": "portugal_compliance.utils.document_hooks.before_submit_document",
+		"before_print": "portugal_compliance.utils.document_hooks.log_document_print",
+		"on_submit": "portugal_compliance.utils.document_hooks.generate_atcud_on_submit",
+		"on_trash": "portugal_compliance.utils.document_hooks.block_fiscal_document_deletion",
+		"on_cancel": "portugal_compliance.utils.document_hooks.log_document_cancellation"
+	},
+
+	# Purchase Order/Material Request continuam de fora, deliberadamente:
+	# documentos de COMPRA (recebidos/dirigidos a fornecedores, nunca
+	# emitidos a um cliente) - fora do ambito de "documentos suscetiveis
+	# de apresentacao ao CLIENTE" do DL 28/2019. validate_portugal_compliance_light()
+	# continua removida (nao tinha mais nenhuma logica).
 
 	# ========== CONFIGURAÇÃO DA EMPRESA ==========
 	"Company": {

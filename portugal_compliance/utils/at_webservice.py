@@ -250,7 +250,7 @@ class ATWebserviceClient:
 				"RC", "RG", "RB",  # Recibos (RC = regime de IVA de Caixa, RG = outros - ver Portugal Auth Settings.cash_vat_scheme)
 				"GT", "GR", "GM",  # Guias
 				"JE", "LC",  # Lançamentos
-				"OR", "EC", "EF", "MR"  # Outros
+				"OR", "NE", "EF", "MR"  # Outros (NE = Nota de Encomenda; 'EC' nunca foi valido, corrigido 2026-09-03)
 			]
 
 			if doc_code not in valid_doc_codes:
@@ -365,20 +365,34 @@ class ATWebserviceClient:
 
 	def _map_doc_code_to_class(self, doc_code):
 		"""
-		Mapear código do documento para classe AT. Confirmado ao vivo
-		(AT [4045]) que a AT só aceita um conjunto fixo de classes -
-		os valores antigos aqui (PI/RC/GT/SE/JE/QT/SO/PO) eram
-		inventados e foram sempre rejeitados. Corrigido para os 3
-		valores reais usados pelo módulo Dolibarr de referência (já em
-		produção): SI (faturas de venda), MG (guias de transporte/
-		movimento de mercadorias), PY (recibos/pagamentos). Tipos sem
-		equivalente confirmado (compras, lançamentos, encomendas...)
-		usam SI como fallback - mesmo comportamento do Dolibarr.
+		Mapear código do documento para classe AT.
+
+		2026-09-03 (correção de auditoria): a lista de 3 classes (SI/MG/
+		PY) e o fallback para SI estavam incompletos - confirmado ao
+		vivo, tentativa real de comunicar a série de Orçamento (OR) foi
+		rejeitada nas 3 classes (AT [4046], testado sistematicamente).
+		O manual oficial da AT ("Comunicação de Séries Documentais -
+		Aspetos Específicos", secção 1.3.7/1.3.8) tem uma QUARTA classe,
+		nunca antes usada neste módulo: WD (Documentos de Conferência) -
+		exatamente a categoria de "Orçamentos"/"Notas de Encomenda"
+		definida no DL 28/2019. Mapeamento abaixo corrigido para
+		corresponder à tabela oficial completa do manual (não apenas
+		aos códigos que este módulo já emitia) - GA/GC/GD acrescentados
+		a MG, WD acrescentada por inteiro. "VD"/"TV" (não constam do
+		manual oficial) e "GM"/"RB" (não constam também) mantidos por
+		compatibilidade retroativa, sem efeito prático conhecido (nenhum
+		documento deste módulo usa esses códigos).
 		"""
 		mapping = {
 			"FT": "SI", "FS": "SI", "FR": "SI", "NC": "SI", "ND": "SI", "VD": "SI", "TV": "SI",  # Faturas
-			"GT": "MG", "GR": "MG", "GD": "MG", "GC": "MG", "GM": "MG",  # Guias / movimento de mercadorias
+			"GT": "MG", "GR": "MG", "GD": "MG", "GC": "MG", "GA": "MG", "GM": "MG",  # Guias / movimento de mercadorias
 			"RC": "PY", "RB": "PY", "RG": "PY",  # Recibos / pagamentos
+			# Documentos de Conferência (manual oficial, secção 1.3.8) -
+			# so OR/NE sao efetivamente usados por este modulo, mas a
+			# lista completa fica correta para futura extensao.
+			"CM": "WD", "CC": "WD", "FC": "WD", "FO": "WD", "NE": "WD",
+			"OU": "WD", "OR": "WD", "PF": "WD", "RP": "WD", "RE": "WD",
+			"CS": "WD", "LD": "WD", "RA": "WD",
 		}
 		return mapping.get(doc_code, "SI")
 

@@ -36,7 +36,7 @@ DOCUMENT_TYPE_PREFIXES = {
 
 	# Documentos Comerciais
 	"Quotation": ["OR", "ORC"],  # Orçamento
-	"Sales Order": ["EC", "ECO"],  # Encomenda Cliente
+	"Sales Order": ["NE", "NEC"],  # Nota de Encomenda (2026-09-03: 'EC' nunca foi valido no XSD WorkType)
 	"Purchase Order": ["EF", "EFO"],  # Encomenda Fornecedor
 	"Material Request": ["REQ", "MR"],  # Requisição
 }
@@ -108,19 +108,26 @@ DOCUMENT_CONFIGURATIONS = {
 		"priority": 8
 	},
 	"Quotation": {
+		# requires_atcud/requires_communication corrigidos de False para
+		# True (2026-09-03) - Orcamento e "documento de conferencia" ao
+		# abrigo do DL 28/2019 (ver nota em regional/portugal.py).
 		"default_prefix": "OR",
-		"requires_atcud": False,
-		"requires_communication": False,
+		"requires_atcud": True,
+		"requires_communication": True,
 		"fiscal_document": False,
 		"description": "Orçamento",
 		"priority": 9
 	},
 	"Sales Order": {
-		"default_prefix": "EC",
-		"requires_atcud": False,
-		"requires_communication": False,
+		# default_prefix corrigido de 'EC' para 'NE' - unico codigo
+		# valido no XSD WorkType oficial para Nota de Encomenda.
+		# requires_atcud/requires_communication corrigidos para True
+		# pelo mesmo motivo do Quotation acima (2026-09-03).
+		"default_prefix": "NE",
+		"requires_atcud": True,
+		"requires_communication": True,
 		"fiscal_document": False,
-		"description": "Encomenda de Cliente",
+		"description": "Nota de Encomenda",
 		"priority": 10
 	},
 	"Purchase Order": {

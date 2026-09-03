@@ -147,7 +147,7 @@ class PortugalSeriesConfiguration(Document):
 			"Journal Entry": ["JE", "LC"],
 			"Stock Entry": ["GT", "GM"],
 			"Quotation": ["OR", "ORC"],
-			"Sales Order": ["EC", "ECO"],  # ✅ CORRIGIDO: era EN
+			"Sales Order": ["NE", "NEC"],  # 2026-09-03: 'EC' nunca foi valido no XSD WorkType (so NE)
 			"Purchase Order": ["EF", "EFO"],  # ✅ CORRIGIDO: era OC
 			"Material Request": ["REQ", "MR"]
 		}
@@ -483,7 +483,7 @@ class PortugalSeriesConfiguration(Document):
 				"Journal Entry": "JE",
 				"Stock Entry": "GT",
 				"Quotation": "OR",
-				"Sales Order": "EC",  # ✅ CORRIGIDO: era EN
+				"Sales Order": "NE",  # 2026-09-03: 'EC' nunca foi valido no XSD WorkType (so NE)
 				"Purchase Order": "EF",  # ✅ CORRIGIDO: era OC
 				"Material Request": "REQ"
 			}

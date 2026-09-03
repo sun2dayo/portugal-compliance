@@ -41,19 +41,35 @@ PORTUGAL_DOCUMENT_TYPES = {
 		'saft_type': 'FS'
 	},
 	'Sales Order': {
-		'code': 'EC',  # ✅ CORRIGIDO: EN → EC
-		'name': 'Encomenda Cliente',
+		# 'EC' (2026-09-03, corrigido): nunca foi um codigo valido -
+		# o elemento WorkType do XSD oficial da AT (saftpt1.04_01.xsd)
+		# so aceita CM/CC/FC/FO/NE/OU/OR/PF/DC/RP/RE/CS/LD/RA como
+		# enumeracao; 'EC' rejeitaria a validacao do ficheiro SAF-T.
+		# 'NE' e o codigo correto - confirmado na propria anotacao do
+		# XSD: "NE para nota de encomenda". communication_required/
+		# atcud_required corrigidos de False para True na mesma data:
+		# a FAQ oficial da AT (Ambito de Aplicacao de Series/ATCUD)
+		# cita o Decreto-Lei 28/2019 nomeando explicitamente "notas de
+		# encomenda" como documentos fiscalmente relevantes.
+		'code': 'NE',
+		'name': 'Nota de Encomenda',
 		'description': 'Encomenda de cliente',
-		'communication_required': False,
-		'atcud_required': False,
-		'saft_type': 'EC'
+		'communication_required': True,
+		'atcud_required': True,
+		'saft_type': 'NE'
 	},
 	'Quotation': {
+		# communication_required/atcud_required corrigidos de False
+		# para True (2026-09-03) pelo mesmo motivo do Sales Order acima
+		# - "Orcamento" e o documento do ponto 5.12 do oficio de
+		# certificacao da AT ("orcamento ou fatura pro-forma"), coberto
+		# pelo mesmo criterio aberto do DL 28/2019 ("quaisquer outros
+		# documentos... nao esta excluido nenhum tipo de documento").
 		'code': 'OR',
 		'name': 'Orçamento',
 		'description': 'Orçamento para clientes',
-		'communication_required': False,
-		'atcud_required': False,
+		'communication_required': True,
+		'atcud_required': True,
 		'saft_type': 'OR'
 	},
 	'Delivery Note': {

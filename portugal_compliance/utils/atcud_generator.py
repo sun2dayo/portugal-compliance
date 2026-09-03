@@ -97,16 +97,25 @@ class ATCUDGenerator:
 				"priority": 8
 			},
 			"Quotation": {
+				# requires_atcud corrigido de False para True (2026-09-03)
+				# - nunca funcionou como gate real neste ficheiro (ver
+				# _validate_document_for_atcud_optimized: so verifica
+				# pertenca ao dict, nunca le este valor), mas ficava
+				# enganador. O gate real vive em document_hooks.py::
+				# supported_doctypes, ja corrigido.
 				"saft_type": "OR",  # Orçamento
 				"class": "QT",
-				"requires_atcud": False,
+				"requires_atcud": True,
 				"requires_qr": False,
 				"priority": 9
 			},
 			"Sales Order": {
-				"saft_type": "EC",  # ✅ CORRIGIDO: EN → EC
+				# 'EC' nunca foi valido no XSD WorkType oficial (so 'NE'
+				# para Nota de Encomenda) - corrigido 2026-09-03, mesmo
+				# motivo do Quotation acima para requires_atcud.
+				"saft_type": "NE",
 				"class": "SO",
-				"requires_atcud": False,
+				"requires_atcud": True,
 				"requires_qr": False,
 				"priority": 10
 			},

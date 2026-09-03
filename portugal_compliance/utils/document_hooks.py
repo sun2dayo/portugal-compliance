@@ -68,6 +68,40 @@ class PortugalComplianceDocumentHooks:
 				"critical": True,
 				"code": "GR"
 			},
+			# Quotation e Sales Order acrescentados (2026-09-03, correcao
+			# de auditoria): removidos do motor em 700e2d6 (2026-08-30)
+			# com o entendimento de que nao eram "documentos emitidos a
+			# terceiros" ao abrigo da Portaria 195/2020 - interpretacao
+			# incompleta, confirmada por fonte oficial da AT (FAQ
+			# "Ambito de Aplicacao" de Series/ATCUD, que cita o Decreto-
+			# Lei 28/2019: sao "documentos fiscalmente relevantes...
+			# quaisquer outros documentos emitidos... suscetiveis de
+			# apresentacao ao cliente que possibilitem a conferencia de
+			# mercadorias ou de prestacao de servicos, nos quais se
+			# incluem as notas de encomenda"). Orcamento tratado da
+			# mesma forma pelo mesmo criterio aberto ("nao esta excluido
+			# nenhum tipo de documento"), sem fonte oficial que o nomeie
+			# à parte mas coberto pelo mesmo principio - e o documento
+			# do ponto 5.12 do oficio de certificacao da AT ("orcamento
+			# ou fatura pro-forma"). fiscal_document=False (nao geram
+			# obrigacao de IVA, tal como a Guia de Transporte acima) mas
+			# requires_atcud=True. Codigos OR/NE confirmados no proprio
+			# XSD oficial (elemento WorkType, anotacao: "NE para nota de
+			# encomenda... OR para orcamento").
+			"Quotation": {
+				"prefixes": ["OR"],
+				"requires_atcud": True,
+				"fiscal_document": False,
+				"critical": True,
+				"code": "OR"
+			},
+			"Sales Order": {
+				"prefixes": ["NE"],
+				"requires_atcud": True,
+				"fiscal_document": False,
+				"critical": True,
+				"code": "NE"
+			},
 			# Stock Entry e Journal Entry removidos (2026-08-22), mesmo
 			# motivo legal da remocao da Purchase Invoice acima: ATCUD e
 			# assinatura RSA aplicam-se por lei a documentos EMITIDOS a
@@ -571,7 +605,7 @@ class PortugalComplianceDocumentHooks:
 		sempre - fixtures/custom_field.json - e de comunicar a AT/entrar
 		no SAF-T exatamente como uma Sales Invoice).
 		"""
-		if doc.doctype not in ("Sales Invoice", "POS Invoice", "Delivery Note"):
+		if doc.doctype not in ("Sales Invoice", "POS Invoice", "Delivery Note", "Quotation", "Sales Order"):
 			return
 		if not getattr(doc, "items", None):
 			return
@@ -618,7 +652,7 @@ class PortugalComplianceDocumentHooks:
 		(fixtures/custom_field.json), por isso a UI ja deixava preencher
 		o motivo - so a validacao em si nao estava a exigi-lo.
 		"""
-		if doc.doctype not in ("Sales Invoice", "POS Invoice", "Delivery Note"):
+		if doc.doctype not in ("Sales Invoice", "POS Invoice", "Delivery Note", "Quotation", "Sales Order"):
 			return
 		if not getattr(doc, "items", None):
 			return
@@ -1791,7 +1825,7 @@ def setup_company_compliance_api(company):
 # ja a torna auditavel do lado deles (ATDocCodeID), mas o pedido do
 # utilizador foi explicito nestes 4 doctypes - mantido tal como pedido.
 
-FISCAL_IMMUTABLE_DOCTYPES = ["Sales Invoice", "Delivery Note", "Payment Entry", "POS Invoice"]
+FISCAL_IMMUTABLE_DOCTYPES = ["Sales Invoice", "Delivery Note", "Payment Entry", "POS Invoice", "Quotation", "Sales Order"]
 
 # Campos cuja alteracao depois de assinado invalidaria a assinatura
 # RSA-SHA1 ja calculada (generate_atcud_on_submit so gera o ATCUD uma
@@ -1803,6 +1837,13 @@ FISCAL_LOCK_FIELDS = {
 	"POS Invoice": ["customer", "posting_date", "grand_total", "net_total", "naming_series", "atcud_code"],
 	"Delivery Note": ["customer", "posting_date", "naming_series", "is_return", "atcud_code"],
 	"Payment Entry": ["party", "posting_date", "paid_amount", "received_amount", "naming_series", "atcud_code"],
+	# Quotation usa party_name (Dynamic Link), nunca "customer" - so
+	# existe um campo "customer" literal quando quotation_to='Customer',
+	# mas fica sempre None nesse caso especifico (confirmado no commit
+	# 700e2d6, bug real ja apanhado uma vez: validate_portuguese_quotation()
+	# antigo verificava frm.doc.customer, que era sempre undefined).
+	"Quotation": ["party_name", "transaction_date", "grand_total", "net_total", "naming_series", "atcud_code"],
+	"Sales Order": ["customer", "transaction_date", "grand_total", "net_total", "naming_series", "atcud_code"],
 }
 
 

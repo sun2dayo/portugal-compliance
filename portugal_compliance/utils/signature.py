@@ -115,6 +115,28 @@ DOCUMENT_SIGNING_SPEC = {
 		"total_field": "total_debit",
 		"total_absolute": True,
 	},
+	# Quotation/Sales Order acrescentados (2026-09-03, correcao de
+	# auditoria - ver document_hooks.py::supported_doctypes para o
+	# historico completo). date_field="transaction_date", nao
+	# "posting_date" - nenhum dos dois tem esse campo (confirmado no
+	# proprio doctype JSON do ERPNext). doc_code aqui e so o valor
+	# estatico de fallback: o real vem sempre da serie em uso, tal
+	# como para os restantes doctypes (ver nota de build_data_to_sign
+	# acima sobre o document_code real vs. o estatico deste dict).
+	"Quotation": {
+		"doc_code": "OR",
+		"date_field": "transaction_date",
+		"system_date_field": "creation",
+		"total_field": "grand_total",
+		"total_absolute": True,
+	},
+	"Sales Order": {
+		"doc_code": "NE",
+		"date_field": "transaction_date",
+		"system_date_field": "creation",
+		"total_field": "grand_total",
+		"total_absolute": True,
+	},
 }
 
 

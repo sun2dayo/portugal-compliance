@@ -841,7 +841,7 @@ def get_document_type_code(doctype):
 			"Journal Entry": "JE",
 			"Stock Entry": "GM",
 			"Quotation": "OR",
-			"Sales Order": "EC",  # ✅ CORRIGIDO: era EN
+			"Sales Order": "NE",  # 2026-09-03: 'EC' nunca foi valido no XSD WorkType (so NE)
 			"Purchase Order": "EF"  # ✅ CORRIGIDO: era OC
 		}
 		return codes.get(doctype, "FT")
