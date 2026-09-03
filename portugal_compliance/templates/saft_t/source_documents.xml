@@ -70,6 +70,9 @@
                 <TaxExemptionReason>{{ item.tax_exemption_reason or 'Isento' }}</TaxExemptionReason>
                 <TaxExemptionCode>{{ item.tax_exemption_code or 'M99' }}</TaxExemptionCode>
                 {% endif %}
+                {% if item.settlement_amount and item.settlement_amount > 0 %}
+                <SettlementAmount>{{ '%.2f'|format(item.settlement_amount) }}</SettlementAmount>
+                {% endif %}
             </Line>
             {% endfor %}
             <DocumentTotals>

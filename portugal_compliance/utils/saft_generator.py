@@ -735,13 +735,39 @@ class SAFTGenerator:
 				) or row.at_exemption_reason
 			signed_amount = flt(row.base_net_amount)
 			abs_amount = 0.0 if row.docstatus == 2 else abs(signed_amount)
+			# UnitPrice (Nota 1 do oficio da AT): base_net_rate, embora
+			# ja reflita o desconto de linha E o rateio do desconto
+			# global, e um campo Currency - fica gravado na BD ja
+			# arredondado a 2 casas (confirmado por auditoria: para
+			# esta linha de teste, base_net_rate=0.46 mas base_net_
+			# amount/qty=0.4643 - a diferenca de 0.0043 e exatamente o
+			# tipo de arredondamento que a Nota 1 pede para minimizar).
+			# Formatar base_net_rate a "%.4f" no template só acrescenta
+			# zeros (0.4600), nunca recupera a precisao perdida. Calcular
+			# aqui, direto de base_net_amount/qty, e o unico caminho que
+			# devolve valor genuino a mais de 2 casas.
+			unit_price = abs(flt(row.base_net_amount) / flt(row.qty)) if flt(row.qty) else 0.0
+			# SettlementAmount (XSD, elemento opcional da Line, so
+			# emitido quando > 0 - ver templates/saft_t/
+			# source_documents.xml): valor do desconto GLOBAL
+			# (cabecalho, Sales Invoice.discount_amount) rateado para
+			# esta linha - nunca o desconto de linha, que ja vai
+			# embutido em base_rate/base_net_rate. base_rate*qty (=
+			# base_amount, valor da linha so com desconto de linha) menos
+			# base_net_amount (valor da linha com desconto de linha E
+			# rateio do desconto global) isola exatamente essa segunda
+			# parcela. Documento anulado: 0.00 tal como os restantes
+			# valores fiscais da linha (abs_amount acima).
+			settlement_amount = 0.0 if row.docstatus == 2 else round(
+				abs(flt(row.base_rate) * flt(row.qty) - flt(row.base_net_amount)), 2
+			)
 			invoices[row.name]["lines"].append(frappe._dict({
 				"item_code": row.item_code,
 				"item_name": row.item_name,
 				"description": row.description,
 				"qty": abs(flt(row.qty)),
 				"uom": row.uom,
-				"rate": row.base_rate,
+				"rate": unit_price,
 				"amount": abs_amount,
 				"debit_credit": "D" if signed_amount < 0 else "C",
 				"tax_percentage": tax_rate,
@@ -751,6 +777,7 @@ class SAFTGenerator:
 				"tax_amount": abs_amount * tax_rate / 100,
 				"tax_exemption_code": row.at_exemption_reason or "",
 				"tax_exemption_reason": exemption_reason,
+				"settlement_amount": settlement_amount,
 			}))
 
 		self.records_count += len(invoices)
