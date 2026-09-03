@@ -946,7 +946,7 @@ function renew_quotation_validity(frm) {
         primary_action_label: __('Renovar'),
         primary_action: function(values) {
             frappe.call({
-                method: 'portugal_compliance.api.renew_quotation_validity',
+                method: 'portugal_compliance.api.document_actions_api.renew_quotation_validity',
                 args: {
                     quotation: frm.doc.name,
                     new_valid_till: values.new_valid_till,
@@ -995,7 +995,7 @@ function duplicate_quotation(frm) {
         __('Duplicar este orçamento? Será criado um novo orçamento com os mesmos dados.'),
         function() {
             frappe.call({
-                method: 'portugal_compliance.api.duplicate_quotation',
+                method: 'portugal_compliance.api.document_actions_api.duplicate_quotation',
                 args: {
                     quotation: frm.doc.name
                 },

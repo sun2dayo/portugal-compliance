@@ -940,7 +940,7 @@ function update_delivery_date(frm) {
         primary_action_label: __('Atualizar'),
         primary_action: function(values) {
             frappe.call({
-                method: 'portugal_compliance.api.update_sales_order_delivery_date',
+                method: 'portugal_compliance.api.document_actions_api.update_sales_order_delivery_date',
                 args: {
                     sales_order: frm.doc.name,
                     new_delivery_date: values.new_delivery_date,
@@ -1000,7 +1000,7 @@ function duplicate_sales_order(frm) {
         __('Duplicar esta encomenda? Será criada uma nova encomenda com os mesmos dados.'),
         function() {
             frappe.call({
-                method: 'portugal_compliance.api.duplicate_sales_order',
+                method: 'portugal_compliance.api.document_actions_api.duplicate_sales_order',
                 args: {
                     sales_order: frm.doc.name
                 },
