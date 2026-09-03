@@ -1319,12 +1319,54 @@ class PortugalComplianceDocumentHooks:
 	# ========== MÉTODOS DE CONFIGURAÇÃO ==========
 
 	def _create_dynamic_portugal_series_certified(self, company_doc):
-		"""✅ OTIMIZADO: Criar séries portuguesas"""
+		"""
+		Cria as séries portuguesas base no setup automático da empresa
+		(zero-touch): as 4 séries base (FT/FS/RG/GR, via
+		_create_series_fallback - ver nota abaixo sobre o nome) e,
+		adicionalmente, aprovisiona a(s) série(s) de devolução (NC) via
+		api.company_api.ensure_return_series_for_company, para cada
+		entrada de RETURN_DOCUMENT_SERIES que não partilhe a série de
+		outro doctype (ver "shares_series_with" - ex: POS Invoice reusa
+		a NC de Sales Invoice, não precisa de uma própria).
+
+		Auditoria 2026-09-03: antes desta correção, este método
+		importava portugal_compliance.regional.portugal.
+		setup_all_series_for_company - função que nunca existiu nesse
+		módulo (confirmado por grep total ao repositório). O ImportError
+		daí resultante era sempre apanhado silenciosamente e caía sempre
+		no fallback (_create_series_fallback, só as 4 séries base, sem
+		NC). Nenhuma empresa ativada pelo fluxo automático alguma vez
+		recebeu a série de devolução por este caminho - só quem clicou
+		manualmente em "Gerar Séries Base" (api.company_api.
+		setup_all_series_for_company, que já fazia isto corretamente por
+		um caminho diferente) ou emitiu uma devolução depois de outro
+		código a criar reativamente.
+
+		Nota de arquitetura: NÃO se corrigiu simplesmente para chamar
+		api.company_api.setup_all_series_for_company (a função "real" e
+		completa que o nome sugeria) - essa função começa precisamente
+		por chamar ESTE método (portugal_document_hooks.
+		_create_dynamic_portugal_series_certified) para criar as séries
+		base, o que teria criado uma recursão infinita direta entre os
+		dois ficheiros. Em vez disso, este método replica aqui a mesma
+		lógica de aprovisionamento de devolução que
+		setup_all_series_for_company já faz depois de delegar as séries
+		base - os dois caminhos (automático e botão manual) convergem
+		para o mesmo estado final, sem um chamar o outro.
+		"""
 		try:
-			from portugal_compliance.regional.portugal import setup_all_series_for_company
-			return setup_all_series_for_company(company_doc.name)
-		except ImportError:
-			return self._create_series_fallback(company_doc)
+			result = self._create_series_fallback(company_doc)
+
+			from portugal_compliance.api.company_api import (
+				RETURN_DOCUMENT_SERIES,
+				ensure_return_series_for_company,
+			)
+			for doctype, config in RETURN_DOCUMENT_SERIES.items():
+				if "shares_series_with" in config:
+					continue
+				ensure_return_series_for_company(company_doc.name, doctype)
+
+			return result
 		except Exception as e:
 			frappe.log_error(f"Erro ao criar séries: {str(e)}")
 			return {"success": False, "error": str(e)}
@@ -1494,14 +1536,28 @@ def reset_fiscal_fields_on_return_clone(doc, method=None):
 		# api.company_api.ensure_return_series_for_company, chamada no
 		# setup da empresa) - nunca criada/forcada aqui, isso emitiria
 		# um documento numa serie ilegal (nao comunicada).
+		#
+		# "shares_series_with" (2026-09-03, pedido explicito do
+		# utilizador): POS Invoice nao tem serie NC propria - usa a
+		# MESMA serie NC ja aprovisionada para Sales Invoice, em vez de
+		# criar uma segunda serie so para devolucoes de retalho. A
+		# AT nao distingue "NC de FT" de "NC de FS" (o tipoDoc enviado
+		# ao webservice de series e sempre "NC", ver
+		# at_webservice.py::_map_doc_code_to_class) - so a numeracao tem
+		# de ser sequencial e sem buracos, nao exclusiva por doctype de
+		# origem. document_type aqui e o doctype "dono" do registo em
+		# Portugal Series Configuration (onde a serie foi criada e
+		# comunicada), nao necessariamente doc.doctype.
 		from portugal_compliance.api.company_api import RETURN_DOCUMENT_SERIES
 		if doc.doctype in RETURN_DOCUMENT_SERIES:
-			return_code = RETURN_DOCUMENT_SERIES[doc.doctype]["code"]
+			return_config = RETURN_DOCUMENT_SERIES[doc.doctype]
+			return_code = return_config["code"]
+			series_owner_doctype = return_config.get("shares_series_with", doc.doctype)
 			return_series = frappe.db.get_value(
 				"Portugal Series Configuration",
 				{
 					"company": doc.company,
-					"document_type": doc.doctype,
+					"document_type": series_owner_doctype,
 					"document_code": return_code,
 					"is_active": 1,
 				},

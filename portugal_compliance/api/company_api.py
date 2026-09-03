@@ -48,7 +48,19 @@ def setup_all_series_for_company(company):
 		# criada/forcada na hora de emitir uma devolucao (ver
 		# reset_fiscal_fields_on_return_clone em utils/document_hooks.py,
 		# que so ENCAMINHA para esta serie, nunca a cria).
-		for doctype in RETURN_DOCUMENT_SERIES:
+		#
+		# "shares_series_with": entradas que reutilizam a serie de outro
+		# doctype (ex: POS Invoice reutiliza a NC de Sales Invoice) nunca
+		# chamam ensure_return_series_for_company aqui - criar uma
+		# segunda serie com o mesmo document_code="NC" colidiria com o
+		# prefixo ja existente (validate_prefix_uniqueness e por
+		# prefixo+empresa, nao por document_type). Nao ha nada para
+		# aprovisionar para estas entradas: a serie partilhada ja foi
+		# criada quando a entrada "dona" (ex: Sales Invoice) foi
+		# processada, mais acima neste mesmo loop.
+		for doctype, config in RETURN_DOCUMENT_SERIES.items():
+			if "shares_series_with" in config:
+				continue
 			ensure_return_series_for_company(company, doctype)
 		return result
 	except Exception as e:
@@ -60,10 +72,22 @@ def setup_all_series_for_company(company):
 # propria, distinta da serie normal - exigencia da Ordem dos
 # Contabilistas (a AT tecnicamente aceita series partilhadas desde
 # que a sequencia nao quebre, mas misturar FT/NC gera entropia na
-# auditoria). Extensivel a Purchase Invoice (ND, Nota de Debito) se
-# vier a ser necessario - nao implementado agora porque nao foi pedido.
+# auditoria).
+#
+# POS Invoice (2026-09-03, pedido explicito do utilizador): NAO tem
+# serie NC propria - partilha a mesma serie ja aprovisionada para
+# Sales Invoice ("shares_series_with"). A AT nao distingue "NC de FT"
+# de "NC de FS": o tipoDoc enviado ao webservice de series e sempre
+# "NC" (ver at_webservice.py::_map_doc_code_to_class), so a numeracao
+# tem de ser sequencial e sem buracos - nao exclusiva por doctype de
+# origem. Uma loja (POS) e o back-office podem legitimamente emitir
+# notas de credito na mesma sequencia partilhada.
+#
+# Extensivel a Purchase Invoice (ND, Nota de Debito) se vier a ser
+# necessario - nao implementado agora porque nao foi pedido.
 RETURN_DOCUMENT_SERIES = {
 	"Sales Invoice": {"code": "NC", "name": "Nota de Crédito"},
+	"POS Invoice": {"code": "NC", "name": "Nota de Crédito", "shares_series_with": "Sales Invoice"},
 }
 
 
