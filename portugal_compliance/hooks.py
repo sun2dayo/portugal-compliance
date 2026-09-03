@@ -93,6 +93,7 @@ after_migrate = [
 	"portugal_compliance.utils.startup_fixes.setup_naming_series_property_setters",
 	"portugal_compliance.utils.document_hooks.force_track_changes_property_setters",
 	"portugal_compliance.utils.document_hooks.set_pos_invoice_default_print_format",
+	"portugal_compliance.utils.document_hooks.ensure_pos_invoice_as_default",
 	"portugal_compliance.utils.native_print_format_compliance.ensure_native_print_formats_compliant",
 	"portugal_compliance.utils.native_print_format_compliance.ensure_letter_head_logo_uses_base64"
 ]

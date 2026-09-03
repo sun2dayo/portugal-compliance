@@ -368,6 +368,21 @@ class PortugalComplianceDocumentHooks:
 		except Exception as e:
 			frappe.log_error(f"Erro ao configurar Tax Category para {doc.name}: {str(e)}")
 
+		# 5. POS Settings.invoice_type -> "POS Invoice" (2026-09-03,
+		# pedido explicito do utilizador). Todo o motor de compliance
+		# desta app (ATCUD/serie FS/Fatura Simplificada/exemption legend/
+		# etc.) foi construido e testado a volta do doctype POS Invoice,
+		# nao Sales Invoice emitida a partir do ecra do POS - deixar o
+		# default de fabrica do ERPNext ("Sales Invoice") faria uma
+		# empresa portuguesa nova emitir do POS para uma serie/doctype
+		# que este modulo trata como back-office, nao retalho. Ver
+		# ensure_pos_invoice_as_default() (guarda de seguranca contra
+		# regressao multi-empresa) mais abaixo.
+		try:
+			results['pos_invoice_type'] = ensure_pos_invoice_as_default()
+		except Exception as e:
+			frappe.log_error(f"Erro ao configurar Invoice Type do POS para {doc.name}: {str(e)}")
+
 		return results
 
 	def _show_setup_results(self, doc, results):
@@ -2041,6 +2056,59 @@ def set_pos_invoice_default_print_format():
 	except Exception as e:
 		frappe.log_error(f"Erro ao forçar default_print_format em POS Invoice: {str(e)}")
 	frappe.clear_cache()
+
+
+def ensure_pos_invoice_as_default():
+	"""
+	Chamada em after_migrate (self-heal) e em
+	PortugalDocumentHooks._execute_compliance_setup (ativação zero-touch
+	de uma empresa nova). Garante que "POS Settings.invoice_type" (campo
+	"Invoice Type Created via POS Screen") fica em "POS Invoice" - todo o
+	motor de compliance desta app (ATCUD/série FS/Fatura Simplificada/
+	comunicação em tempo real/etc.) foi construído e testado à volta do
+	doctype POS Invoice para vendas de balcão, nunca à volta de uma Sales
+	Invoice emitida a partir do ecrã do POS.
+
+	MITIGAÇÃO GLOBAL (ler antes de alterar): "POS Settings" é um DocType
+	Single - um único registo para o site inteiro, sem dimensão de
+	empresa, ao contrário de quase tudo o resto nesta app. Não existe
+	equivalente por empresa no ERPNext core (confirmado: nem POS Profile
+	tem um campo equivalente) - não há forma de tornar isto seguro para
+	multi-empresa sem tocar no core. A mitigação real é: só grava
+	"POS Invoice" enquanto o valor ainda for exatamente o default de
+	fábrica do ERPNext ("Sales Invoice") - nunca sobrescreve uma escolha
+	já feita por um administrador, seja de uma empresa portuguesa ou não.
+	Num site com uma empresa portuguesa e outra não-portuguesa a partilhar
+	este site, o pior cenário possível é o valor de fábrica do próprio
+	ERPNext mudar uma única vez para a sua própria recomendação oficial
+	(o texto de ajuda do campo já diz "recommended... POS Invoice") -
+	nunca uma preferência humana deliberada a ser pisada. Se este site
+	alguma vez tiver uma segunda empresa não-portuguesa que precise
+	mesmo de "Sales Invoice" como default, a solução é mudar o valor
+	manualmente depois desta função correr uma vez - fica reconhecido e
+	nunca mais tocado (idempotente, ver guard abaixo).
+
+	Só atua se existir pelo menos uma empresa portuguesa com compliance
+	ativo (ver _any_active_portuguese_company) - mesmo guard já usado em
+	set_pos_invoice_default_print_format acima, para o mesmo tipo de
+	propriedade global sem dimensão de empresa.
+	"""
+	if not _any_active_portuguese_company():
+		return
+
+	try:
+		current_value = frappe.db.get_single_value("POS Settings", "invoice_type")
+		if current_value != "Sales Invoice":
+			return
+
+		frappe.db.set_single_value("POS Settings", "invoice_type", "POS Invoice")
+		frappe.db.commit()
+		frappe.logger().info(
+			"ensure_pos_invoice_as_default: POS Settings.invoice_type alterado de "
+			"'Sales Invoice' (default de fábrica) para 'POS Invoice'"
+		)
+	except Exception as e:
+		frappe.log_error(f"Erro ao definir Invoice Type do POS por omissão: {str(e)}")
 
 
 # ========== LOG FINAL ==========
