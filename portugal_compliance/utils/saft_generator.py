@@ -176,9 +176,14 @@ class SAFTGenerator:
 		Prepara contexto com todos os dados necessários para o template.
 
 		V1 (MVP de certificacao): estritamente o que o XSD 1.04_01 exige
-		como obrigatorio - ver auditoria de lacunas. GeneralLedgerAccounts,
-		MovementOfGoods e todos os campos so opcionais foram deixados de
-		fora desta passagem (ver decisoes documentadas nas notas abaixo).
+		como obrigatorio - ver auditoria de lacunas. GeneralLedgerAccounts
+		fica de fora (so exigido quando TaxAccountingBasis inclui
+		contabilidade integrada - este modulo usa "F", so faturacao).
+		MovementOfGoods (Delivery Note) e WorkingDocuments (Quotation/
+		Sales Order) acrescentados na Fase 2 (2026-09-03) - ate entao
+		eram opcionais no XSD mas exigidos pelo oficio de certificacao
+		da AT (ponto 6: "o SAF-T deve integrar todos os documentos
+		exemplo").
 		"""
 		company_address = self._get_company_address(company_doc.name)
 
@@ -236,6 +241,26 @@ class SAFTGenerator:
 				line.amount for inv in sales_invoices for line in inv.lines if line.debit_credit == "C"
 			),
 			"payments": self.get_payments_data(company_doc.name, from_date, to_date),
+
+			# MovementOfGoods (Delivery Note - GR/GD)
+			"movements_of_goods": (movements := self.get_delivery_notes_data(company_doc.name, from_date, to_date)),
+			"movements_total_quantity": sum(
+				line.qty for mv in movements for line in mv.lines
+			),
+
+			# WorkingDocuments: Quotation (OR) + Sales Order (NE), mesmo
+			# padrao dual-doctype de "sales_invoices" acima.
+			"working_documents": (working_docs := sorted(
+				self.get_working_documents_data(company_doc.name, from_date, to_date, doctype="Quotation")
+				+ self.get_working_documents_data(company_doc.name, from_date, to_date, doctype="Sales Order"),
+				key=lambda d: (d.posting_date, d.name),
+			)),
+			"working_documents_total_debit": sum(
+				line.amount for wd in working_docs for line in wd.lines if line.debit_credit == "D"
+			),
+			"working_documents_total_credit": sum(
+				line.amount for wd in working_docs for line in wd.lines if line.debit_credit == "C"
+			),
 		}
 
 		return context
@@ -280,8 +305,36 @@ class SAFTGenerator:
 										AND pi.posting_date BETWEEN %s AND %s
 										AND pi.docstatus IN (1, 2)
 								  )
+								  OR EXISTS (
+									  SELECT 1 FROM `tabDelivery Note` dn
+									  WHERE dn.customer = c.name
+										AND dn.company = %s
+										AND dn.posting_date BETWEEN %s AND %s
+										AND dn.docstatus IN (1, 2)
+								  )
+								  OR EXISTS (
+									  SELECT 1 FROM `tabQuotation` q
+									  WHERE q.party_name = c.name
+										AND q.quotation_to = 'Customer'
+										AND q.company = %s
+										AND q.transaction_date BETWEEN %s AND %s
+										AND q.docstatus IN (1, 2)
+								  )
+								  OR EXISTS (
+									  SELECT 1 FROM `tabSales Order` so
+									  WHERE so.customer = c.name
+										AND so.company = %s
+										AND so.transaction_date BETWEEN %s AND %s
+										AND so.docstatus IN (1, 2)
+								  )
 								  ORDER BY c.name
-								  """, (company, company, from_date, to_date, company, from_date, to_date), as_dict=True)
+								  """, (
+									  company, company, from_date, to_date,
+									  company, from_date, to_date,
+									  company, from_date, to_date,
+									  company, from_date, to_date,
+									  company, from_date, to_date,
+								  ), as_dict=True)
 		# docstatus IN (1, 2): desde que get_sales_invoices_data passou
 		# a incluir faturas anuladas (docstatus=2) no SourceDocuments,
 		# o cliente dessa fatura tem de constar do MasterFiles tambem -
@@ -290,11 +343,15 @@ class SAFTGenerator:
 		# rejeita o ficheiro inteiro). So aconteceria com um cliente
 		# cuja UNICA fatura no periodo estivesse anulada.
 		#
-		# Segundo EXISTS (POS Invoice): mesma logica, agora que
-		# get_sales_invoices_data() tambem exporta Faturas Simplificadas
-		# (2026-09-03) - um cliente cuja UNICA compra no periodo tenha
-		# sido no POS ficaria de fora do MasterFiles sem isto, com o
-		# mesmo problema de keyref invalido.
+		# EXISTS seguintes (POS Invoice, Delivery Note, Quotation, Sales
+		# Order): mesma logica, agora que a Fase 2 (2026-09-03) passou a
+		# exportar Faturas Simplificadas, Guias de Transporte e
+		# Orcamentos/Notas de Encomenda - um cliente cuja UNICA
+		# relacao no periodo fosse com um destes documentos ficaria de
+		# fora do MasterFiles sem isto, com o mesmo problema de keyref
+		# invalido. Quotation filtrado a quotation_to='Customer' - um
+		# orcamento dirigido a um Lead/Prospect nao tem CustomerID
+		# valido (ver get_working_documents_data).
 
 		for row in customers:
 			row["country_code"] = self._country_code(row.country)
@@ -343,15 +400,16 @@ class SAFTGenerator:
 
 	def get_products_data(self, company, from_date, to_date):
 		"""
-		Obtém dados dos produtos/serviços. Verifica tanto Sales Invoice
-		(FT/NC) como POS Invoice (FS) - desde que get_sales_invoices_data()
-		passou a exportar Faturas Simplificadas (2026-09-03), um artigo
-		vendido só no POS ficaria de fora do MasterFiles (ProductCode sem
-		correspondência, keyref inválido) sem o segundo EXISTS. docstatus
-		IN (1, 2) nos dois - mesmo motivo do get_customers_data acima:
-		o item de uma linha de um documento anulado continua a ser
-		exportado em SourceDocuments (valores a 0.00, mas o ProductCode
-		mantém-se), por isso tem de continuar declarado aqui também.
+		Obtém dados dos produtos/serviços. Verifica Sales Invoice (FT/
+		NC), POS Invoice (FS), Delivery Note (GR/GD), Quotation (OR) e
+		Sales Order (NE) - um artigo vendido/orçamentado/encomendado só
+		num destes ficaria de fora do MasterFiles (ProductCode sem
+		correspondência, keyref inválido) sem o EXISTS correspondente.
+		docstatus IN (1, 2) em todos - mesmo motivo do get_customers_data
+		acima: o item de uma linha de um documento anulado continua a
+		ser exportado em SourceDocuments (valores a 0.00, mas o
+		ProductCode mantém-se), por isso tem de continuar declarado
+		aqui também.
 		"""
 		products = frappe.db.sql("""
 								 SELECT DISTINCT i.name,
@@ -374,8 +432,36 @@ class SAFTGenerator:
 												 AND pi.company = %s
 												 AND pi.posting_date BETWEEN %s AND %s
 												 AND pi.docstatus IN (1, 2))
+								 OR EXISTS (SELECT 1
+											   FROM `tabDelivery Note Item` dni
+														INNER JOIN `tabDelivery Note` dn ON dn.name = dni.parent
+											   WHERE dni.item_code = i.item_code
+												 AND dn.company = %s
+												 AND dn.posting_date BETWEEN %s AND %s
+												 AND dn.docstatus IN (1, 2))
+								 OR EXISTS (SELECT 1
+											   FROM `tabQuotation Item` qi
+														INNER JOIN `tabQuotation` q ON q.name = qi.parent
+											   WHERE qi.item_code = i.item_code
+												 AND q.quotation_to = 'Customer'
+												 AND q.company = %s
+												 AND q.transaction_date BETWEEN %s AND %s
+												 AND q.docstatus IN (1, 2))
+								 OR EXISTS (SELECT 1
+											   FROM `tabSales Order Item` soi
+														INNER JOIN `tabSales Order` so ON so.name = soi.parent
+											   WHERE soi.item_code = i.item_code
+												 AND so.company = %s
+												 AND so.transaction_date BETWEEN %s AND %s
+												 AND so.docstatus IN (1, 2))
 								 ORDER BY i.item_code
-								 """, (company, from_date, to_date, company, from_date, to_date), as_dict=True)
+								 """, (
+									 company, from_date, to_date,
+									 company, from_date, to_date,
+									 company, from_date, to_date,
+									 company, from_date, to_date,
+									 company, from_date, to_date,
+								 ), as_dict=True)
 
 		return products
 
@@ -847,6 +933,308 @@ class SAFTGenerator:
 		self.records_count += len(invoices)
 		self.sales_invoices_count += len(invoices)
 		return list(invoices.values())
+
+	def get_delivery_notes_data(self, company, from_date, to_date):
+		"""
+		Obtém dados das Guias de Transporte para o bloco MovementOfGoods
+		(XSD secção 4.2) - Fase 2 (2026-09-03): o ATCUD/assinatura já
+		existiam para Delivery Note desde sempre, só faltava a extração
+		para o XML. Mesmo padrão de get_sales_invoices_data (UnitPrice/
+		SettlementAmount via base_net_amount/qty, base_rate*qty -
+		base_net_amount), reaproveitando as mesmas funções partilhadas
+		de tax_breakdown.py.
+		"""
+		rows = frappe.db.sql("""
+							 SELECT dn.name, dn.customer, dn.posting_date, dn.creation,
+									dn.base_net_total, dn.base_total_taxes_and_charges,
+									dn.base_grand_total, dn.currency, dn.docstatus, dn.owner,
+									dn.atcud_code, dn.naming_series, dn.is_return, dn.return_against,
+									dn.shipping_address_name, dn.customer_address,
+									dn.at_data_hora_inicio_transporte, dn.at_codigo_transporte,
+									dni.item_code, dni.item_name, dni.description, dni.qty, dni.uom,
+									dni.base_rate, dni.base_net_amount, dni.item_tax_template,
+									dni.at_exemption_reason
+							 FROM `tabDelivery Note` dn
+									  INNER JOIN `tabDelivery Note Item` dni ON dni.parent = dn.name
+							 WHERE dn.company = %s
+							   AND dn.posting_date BETWEEN %s AND %s
+							   AND dn.docstatus IN (1, 2)
+							 ORDER BY dn.posting_date, dn.name
+							 """, (company, from_date, to_date), as_dict=True)
+
+		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}), doctype="Delivery Note")
+
+		from portugal_compliance.utils.tax_breakdown import get_account_at_info, get_item_tax_template_info, VALID_AT_CODES
+
+		names = list({r.name for r in rows})
+		fallback_rates, header_account = {}, {}
+		if names:
+			for t in frappe.db.sql("""
+									SELECT parent, rate, account_head FROM `tabSales Taxes and Charges`
+									WHERE parent IN %(names)s AND parenttype = 'Delivery Note' AND rate > 0
+									ORDER BY idx
+									""", {"names": names}, as_dict=True):
+				fallback_rates.setdefault(t.parent, t.rate)
+				header_account.setdefault(t.parent, t.account_head)
+
+		template_names = {r.item_tax_template for r in rows if r.item_tax_template}
+		account_info = get_account_at_info({a for a in header_account.values() if a})
+		template_info = get_item_tax_template_info(template_names, account_info)
+
+		def _line_tax_info(item_tax_template, doc_name):
+			info = template_info.get(item_tax_template)
+			if not info:
+				header_acc = header_account.get(doc_name)
+				info = account_info.get(header_acc) if header_acc else None
+			return info or {}
+
+		def _line_region(item_tax_template, doc_name):
+			region = _line_tax_info(item_tax_template, doc_name).get("region")
+			return region if region else "PT"
+
+		def _line_tax_code(item_tax_template, doc_name, rate):
+			info = _line_tax_info(item_tax_template, doc_name)
+			if info.get("tax_type") == "IS":
+				return info.get("verba") or "OUT"
+			code = info.get("code")
+			return code if code in VALID_AT_CODES else self._get_line_tax_code(rate)
+
+		def _line_tax_type(item_tax_template, doc_name):
+			return _line_tax_info(item_tax_template, doc_name).get("tax_type") or "IVA"
+
+		series_code_cache = {}
+
+		def _movement_type_for(naming_series, is_return):
+			"""
+			GR (Guia de Remessa) ou GD (Guia de Devolução) consoante a
+			série realmente usada (Portugal Series Configuration.
+			document_code) - nunca um literal fixo. Fallback por
+			is_return apenas se a série não tiver document_code (não
+			deveria acontecer para séries criadas por este módulo).
+			"""
+			if naming_series not in series_code_cache:
+				series_code_cache[naming_series] = frappe.db.get_value(
+					"Portugal Series Configuration", {"naming_series": naming_series}, "document_code"
+				)
+			return series_code_cache[naming_series] or ("GD" if is_return else "GR")
+
+		address_cache = {}
+
+		def _address_dict(address_name):
+			if not address_name:
+				return None
+			if address_name not in address_cache:
+				addr = frappe.db.get_value(
+					"Address", address_name,
+					["address_line1", "address_line2", "city", "pincode", "country"], as_dict=True,
+				)
+				if not addr:
+					address_cache[address_name] = None
+				else:
+					detail = ((addr.address_line1 or "") + " " + (addr.address_line2 or "")).strip()
+					address_cache[address_name] = frappe._dict({
+						"address_detail": detail or "Desconhecido",
+						"city": addr.city or "Desconhecido",
+						"postal_code": addr.pincode or "Desconhecido",
+						"country_code": self._country_code(addr.country),
+					})
+			return address_cache[address_name]
+
+		company_address_doc = self._get_company_address(company)
+		ship_from = _address_dict(company_address_doc.name) if company_address_doc else None
+
+		movements = {}
+		for row in rows:
+			if row.name not in movements:
+				sig = signatures.get(row.name)
+				doc_code = _movement_type_for(row.naming_series, row.is_return)
+				mv = frappe._dict(row.copy())
+				mv["signature_hash"] = sig.signature_hash if (sig and sig.signature_hash) else "0"
+				mv["hash_control"] = "1" if (sig and sig.signature_hash) else "0"
+				mv["movement_type"] = doc_code
+				mv["document_no"] = self._format_invoice_no(
+					row.name, sig.sequence_number if sig else None, doc_code
+				)
+				is_cancelled = row.docstatus == 2
+				mv["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.base_total_taxes_and_charges))
+				mv["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_net_total))
+				mv["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_grand_total))
+				mv["ship_to"] = _address_dict(row.shipping_address_name)
+				mv["ship_from"] = ship_from
+				# MovementStartTime e obrigatorio no XSD - quando o campo
+				# proprio (preenchido no submit, ver document_hooks.py::
+				# validate_transport_start_time) nao existe (documento
+				# antigo, ou fluxo que nao passou por essa validacao),
+				# usa-se a data as 00:00:00, convencao do proprio XSD para
+				# documentos sem hora de inicio de transporte conhecida.
+				mv["movement_start_time"] = (
+					row.at_data_hora_inicio_transporte
+					or frappe.utils.get_datetime(f"{row.posting_date} 00:00:00")
+				)
+				mv["at_doc_code_id"] = row.at_codigo_transporte or ""
+				mv["lines"] = []
+				movements[row.name] = mv
+
+			tax_rate = self._get_line_tax_rate(row.item_tax_template, fallback_rates.get(row.name))
+			exemption_reason = ""
+			if tax_rate <= 0 and row.at_exemption_reason:
+				exemption_reason = frappe.db.get_value(
+					"AT Tax Exemption", row.at_exemption_reason, "description"
+				) or row.at_exemption_reason
+			signed_amount = flt(row.base_net_amount)
+			abs_amount = 0.0 if row.docstatus == 2 else abs(signed_amount)
+			unit_price = abs(flt(row.base_net_amount) / flt(row.qty)) if flt(row.qty) else 0.0
+			settlement_amount = 0.0 if row.docstatus == 2 else round(
+				abs(flt(row.base_rate) * flt(row.qty) - flt(row.base_net_amount)), 2
+			)
+			movements[row.name]["lines"].append(frappe._dict({
+				"item_code": row.item_code,
+				"item_name": row.item_name,
+				"description": row.description,
+				"qty": abs(flt(row.qty)),
+				"uom": row.uom,
+				"rate": unit_price,
+				"amount": abs_amount,
+				"debit_credit": "D" if signed_amount < 0 else "C",
+				"tax_percentage": tax_rate,
+				"tax_type": _line_tax_type(row.item_tax_template, row.name),
+				"tax_code": _line_tax_code(row.item_tax_template, row.name, tax_rate),
+				"tax_region": _line_region(row.item_tax_template, row.name),
+				"tax_exemption_code": row.at_exemption_reason or "",
+				"tax_exemption_reason": exemption_reason,
+				"settlement_amount": settlement_amount,
+			}))
+
+		self.records_count += len(movements)
+		return list(movements.values())
+
+	def get_working_documents_data(self, company, from_date, to_date, doctype="Quotation"):
+		"""
+		Obtém dados dos Orçamentos/Notas de Encomenda para o bloco
+		WorkingDocuments (XSD secção 4.3) - Fase 2 (2026-09-03),
+		consequência direta da Fase 1 (motor de ATCUD/série para
+		Quotation/Sales Order). Mesmo padrão de get_sales_invoices_data;
+		chamada duas vezes em prepare_context (doctype="Quotation" e
+		"Sales Order"), tal como Sales Invoice/POS Invoice.
+
+		Quotation usa party_name (Dynamic Link) em vez de customer, e só
+		é incluído aqui quando quotation_to="Customer" - um orçamento
+		dirigido a um Lead/Prospect (ainda sem NIF/registo fiscal) não
+		tem um CustomerID válido para o MasterFiles referenciar (ver
+		get_customers_data). Sales Order usa customer diretamente.
+		"""
+		item_doctype = f"{doctype} Item"
+		customer_field = "party_name" if doctype == "Quotation" else "customer"
+		quotation_filter = "AND wd.quotation_to = 'Customer'" if doctype == "Quotation" else ""
+		work_type = "OR" if doctype == "Quotation" else "NE"
+
+		rows = frappe.db.sql(f"""
+							 SELECT wd.name, wd.{customer_field} AS customer, wd.transaction_date AS posting_date,
+									wd.creation, wd.base_net_total, wd.base_total_taxes_and_charges,
+									wd.base_grand_total, wd.currency, wd.docstatus, wd.owner,
+									wd.atcud_code, wd.naming_series,
+									wdi.item_code, wdi.item_name, wdi.description, wdi.qty, wdi.uom,
+									wdi.base_rate, wdi.base_net_amount, wdi.item_tax_template,
+									wdi.at_exemption_reason
+							 FROM `tab{doctype}` wd
+									  INNER JOIN `tab{item_doctype}` wdi ON wdi.parent = wd.name
+							 WHERE wd.company = %s
+							   AND wd.transaction_date BETWEEN %s AND %s
+							   AND wd.docstatus IN (1, 2)
+							   {quotation_filter}
+							 ORDER BY wd.transaction_date, wd.name
+							 """, (company, from_date, to_date), as_dict=True)
+
+		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}), doctype=doctype)
+
+		from portugal_compliance.utils.tax_breakdown import get_account_at_info, get_item_tax_template_info, VALID_AT_CODES
+
+		names = list({r.name for r in rows})
+		fallback_rates, header_account = {}, {}
+		if names:
+			for t in frappe.db.sql("""
+									SELECT parent, rate, account_head FROM `tabSales Taxes and Charges`
+									WHERE parent IN %(names)s AND rate > 0
+									ORDER BY idx
+									""", {"names": names}, as_dict=True):
+				fallback_rates.setdefault(t.parent, t.rate)
+				header_account.setdefault(t.parent, t.account_head)
+
+		template_names = {r.item_tax_template for r in rows if r.item_tax_template}
+		account_info = get_account_at_info({a for a in header_account.values() if a})
+		template_info = get_item_tax_template_info(template_names, account_info)
+
+		def _line_tax_info(item_tax_template, doc_name):
+			info = template_info.get(item_tax_template)
+			if not info:
+				header_acc = header_account.get(doc_name)
+				info = account_info.get(header_acc) if header_acc else None
+			return info or {}
+
+		def _line_region(item_tax_template, doc_name):
+			region = _line_tax_info(item_tax_template, doc_name).get("region")
+			return region if region else "PT"
+
+		def _line_tax_code(item_tax_template, doc_name, rate):
+			info = _line_tax_info(item_tax_template, doc_name)
+			if info.get("tax_type") == "IS":
+				return info.get("verba") or "OUT"
+			code = info.get("code")
+			return code if code in VALID_AT_CODES else self._get_line_tax_code(rate)
+
+		def _line_tax_type(item_tax_template, doc_name):
+			return _line_tax_info(item_tax_template, doc_name).get("tax_type") or "IVA"
+
+		documents = {}
+		for row in rows:
+			if row.name not in documents:
+				sig = signatures.get(row.name)
+				wd = frappe._dict(row.copy())
+				wd["signature_hash"] = sig.signature_hash if (sig and sig.signature_hash) else "0"
+				wd["hash_control"] = "1" if (sig and sig.signature_hash) else "0"
+				wd["work_type"] = work_type
+				wd["document_no"] = self._format_invoice_no(
+					row.name, sig.sequence_number if sig else None, work_type
+				)
+				is_cancelled = row.docstatus == 2
+				wd["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.base_total_taxes_and_charges))
+				wd["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_net_total))
+				wd["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_grand_total))
+				wd["lines"] = []
+				documents[row.name] = wd
+
+			tax_rate = self._get_line_tax_rate(row.item_tax_template, fallback_rates.get(row.name))
+			exemption_reason = ""
+			if tax_rate <= 0 and row.at_exemption_reason:
+				exemption_reason = frappe.db.get_value(
+					"AT Tax Exemption", row.at_exemption_reason, "description"
+				) or row.at_exemption_reason
+			signed_amount = flt(row.base_net_amount)
+			abs_amount = 0.0 if row.docstatus == 2 else abs(signed_amount)
+			unit_price = abs(flt(row.base_net_amount) / flt(row.qty)) if flt(row.qty) else 0.0
+			settlement_amount = 0.0 if row.docstatus == 2 else round(
+				abs(flt(row.base_rate) * flt(row.qty) - flt(row.base_net_amount)), 2
+			)
+			documents[row.name]["lines"].append(frappe._dict({
+				"item_code": row.item_code,
+				"item_name": row.item_name,
+				"description": row.description,
+				"qty": abs(flt(row.qty)),
+				"uom": row.uom,
+				"rate": unit_price,
+				"amount": abs_amount,
+				"debit_credit": "D" if signed_amount < 0 else "C",
+				"tax_percentage": tax_rate,
+				"tax_type": _line_tax_type(row.item_tax_template, row.name),
+				"tax_code": _line_tax_code(row.item_tax_template, row.name, tax_rate),
+				"tax_region": _line_region(row.item_tax_template, row.name),
+				"tax_exemption_code": row.at_exemption_reason or "",
+				"tax_exemption_reason": exemption_reason,
+				"settlement_amount": settlement_amount,
+			}))
+
+		self.records_count += len(documents)
+		return list(documents.values())
 
 	def get_payments_data(self, company, from_date, to_date):
 		"""

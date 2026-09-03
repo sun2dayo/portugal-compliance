@@ -1,8 +1,8 @@
-<!-- SourceDocuments do SAF-T (PT) 1.04_01 - so os blocos que se aplicam a faturacao: -->
-<!-- SalesInvoices e Payments. PurchaseInvoices nao existe no schema (a AT recebe -->
-<!-- documentos de compra atraves do SAF-T que o FORNECEDOR submete, nao o comprador). -->
-<!-- MovementOfGoods fica fora desta passagem: e opcional e exigiria dados reais de -->
-<!-- Stock Entry que o modulo ainda nao recolhe para este fim. -->
+<!-- SourceDocuments do SAF-T (PT) 1.04_01. PurchaseInvoices nao existe no schema (a AT -->
+<!-- recebe documentos de compra atraves do SAF-T que o FORNECEDOR submete, nao o -->
+<!-- comprador). MovementOfGoods (Delivery Note - GR/GD) e WorkingDocuments (Quotation -->
+<!-- OR / Sales Order NE) acrescentados na Fase 2 (2026-09-03) - o ATCUD/assinatura ja -->
+<!-- existiam para os 3 doctypes, so faltava esta extracao. -->
 <SourceDocuments>
     <SalesInvoices>
         <NumberOfEntries>{{ sales_invoices|length }}</NumberOfEntries>
@@ -90,6 +90,148 @@
         </Invoice>
         {% endfor %}
     </SalesInvoices>
+
+    <MovementOfGoods>
+        <NumberOfMovementLines>{{ movements_of_goods|map(attribute='lines')|map('length')|sum }}</NumberOfMovementLines>
+        <TotalQuantityIssued>{{ '%.2f'|format(movements_total_quantity or 0) }}</TotalQuantityIssued>
+        {% for mv in movements_of_goods %}
+        <StockMovement>
+            <DocumentNumber>{{ mv.document_no }}</DocumentNumber>
+            <ATCUD>{{ mv.atcud_code or '' }}</ATCUD>
+            <DocumentStatus>
+                <MovementStatus>{{ 'A' if mv.docstatus == 2 else 'N' }}</MovementStatus>
+                <MovementStatusDate>{{ mv.posting_date.strftime('%Y-%m-%dT00:00:00') }}</MovementStatusDate>
+                <SourceID>{{ mv.owner }}</SourceID>
+                <SourceBilling>P</SourceBilling>
+            </DocumentStatus>
+            <Hash>{{ mv.signature_hash }}</Hash>
+            <HashControl>{{ mv.hash_control }}</HashControl>
+            <MovementDate>{{ mv.posting_date.strftime('%Y-%m-%d') }}</MovementDate>
+            <MovementType>{{ mv.movement_type }}</MovementType>
+            <SystemEntryDate>{{ mv.creation.strftime('%Y-%m-%dT%H:%M:%S') }}</SystemEntryDate>
+            <CustomerID>{{ mv.customer }}</CustomerID>
+            <SourceID>{{ mv.owner }}</SourceID>
+            {% if mv.ship_to %}
+            <ShipTo>
+                <Address>
+                    <AddressDetail>{{ mv.ship_to.address_detail }}</AddressDetail>
+                    <City>{{ mv.ship_to.city }}</City>
+                    <PostalCode>{{ mv.ship_to.postal_code }}</PostalCode>
+                    <Country>{{ mv.ship_to.country_code }}</Country>
+                </Address>
+            </ShipTo>
+            {% endif %}
+            {% if mv.ship_from %}
+            <ShipFrom>
+                <Address>
+                    <AddressDetail>{{ mv.ship_from.address_detail }}</AddressDetail>
+                    <City>{{ mv.ship_from.city }}</City>
+                    <PostalCode>{{ mv.ship_from.postal_code }}</PostalCode>
+                    <Country>{{ mv.ship_from.country_code }}</Country>
+                </Address>
+            </ShipFrom>
+            {% endif %}
+            <MovementStartTime>{{ mv.movement_start_time.strftime('%Y-%m-%dT%H:%M:%S') }}</MovementStartTime>
+            {% if mv.at_doc_code_id %}
+            <ATDocCodeID>{{ mv.at_doc_code_id }}</ATDocCodeID>
+            {% endif %}
+            {% for item in mv.lines %}
+            <Line>
+                <LineNumber>{{ loop.index }}</LineNumber>
+                <ProductCode>{{ item.item_code }}</ProductCode>
+                <ProductDescription>{{ item.item_name or item.item_code }}</ProductDescription>
+                <Quantity>{{ item.qty }}</Quantity>
+                <UnitOfMeasure>{{ item.uom or 'Un' }}</UnitOfMeasure>
+                <UnitPrice>{{ '%.4f'|format(item.rate or 0) }}</UnitPrice>
+                <Description>{{ item.description or item.item_name or item.item_code }}</Description>
+                {% if item.debit_credit == "D" %}
+                <DebitAmount>{{ '%.2f'|format(item.amount or 0) }}</DebitAmount>
+                {% else %}
+                <CreditAmount>{{ '%.2f'|format(item.amount or 0) }}</CreditAmount>
+                {% endif %}
+                <Tax>
+                    <TaxType>{{ item.tax_type or 'IVA' }}</TaxType>
+                    <TaxCountryRegion>{{ item.tax_region or 'PT' }}</TaxCountryRegion>
+                    <TaxCode>{{ item.tax_code }}</TaxCode>
+                    <TaxPercentage>{{ '%.2f'|format(item.tax_percentage or 0) }}</TaxPercentage>
+                </Tax>
+                {% if item.tax_percentage == 0 %}
+                <TaxExemptionReason>{{ item.tax_exemption_reason or 'Isento' }}</TaxExemptionReason>
+                <TaxExemptionCode>{{ item.tax_exemption_code or 'M99' }}</TaxExemptionCode>
+                {% endif %}
+                {% if item.settlement_amount and item.settlement_amount > 0 %}
+                <SettlementAmount>{{ '%.2f'|format(item.settlement_amount) }}</SettlementAmount>
+                {% endif %}
+            </Line>
+            {% endfor %}
+            <DocumentTotals>
+                <TaxPayable>{{ '%.2f'|format(mv.tax_payable or 0) }}</TaxPayable>
+                <NetTotal>{{ '%.2f'|format(mv.net_total_abs or 0) }}</NetTotal>
+                <GrossTotal>{{ '%.2f'|format(mv.gross_total_abs or 0) }}</GrossTotal>
+            </DocumentTotals>
+        </StockMovement>
+        {% endfor %}
+    </MovementOfGoods>
+
+    <WorkingDocuments>
+        <NumberOfEntries>{{ working_documents|length }}</NumberOfEntries>
+        <TotalDebit>{{ '%.2f'|format(working_documents_total_debit or 0) }}</TotalDebit>
+        <TotalCredit>{{ '%.2f'|format(working_documents_total_credit or 0) }}</TotalCredit>
+        {% for wd in working_documents %}
+        <WorkDocument>
+            <DocumentNumber>{{ wd.document_no }}</DocumentNumber>
+            <ATCUD>{{ wd.atcud_code or '' }}</ATCUD>
+            <DocumentStatus>
+                <WorkStatus>{{ 'A' if wd.docstatus == 2 else 'N' }}</WorkStatus>
+                <WorkStatusDate>{{ wd.posting_date.strftime('%Y-%m-%dT00:00:00') }}</WorkStatusDate>
+                <SourceID>{{ wd.owner }}</SourceID>
+                <SourceBilling>P</SourceBilling>
+            </DocumentStatus>
+            <Hash>{{ wd.signature_hash }}</Hash>
+            <HashControl>{{ wd.hash_control }}</HashControl>
+            <WorkDate>{{ wd.posting_date.strftime('%Y-%m-%d') }}</WorkDate>
+            <WorkType>{{ wd.work_type }}</WorkType>
+            <SourceID>{{ wd.owner }}</SourceID>
+            <SystemEntryDate>{{ wd.creation.strftime('%Y-%m-%dT%H:%M:%S') }}</SystemEntryDate>
+            <CustomerID>{{ wd.customer }}</CustomerID>
+            {% for item in wd.lines %}
+            <Line>
+                <LineNumber>{{ loop.index }}</LineNumber>
+                <ProductCode>{{ item.item_code }}</ProductCode>
+                <ProductDescription>{{ item.item_name or item.item_code }}</ProductDescription>
+                <Quantity>{{ item.qty }}</Quantity>
+                <UnitOfMeasure>{{ item.uom or 'Un' }}</UnitOfMeasure>
+                <UnitPrice>{{ '%.4f'|format(item.rate or 0) }}</UnitPrice>
+                <TaxPointDate>{{ wd.posting_date.strftime('%Y-%m-%d') }}</TaxPointDate>
+                <Description>{{ item.description or item.item_name or item.item_code }}</Description>
+                {% if item.debit_credit == "D" %}
+                <DebitAmount>{{ '%.2f'|format(item.amount or 0) }}</DebitAmount>
+                {% else %}
+                <CreditAmount>{{ '%.2f'|format(item.amount or 0) }}</CreditAmount>
+                {% endif %}
+                <Tax>
+                    <TaxType>{{ item.tax_type or 'IVA' }}</TaxType>
+                    <TaxCountryRegion>{{ item.tax_region or 'PT' }}</TaxCountryRegion>
+                    <TaxCode>{{ item.tax_code }}</TaxCode>
+                    <TaxPercentage>{{ '%.2f'|format(item.tax_percentage or 0) }}</TaxPercentage>
+                </Tax>
+                {% if item.tax_percentage == 0 %}
+                <TaxExemptionReason>{{ item.tax_exemption_reason or 'Isento' }}</TaxExemptionReason>
+                <TaxExemptionCode>{{ item.tax_exemption_code or 'M99' }}</TaxExemptionCode>
+                {% endif %}
+                {% if item.settlement_amount and item.settlement_amount > 0 %}
+                <SettlementAmount>{{ '%.2f'|format(item.settlement_amount) }}</SettlementAmount>
+                {% endif %}
+            </Line>
+            {% endfor %}
+            <DocumentTotals>
+                <TaxPayable>{{ '%.2f'|format(wd.tax_payable or 0) }}</TaxPayable>
+                <NetTotal>{{ '%.2f'|format(wd.net_total_abs or 0) }}</NetTotal>
+                <GrossTotal>{{ '%.2f'|format(wd.gross_total_abs or 0) }}</GrossTotal>
+            </DocumentTotals>
+        </WorkDocument>
+        {% endfor %}
+    </WorkingDocuments>
 
     <Payments>
         <NumberOfEntries>{{ payments|length }}</NumberOfEntries>
