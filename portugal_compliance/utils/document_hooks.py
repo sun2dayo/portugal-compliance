@@ -342,11 +342,42 @@ class PortugalComplianceDocumentHooks:
 			)
 
 	def _should_activate_compliance(self, doc):
-		"""Verificar se deve ativar compliance"""
-		return (doc.country == "Portugal" and
-				cint(getattr(doc, 'portugal_compliance_enabled', 0)) and
-				not cint(getattr(doc._doc_before_save, "portugal_compliance_enabled", 0)
-						 if hasattr(doc, '_doc_before_save') else 0))
+		"""Verificar se deve ativar compliance.
+
+		Auditoria 2026-09-04 (paridade Quotation/Sales Order): esta
+		verificacao nunca disparava para uma empresa REALMENTE nova -
+		doc._doc_before_save, quando existe durante on_update, reflete
+		o estado JA GRAVADO na BD (Document.load_doc_before_save() faz
+		um frappe.get_doc fresco), nao o estado antes do insert. E como
+		validate_company_fiscal_lock (abaixo) forca
+		portugal_compliance_enabled=1 durante validate() - que corre
+		antes de on_update, no mesmo ciclo de save() - o valor "antes"
+		e o "depois" eram sempre iguais (1 e 1) numa empresa nova com
+		Pais=Portugal, mesmo sem o utilizador tocar na checkbox. Nunca
+		havia uma transicao 0->1 para detetar, logo as series nunca
+		eram criadas automaticamente para NENHUM doctype numa empresa
+		portuguesa genuinamente nova - confirmado ao vivo (as series da
+		NovaDX vieram do patch historico setup_portugal_series.py, nao
+		deste caminho). Corrigido para tambem ativar durante o proprio
+		insert() - nao com doc.is_new() (confirmado ao vivo que ja
+		devolve False neste ponto: Document.insert() so chama
+		run_post_save_methods, que despoleta on_update, DEPOIS de
+		limpar "__islocal"/is_new()), mas com doc.flags.in_insert, que
+		o proprio Document.insert() mantem True precisamente durante
+		essa janela (ver frappe/model/document.py::insert()). Seguro
+		porque toda a configuracao em _execute_compliance_setup ja e
+		idempotente (verifica existencia antes de criar), pelo que nao
+		ha risco de duplicar nada mesmo que esta verificacao dispare
+		mais vezes do que estritamente necessario.
+		"""
+		if not (doc.country == "Portugal" and cint(getattr(doc, 'portugal_compliance_enabled', 0))):
+			return False
+
+		if doc.flags.in_insert:
+			return True
+
+		before = getattr(doc, '_doc_before_save', None) if hasattr(doc, '_doc_before_save') else None
+		return not cint(getattr(before, "portugal_compliance_enabled", 0))
 
 	def _execute_compliance_setup(self, doc):
 		"""Executar todas as configurações de compliance"""
@@ -797,11 +828,14 @@ class PortugalComplianceDocumentHooks:
 		confirmar que naming_series_customizer.py reintroduzia
 		exatamente essa via paralela no Onboarding.
 
-		Âmbito: só corre para os 4 doctypes em self.supported_doctypes
-		(Sales Invoice, POS Invoice, Payment Entry, Delivery Note) -
-		Quotation/Sales Order/Purchase Order/Material Request ficam
-		fora deliberadamente, nunca chamam este método (não são
-		fiscais - ver document_hooks.py:supported_doctypes).
+		Âmbito: corre para todos os doctypes em self.supported_doctypes
+		(Sales Invoice, POS Invoice, Payment Entry, Delivery Note,
+		Quotation, Sales Order desde a Fase 1) - Purchase Order/
+		Material Request ficam fora deliberadamente, nunca chamam este
+		método (não são fiscais - ver document_hooks.py:supported_doctypes).
+		Nota 2026-09-04: este comentário afirmava antes que Quotation/
+		Sales Order nunca chamavam este método - desatualizado desde a
+		Fase 1, que os tornou doctypes de compliance completo.
 
 		Só documentos ainda sem ATCUD - mesma lógica de
 		_validate_series_not_inactive: um documento já assinado nunca

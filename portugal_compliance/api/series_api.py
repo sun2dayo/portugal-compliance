@@ -491,8 +491,14 @@ def get_atcud_statistics(company=None, date_from=None, date_to=None):
 			else:
 				filters["creation"] = ["<=", date_to]
 
-		# ✅ DOCTYPES SUPORTADOS (apenas com campo atcud_code)
-		supported_doctypes = ["Sales Invoice", "POS Invoice", "Payment Entry"]
+		# Doctypes com campo atcud_code (2026-09-04: alinhado com
+		# document_hooks.py::supported_doctypes - faltavam Delivery
+		# Note, Quotation e Sales Order, todos com ATCUD real desde a
+		# Fase 1/o motor de compliance nativo).
+		supported_doctypes = [
+			"Sales Invoice", "POS Invoice", "Payment Entry",
+			"Delivery Note", "Quotation", "Sales Order",
+		]
 
 		total_documents = 0
 		documents_with_atcud = 0
@@ -501,7 +507,13 @@ def get_atcud_statistics(company=None, date_from=None, date_to=None):
 		for doctype in supported_doctypes:
 			try:
 				# ✅ VERIFICAR SE TABELA E CAMPO EXISTEM
-				if not frappe.db.table_exists(f"tab{doctype}"):
+				# 2026-09-04: table_exists() ja antepoe "tab" internamente
+				# (frappe/database/database.py::table_exists) - passar
+				# f"tab{doctype}" procurava por "tabtabSales Invoice" e
+				# afins, nunca encontrava nada, e esta funcao devolvia
+				# sempre estatisticas vazias para todos os doctypes,
+				# desde sempre (nao so os que faltavam acima).
+				if not frappe.db.table_exists(doctype):
 					continue
 
 				columns = frappe.db.get_table_columns(doctype)
@@ -628,36 +640,30 @@ def get_series_report(company=None, include_stats=True):
 
 @frappe.whitelist()
 def get_available_document_types():
-	"""
-	✅ CORRIGIDO: Obter tipos de documento (usando dados reais)
+	"""Tipos de documento portugueses disponiveis.
+
+	2026-09-04: era uma lista estatica de 3 doctypes (Sales Invoice/POS
+	Invoice/Payment Entry apenas) que ja ficara desalinhada de
+	document_hooks.py::supported_doctypes ha muito - faltavam Delivery
+	Note, Quotation e Sales Order. Passa a delegar em
+	regional.portugal.PORTUGAL_DOCUMENT_TYPES (fonte unica de verdade,
+	ja usada pelo gemeo correto desta funcao em
+	api.company_api.get_available_document_types) em vez de manter uma
+	segunda copia hardcoded sujeita ao mesmo desalinhamento no futuro.
 	"""
 	try:
-		# ✅ TIPOS DE DOCUMENTO BASEADOS NO DOCUMENT_HOOKS
+		from portugal_compliance.regional.portugal import PORTUGAL_DOCUMENT_TYPES
+
 		document_types = [
 			{
-				"doctype": "Sales Invoice",
-				"code": "FT",
-				"name": "Fatura de Venda",
-				"description": "Documentos de venda a clientes",
-				"communication_required": True,
-				"atcud_required": True
-			},
-			{
-				"doctype": "POS Invoice",
-				"code": "FS",
-				"name": "Fatura Simplificada",
-				"description": "Faturas POS simplificadas",
-				"communication_required": True,
-				"atcud_required": True
-			},
-			{
-				"doctype": "Payment Entry",
-				"code": "RC",
-				"name": "Recibo",
-				"description": "Recibos de pagamento",
-				"communication_required": True,
-				"atcud_required": True
+				"doctype": doctype,
+				"code": info["code"],
+				"name": info["name"],
+				"description": info["description"],
+				"communication_required": info.get("communication_required", True),
+				"atcud_required": info.get("atcud_required", True),
 			}
+			for doctype, info in PORTUGAL_DOCUMENT_TYPES.items()
 		]
 
 		return {

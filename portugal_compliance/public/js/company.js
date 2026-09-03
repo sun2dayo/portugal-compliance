@@ -639,13 +639,18 @@ function load_company_series(frm) {
     });
 }
 
-// Tipos de documento que a lei portuguesa (Portaria 195/2020) exige
-// comunicar à AT (ATCUD/série comunicada) - documentos emitidos a
-// clientes. Todos os outros (lançamentos contábeis, faturas de
-// compra, movimentos de stock internos, etc.) nunca têm série
-// comunicada à AT por definição - mostrar "Não" para esses é um falso
-// alarme, não um problema de configuração real.
-const AT_CLIENT_FACING_DOCTYPES = ['Sales Invoice', 'POS Invoice', 'Payment Entry', 'Delivery Note'];
+// Tipos de documento que a lei portuguesa (Portaria 195/2020 e, para
+// Quotation/Sales Order, o Decreto-Lei 28/2019 - "documentos de
+// conferência") exige comunicar à AT (ATCUD/série comunicada) -
+// documentos suscetíveis de apresentação ao cliente. Todos os outros
+// (lançamentos contábeis, faturas de compra, movimentos de stock
+// internos, etc.) nunca têm série comunicada à AT por definição -
+// mostrar "Não" para esses é um falso alarme, não um problema de
+// configuração real. Quotation/Sales Order acrescentados 2026-09-04
+// (já eram doctypes de compliance completo desde a Fase 1 - só esta
+// lista, usada apenas para a coluna "Comunicada" do Company, tinha
+// ficado por atualizar).
+const AT_CLIENT_FACING_DOCTYPES = ['Sales Invoice', 'POS Invoice', 'Payment Entry', 'Delivery Note', 'Quotation', 'Sales Order'];
 
 function display_company_series(frm, series_list) {
     /**

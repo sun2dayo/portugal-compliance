@@ -38,9 +38,13 @@ frappe.ui.form.on('Sales Order', {
 
             // show_compliance_status removida (2026-08-30, mesmo
             // achado do utilizador ja corrigido em stock_entry.js -
-            // ver esse ficheiro para o historico completo). Sales
-            // Order usa validate_portugal_compliance_light no
-            // servidor, nao esta em document_hooks.py::supported_doctypes.
+            // ver esse ficheiro para o historico completo). Nota
+            // 2026-09-04: a razao original dada aqui ("Sales Order nao
+            // esta em document_hooks.py::supported_doctypes") ficou
+            // desatualizada pela Fase 1 - Sales Order E' um doctype de
+            // compliance completo desde entao (ATCUD/serie/assinatura/
+            // comunicacao AT reais). A remocao em si mantem-se (nao
+            // reintroduzida), so a justificacao estava errada.
 
             // ✅ ADICIONAR BOTÕES PERSONALIZADOS
             add_custom_buttons(frm);
@@ -268,9 +272,11 @@ function setup_portuguese_interface(frm) {
 // add_compliance_section, add_sales_order_section,
 // show_compliance_status e get_compliance_status removidas
 // (2026-08-30, mesmo achado do utilizador ja corrigido em
-// stock_entry.js - ver esse ficheiro para o historico completo).
-// Sales Order usa validate_portugal_compliance_light no servidor,
-// nao esta em document_hooks.py::supported_doctypes.
+// stock_entry.js - ver esse ficheiro para o historico completo). Nota
+// 2026-09-04: a razao original dada aqui ("Sales Order nao esta em
+// document_hooks.py::supported_doctypes") ficou desatualizada pela
+// Fase 1 - Sales Order E' um doctype de compliance completo desde
+// entao. A remocao em si mantem-se, so a justificacao estava errada.
 
 function setup_portuguese_layout(frm) {
     /**

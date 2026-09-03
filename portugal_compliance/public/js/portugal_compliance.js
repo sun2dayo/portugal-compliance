@@ -2002,7 +2002,7 @@ console.log('🇵🇹 Portugal Compliance Module v2.0.0 carregado com sucesso - 
 // campo mantém intactas as opções nativas definidas no DocType
 // (ex: Sales Invoice mostra "ACC-SINV-.YYYY.-" como o ERPNext prevê).
 (function () {
-	const NAMING_SERIES_FILTER_DOCTYPES = ['Sales Invoice', 'POS Invoice', 'Payment Entry', 'Delivery Note'];
+	const NAMING_SERIES_FILTER_DOCTYPES = ['Sales Invoice', 'POS Invoice', 'Payment Entry', 'Delivery Note', 'Quotation', 'Sales Order'];
 
 	portugal_compliance.applyNamingSeriesFilter = function (frm) {
 		// Guarda as opções nativas originais do campo (definidas no

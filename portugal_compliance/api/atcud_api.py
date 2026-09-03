@@ -205,7 +205,12 @@ def bulk_generate_atcud(doctype, filters=None, limit=50):
 			filters = {}
 
 		# ✅ VERIFICAR SE TABELA E CAMPO EXISTEM
-		if not frappe.db.table_exists(f"tab{doctype}"):
+		# 2026-09-04: table_exists() ja antepoe "tab" internamente
+		# (frappe/database/database.py::table_exists) - passar
+		# f"tab{doctype}" procurava por "tabtabSales Invoice" e afins,
+		# nunca encontrava nada, e esta verificacao falhava sempre para
+		# todos os doctypes, mesmo os corretamente suportados acima.
+		if not frappe.db.table_exists(doctype):
 			return {
 				"success": False,
 				"error": f"Tabela {doctype} não existe"
@@ -331,13 +336,21 @@ def get_atcud_statistics(company=None, date_from=None, date_to=None):
 			}
 		}
 
-		# ✅ DOCTYPES SUPORTADOS (apenas com campo atcud_code)
-		supported_doctypes = ["Sales Invoice", "POS Invoice", "Payment Entry"]
+		# Doctypes com campo atcud_code (2026-09-04: alinhado com
+		# document_hooks.py::supported_doctypes - faltavam Delivery
+		# Note, Quotation e Sales Order, todos com ATCUD real desde a
+		# Fase 1/o motor de compliance nativo).
+		supported_doctypes = [
+			"Sales Invoice", "POS Invoice", "Payment Entry",
+			"Delivery Note", "Quotation", "Sales Order",
+		]
 
 		for doctype in supported_doctypes:
 			try:
-				# ✅ VERIFICAR SE TABELA E CAMPO EXISTEM
-				if not frappe.db.table_exists(f"tab{doctype}"):
+				# 2026-09-04: table_exists() ja antepoe "tab" internamente -
+				# passar f"tab{doctype}" nunca encontrava nada, e esta
+				# verificacao falhava sempre para todos os doctypes.
+				if not frappe.db.table_exists(doctype):
 					continue
 
 				columns = frappe.db.get_table_columns(doctype)
