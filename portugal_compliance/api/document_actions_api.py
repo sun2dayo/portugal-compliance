@@ -19,6 +19,19 @@ api/__init__.py::<nome>, nem nenhum outro modulo com essas funcoes,
 confirmado por grep a todo o repositorio). Clicar em qualquer um dos
 4 botoes rebentava sempre com um erro do servidor. Encontrado durante
 a auditoria de paridade Quotation/Sales Order, corrigido agora.
+
+Correcao 2026-09-04 (mesmo dia, revisao do utilizador): a primeira
+versao de renew_quotation_validity/update_sales_order_delivery_date
+permitia alterar valid_till/delivery_date mesmo num documento ja
+submetido (chegando a usar frappe.db.set_value para contornar a
+proteccao nativa do Frappe nesse caso) - viola o principio de
+inalterabilidade da AT que a propria Portaria 195/2020 exige de um
+"Documento de Conferencia" com ATCUD/assinatura Hash ja gerados
+(Quotation/Sales Order sao-no desde a Fase 1). Corrigido: as duas
+funcoes agora exigem docstatus=0 (rascunho) e recusam com um erro
+formal em qualquer outro estado, orientando para duplicate_quotation/
+duplicate_sales_order - o unico caminho suportado para "renovar" um
+documento ja submetido. Ver docstring de cada funcao.
 """
 
 import frappe
@@ -28,25 +41,44 @@ from frappe.utils import getdate, today
 
 @frappe.whitelist()
 def renew_quotation_validity(quotation, new_valid_till, reason=None):
-	"""Atualiza Quotation.valid_till, incluindo em orcamentos ja
-	submetidos (valid_till nao tem allow_on_submit no DocType nativo -
-	confirmado no JSON da ERPNext - por isso usa frappe.db.set_value
-	em vez de doc.save(), que seria sempre rejeitado com "not allowed
-	to edit... after submission" para um orcamento submetido). O
-	ATCUD/assinatura ja gerados no orcamento nao sao afetados - a
-	validade e um campo de negocio, nao um dos campos cobertos pela
-	assinatura fiscal.
+	"""Atualiza Quotation.valid_till - APENAS em rascunho (docstatus=0).
+
+	Correcao 2026-09-04 (revisao do utilizador, principio de
+	inalterabilidade da AT): a primeira versao desta funcao usava
+	frappe.db.set_value para contornar deliberadamente a proteccao
+	nativa do Frappe contra editar um documento submetido - o que
+	violava a imutabilidade que a propria Portaria 195/2020 exige de
+	um "Documento de Conferencia" com ATCUD/assinatura Hash ja
+	gerados (Quotation e um destes desde a Fase 1). Um PDF ja
+	impresso/comunicado a um cliente nunca pode divergir do estado
+	atual da base de dados. Um Quotation submetido e expirado
+	continua a exigir "Duplicar Orçamento" (duplicate_quotation
+	abaixo), nunca uma alteracao in-place - e esse o unico caminho
+	suportado. doc.save() normal (nunca frappe.db.set_value) - a
+	propria proteccao nativa do Frappe contra editar depois de
+	submetido fica intacta para qualquer outro campo.
 	"""
 	if not frappe.has_permission("Quotation", "write", quotation):
 		frappe.throw(_("Sem permissão para alterar este orçamento"), frappe.PermissionError)
+
+	doc = frappe.get_doc("Quotation", quotation)
+	if doc.docstatus != 0:
+		frappe.throw(
+			_(
+				"Documentos fiscais submetidos não podem ser alterados. "
+				"Utilize a função Duplicar para gerar um novo documento."
+			),
+			frappe.ValidationError,
+			title=_("Documento Imutável"),
+		)
 
 	try:
 		if getdate(new_valid_till) < getdate(today()):
 			return {"success": False, "error": _("A nova data de validade não pode ser no passado")}
 
-		frappe.db.set_value("Quotation", quotation, "valid_till", getdate(new_valid_till))
+		doc.valid_till = getdate(new_valid_till)
+		doc.save()
 
-		doc = frappe.get_doc("Quotation", quotation)
 		comment = _("Validade renovada para {0}.").format(frappe.utils.format_date(new_valid_till))
 		if reason:
 			comment += " " + _("Motivo: {0}").format(reason)
@@ -88,25 +120,45 @@ def duplicate_quotation(quotation):
 @frappe.whitelist()
 def update_sales_order_delivery_date(sales_order, new_delivery_date, reason=None):
 	"""Atualiza Sales Order.delivery_date (e a mesma data em cada
-	Sales Order Item.delivery_date). Ambos os campos ja tem
+	Sales Order Item.delivery_date) - APENAS em rascunho (docstatus=0).
+
+	Correcao 2026-09-04 (revisao do utilizador, principio de
+	inalterabilidade da AT): apesar de delivery_date TER
 	allow_on_submit=1 no DocType nativo (confirmado no JSON da
-	ERPNext) - doc.save() funciona diretamente mesmo com a encomenda
-	submetida, sem precisar de frappe.db.set_value. Os itens tem de
-	ser atualizados tambem: confirmado ao vivo que
-	SalesOrder.validate_delivery_date() (core da ERPNext, corre em
-	todo validate()) recalcula sempre o campo do cabecalho a partir do
-	maximo das datas de entrega dos itens - só mudar o campo do
-	cabecalho era imediatamente revertido pelo proprio save(), sem
-	erro nenhum (parecia funcionar, mas o valor nunca mudava).
+	ERPNext - doc.save() funcionaria tecnicamente mesmo submetida),
+	Sales Order e um "Documento de Conferencia" com ATCUD/assinatura
+	Hash desde a Fase 1, tal como Quotation - mesma logica de
+	imutabilidade, mesmo bloqueio aqui, independentemente do que o
+	DocType nativo permitiria. Uma encomenda submetida e atrasada
+	continua a exigir "Duplicar Encomenda" (duplicate_sales_order
+	abaixo), nunca uma alteracao in-place.
+
+	Os itens tem de ser atualizados tambem (nao so o cabecalho):
+	confirmado ao vivo que SalesOrder.validate_delivery_date() (core
+	da ERPNext, corre em todo validate()) recalcula sempre o campo do
+	cabecalho a partir do maximo das datas de entrega dos itens - so
+	mudar o campo do cabecalho era imediatamente revertido pelo
+	proprio save(), sem erro nenhum (parecia funcionar, mas o valor
+	nunca mudava).
 	"""
 	if not frappe.has_permission("Sales Order", "write", sales_order):
 		frappe.throw(_("Sem permissão para alterar esta encomenda"), frappe.PermissionError)
+
+	doc = frappe.get_doc("Sales Order", sales_order)
+	if doc.docstatus != 0:
+		frappe.throw(
+			_(
+				"Documentos fiscais submetidos não podem ser alterados. "
+				"Utilize a função Duplicar para gerar um novo documento."
+			),
+			frappe.ValidationError,
+			title=_("Documento Imutável"),
+		)
 
 	try:
 		if getdate(new_delivery_date) < getdate(today()):
 			return {"success": False, "error": _("A nova data de entrega não pode ser no passado")}
 
-		doc = frappe.get_doc("Sales Order", sales_order)
 		doc.delivery_date = getdate(new_delivery_date)
 		for item in doc.items:
 			item.delivery_date = getdate(new_delivery_date)

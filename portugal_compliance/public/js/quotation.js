@@ -923,8 +923,21 @@ function analyze_quotation(frm) {
 
 function renew_quotation_validity(frm) {
     /**
-     * Renovar validade do orçamento
+     * Renovar validade do orçamento - só em rascunho (docstatus=0).
+     * Correção 2026-09-04 (princípio de inalterabilidade da AT): um
+     * orçamento submetido tem ATCUD/assinatura já gerados e não pode
+     * ser alterado in-place - o backend já recusa isto de forma
+     * definitiva, esta verificação aqui só evita abrir o diálogo
+     * inteiro para o utilizador só descobrir o erro no fim.
      */
+    if (frm.doc.docstatus !== 0) {
+        frappe.msgprint({
+            title: __('Documento Imutável'),
+            message: __('Documentos fiscais submetidos não podem ser alterados. Utilize a função Duplicar para gerar um novo documento.'),
+            indicator: 'orange'
+        });
+        return;
+    }
 
     let dialog = new frappe.ui.Dialog({
         title: __('Renovar Validade do Orçamento'),
