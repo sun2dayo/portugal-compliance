@@ -138,6 +138,12 @@ def ensure_return_series_for_company(company, doctype="Sales Invoice"):
 				series_doc.communication_date = frappe.utils.now()
 				series_doc.validation_code = result.get("validation_code")
 				series_doc.communication_response = json.dumps(result.get("raw_response"), ensure_ascii=False, default=str)
+				# Mesmo criterio de at_webservice.py::get_series_webservice_client()
+				# para decidir a porta real usada (722 testes / 422 producao) -
+				# sandbox_mode e a fonte de verdade sobre o ambiente realmente
+				# usado nesta chamada SOAP, nao o default do campo.
+				sandbox_mode = frappe.db.get_single_value("Portugal Auth Settings", "sandbox_mode")
+				series_doc.at_environment = "Teste" if (sandbox_mode is None or int(sandbox_mode)) else "Produção"
 				series_doc.flags.ignore_validate = True
 				series_doc.save(ignore_permissions=True)
 				frappe.db.commit()
@@ -247,6 +253,12 @@ def communicate_series_safe(company_doc, settings):
 		from portugal_compliance.utils.at_webservice import ATWebserviceClient
 		client = ATWebserviceClient()
 
+		# Mesmo criterio de at_webservice.py::get_series_webservice_client()
+		# para decidir a porta real usada (722 testes / 422 producao) - lido
+		# uma unica vez para o lote, nao muda a meio de uma comunicacao.
+		sandbox_mode = frappe.db.get_single_value("Portugal Auth Settings", "sandbox_mode")
+		at_environment = "Teste" if (sandbox_mode is None or int(sandbox_mode)) else "Produção"
+
 		communicated_count = 0
 		for series in series_to_communicate:
 			try:
@@ -262,6 +274,7 @@ def communicate_series_safe(company_doc, settings):
 					series_doc.communication_date = frappe.utils.now()
 					series_doc.validation_code = result.get("validation_code")
 					series_doc.communication_response = json.dumps(result.get("raw_response"), ensure_ascii=False, default=str)
+					series_doc.at_environment = at_environment
 					series_doc.flags.ignore_validate = True
 					series_doc.save(ignore_permissions=True)
 					communicated_count += 1

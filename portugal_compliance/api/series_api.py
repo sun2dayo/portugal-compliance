@@ -95,6 +95,16 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 		successful = 0
 		failed = 0
 
+		# Mesmo criterio de at_webservice.py::get_series_webservice_client()
+		# para decidir a porta real usada (722 testes / 422 producao) -
+		# sandbox_mode e a UNICA fonte de verdade sobre qual ambiente a
+		# chamada SOAP realmente usou, por isso e lido aqui, no momento da
+		# comunicacao, em vez de assumido a partir do default do campo.
+		# None (nunca configurado) tem o mesmo fallback seguro que la:
+		# trata-se como sandbox.
+		sandbox_mode = frappe.db.get_single_value("Portugal Auth Settings", "sandbox_mode")
+		at_environment = "Teste" if cint(sandbox_mode if sandbox_mode is not None else 1) else "Produção"
+
 		for naming_series in series_to_communicate:
 			try:
 				# ✅ USAR MÉTODO REAL: register_naming_series
@@ -114,6 +124,7 @@ def communicate_series_to_at(username=None, password=None, series_names=None, co
 								"validation_code": result.get("validation_code"),
 								"communication_date": frappe.utils.now(),
 								"communication_response": json.dumps(result.get("raw_response"), ensure_ascii=False, default=str),
+								"at_environment": at_environment,
 							},
 						)
 				else:
