@@ -865,6 +865,29 @@ class PortugalComplianceDocumentHooks:
 			doc.company) or doc.doctype not in self.supported_doctypes:
 			return
 
+		# Limpa ATCUD/QR "herdados" por copia de campo (2026-09-04,
+		# achado ao vivo): frappe.model.mapper.get_mapped_doc (usado por
+		# QUALQUER botao nativo "Make X" - Sales Order -> Sales Invoice,
+		# Quotation -> Sales Order, Delivery Note -> Sales Invoice, etc.)
+		# copia por omissao qualquer campo com o MESMO NOME entre
+		# documento de origem e o novo rascunho, sem saber que
+		# atcud_code/qr_code/qr_code_image sao identificadores unicos e
+		# assinados, nunca copiaveis. reset_fiscal_fields_on_return_clone
+		# ja cobria isto para o caso de devolucao (is_return=1); este
+		# bloqueio e mais generico - qualquer documento novo destes
+		# doctypes que chegue aqui com atcud_code ja preenchido so pode
+		# ser esse tipo de fuga (um documento genuinamente novo nunca
+		# tem ATCUD antes do seu proprio submit - ver generate_atcud_on_submit).
+		# Confirmado ao vivo: "Make Sales Invoice" a partir de um Sales
+		# Order ja assinado tentava reutilizar o MESMO atcud_code na
+		# fatura nova, rejeitado por _validate_atcud_uniqueness_certified
+		# so na submissao - tarde demais, o rascunho ja tinha sido criado
+		# com um ATCUD alheio.
+		if doc.is_new():
+			for leaked_field in ("atcud_code", "qr_code", "qr_code_image"):
+				if getattr(doc, leaked_field, None):
+					doc.set(leaked_field, None)
+
 		self._validate_tax_exemption_hard(doc)
 
 	def before_submit_document(self, doc, method=None):

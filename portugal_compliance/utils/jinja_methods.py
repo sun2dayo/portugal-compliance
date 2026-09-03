@@ -670,6 +670,15 @@ def get_customer_nif(doc):
 	`party_type` genéricos, para servir tanto Customer como Supplier) -
 	sem este fallback, o campo B (NIF do adquirente) do QR Code de
 	qualquer Recibo ficava sempre vazio.
+
+	Quotation tambem nao tem campo `customer` direto (usa `party_name`,
+	Dynamic Link generico que serve Customer OU Lead/Prospect consoante
+	quotation_to) - sem este fallback (2026-09-04, mesmo achado que já
+	tinha motivado a exclusão de orçamentos para Lead/Prospect em
+	get_working_documents_data), o campo B do QR Code de qualquer
+	Orçamento ficava sempre vazio e get_qr_code_data() caía sempre no
+	NIF generico de consumidor final (999999990), mesmo quando o cliente
+	real tinha NIF conhecido.
 	"""
 	try:
 		if getattr(doc, 'customer', None):
@@ -677,6 +686,13 @@ def get_customer_nif(doc):
 
 		if getattr(doc, 'doctype', None) == "Payment Entry" and doc.party_type == "Customer" and doc.party:
 			return frappe.db.get_value("Customer", doc.party, "tax_id") or ""
+
+		if (
+			getattr(doc, 'doctype', None) == "Quotation"
+			and getattr(doc, 'quotation_to', None) == "Customer"
+			and getattr(doc, 'party_name', None)
+		):
+			return frappe.db.get_value("Customer", doc.party_name, "tax_id") or ""
 
 		return ""
 	except Exception:

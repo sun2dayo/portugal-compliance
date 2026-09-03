@@ -81,6 +81,13 @@ class SAFTGenerator:
 		# e mantem-se corretamente a 0.
 		self.sales_invoices_count = 0
 		self.payments_count = 0
+		# Contadores da Fase 2/3 (2026-09-04): mesmo motivo dos de cima -
+		# MovementOfGoods (Delivery Note) e WorkingDocuments (Quotation/
+		# Sales Order) já entravam no ficheiro e no records_count geral,
+		# mas sem coluna própria no SAF-T Export Log (painel mostrava
+		# sempre 0 mesmo com guias/orçamentos reais incluídos).
+		self.movements_count = 0
+		self.working_documents_count = 0
 
 	def _get_line_tax_rate(self, item_tax_template, invoice_tax_rate=None):
 		"""
@@ -949,7 +956,7 @@ class SAFTGenerator:
 									dn.base_net_total, dn.base_total_taxes_and_charges,
 									dn.base_grand_total, dn.currency, dn.docstatus, dn.owner,
 									dn.atcud_code, dn.naming_series, dn.is_return, dn.return_against,
-									dn.shipping_address_name, dn.customer_address,
+									dn.shipping_address_name, dn.customer_address, dn.per_billed,
 									dn.at_data_hora_inicio_transporte, dn.at_codigo_transporte,
 									dni.item_code, dni.item_name, dni.description, dni.qty, dni.uom,
 									dni.base_rate, dni.base_net_amount, dni.item_tax_template,
@@ -1056,6 +1063,15 @@ class SAFTGenerator:
 					row.name, sig.sequence_number if sig else None, doc_code
 				)
 				is_cancelled = row.docstatus == 2
+				# MovementStatus "F" (faturado - XSD: "quando para este
+				# documento tambem existe... o correspondente do tipo
+				# fatura"): usa per_billed (campo nativo do ERPNext,
+				# percentagem ja faturada desta guia via Sales Invoice
+				# Item.delivery_note) - > 0 significa que existe pelo
+				# menos uma fatura real a referenciar esta guia, o sinal
+				# direto que o XSD pede. "N" continua a ser o normal
+				# nao-faturado; "A" (anulado) tem sempre prioridade.
+				mv["movement_status"] = "A" if is_cancelled else ("F" if flt(row.per_billed) > 0 else "N")
 				mv["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.base_total_taxes_and_charges))
 				mv["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_net_total))
 				mv["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_grand_total))
@@ -1106,6 +1122,7 @@ class SAFTGenerator:
 			}))
 
 		self.records_count += len(movements)
+		self.movements_count += len(movements)
 		return list(movements.values())
 
 	def get_working_documents_data(self, company, from_date, to_date, doctype="Quotation"):
@@ -1127,12 +1144,16 @@ class SAFTGenerator:
 		customer_field = "party_name" if doctype == "Quotation" else "customer"
 		quotation_filter = "AND wd.quotation_to = 'Customer'" if doctype == "Quotation" else ""
 		work_type = "OR" if doctype == "Quotation" else "NE"
+		# billing_status: campo nativo so existe em Sales Order (Not
+		# Billed/Partly Billed/Fully Billed/Closed) - Quotation nao tem
+		# equivalente direto, resolvido a parte abaixo (ver billed_quotations).
+		billing_status_col = "wd.billing_status" if doctype == "Sales Order" else "NULL"
 
 		rows = frappe.db.sql(f"""
 							 SELECT wd.name, wd.{customer_field} AS customer, wd.transaction_date AS posting_date,
 									wd.creation, wd.base_net_total, wd.base_total_taxes_and_charges,
 									wd.base_grand_total, wd.currency, wd.docstatus, wd.owner,
-									wd.atcud_code, wd.naming_series,
+									wd.atcud_code, wd.naming_series, {billing_status_col} AS billing_status,
 									wdi.item_code, wdi.item_name, wdi.description, wdi.qty, wdi.uom,
 									wdi.base_rate, wdi.base_net_amount, wdi.item_tax_template,
 									wdi.at_exemption_reason
@@ -1146,6 +1167,24 @@ class SAFTGenerator:
 							 """, (company, from_date, to_date), as_dict=True)
 
 		signatures = self._get_signatures_by_invoice(list({r.name for r in rows}), doctype=doctype)
+
+		# WorkStatus "F" (faturado) para Quotation: nao tem billing_status
+		# proprio (so Sales Order tem) - tracado por Sales Order Item.
+		# prevdoc_docname (Link real para a Quotation de origem, unico
+		# campo nativo que liga os dois) ate encontrar pelo menos uma
+		# Sales Order gerada com billing_status Partly/Fully Billed, ou
+		# seja, que ja tenha pelo menos uma fatura real associada.
+		billed_quotations = set()
+		if doctype == "Quotation":
+			quotation_names = list({r.name for r in rows})
+			if quotation_names:
+				billed_quotations = set(frappe.db.sql_list("""
+					SELECT DISTINCT soi.prevdoc_docname
+					FROM `tabSales Order Item` soi
+					INNER JOIN `tabSales Order` so ON so.name = soi.parent
+					WHERE soi.prevdoc_docname IN %(names)s
+					  AND so.billing_status IN ('Fully Billed', 'Partly Billed')
+					""", {"names": quotation_names}))
 
 		from portugal_compliance.utils.tax_breakdown import get_account_at_info, get_item_tax_template_info, VALID_AT_CODES
 
@@ -1197,6 +1236,13 @@ class SAFTGenerator:
 					row.name, sig.sequence_number if sig else None, work_type
 				)
 				is_cancelled = row.docstatus == 2
+				if is_cancelled:
+					work_status = "A"
+				elif doctype == "Sales Order":
+					work_status = "F" if row.billing_status in ("Fully Billed", "Partly Billed") else "N"
+				else:
+					work_status = "F" if row.name in billed_quotations else "N"
+				wd["work_status"] = work_status
 				wd["tax_payable"] = 0.0 if is_cancelled else abs(flt(row.base_total_taxes_and_charges))
 				wd["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_net_total))
 				wd["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_grand_total))
@@ -1234,6 +1280,7 @@ class SAFTGenerator:
 			}))
 
 		self.records_count += len(documents)
+		self.working_documents_count += len(documents)
 		return list(documents.values())
 
 	def get_payments_data(self, company, from_date, to_date):
@@ -1559,6 +1606,8 @@ def generate_saft_background(log_name):
 		# ambito deste gerador).
 		export_log.sales_invoices_count = generator.sales_invoices_count
 		export_log.payment_entries_count = generator.payments_count
+		export_log.delivery_notes_count = generator.movements_count
+		export_log.working_documents_count = generator.working_documents_count
 
 		# Validacao XSD real contra o schema oficial da AT (Requisito 1.4
 		# da auditoria de certificacao 2026-08-24) - antes disto o ficheiro

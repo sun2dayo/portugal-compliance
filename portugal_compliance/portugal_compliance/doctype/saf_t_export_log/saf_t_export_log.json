@@ -33,6 +33,8 @@
   "column_break_23",
   "payment_entries_count",
   "journal_entries_count",
+  "delivery_notes_count",
+  "working_documents_count",
   "processing_time",
   "section_break_27",
   "validation_details",
@@ -227,6 +229,22 @@
    "label": "Journal Entries",
    "default": "0",
    "description": "Number of journal entries exported",
+   "read_only": 1
+  },
+  {
+   "fieldname": "delivery_notes_count",
+   "fieldtype": "Int",
+   "label": "Guias de Transporte",
+   "default": "0",
+   "description": "Numero de Guias de Transporte exportadas (MovementOfGoods)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "working_documents_count",
+   "fieldtype": "Int",
+   "label": "Orçamentos / Notas de Encomenda",
+   "default": "0",
+   "description": "Numero de Orcamentos e Notas de Encomenda exportados (WorkingDocuments)",
    "read_only": 1
   },
   {

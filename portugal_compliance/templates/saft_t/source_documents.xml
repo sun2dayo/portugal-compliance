@@ -99,7 +99,7 @@
             <DocumentNumber>{{ mv.document_no }}</DocumentNumber>
             <ATCUD>{{ mv.atcud_code or '' }}</ATCUD>
             <DocumentStatus>
-                <MovementStatus>{{ 'A' if mv.docstatus == 2 else 'N' }}</MovementStatus>
+                <MovementStatus>{{ mv.movement_status }}</MovementStatus>
                 <MovementStatusDate>{{ mv.posting_date.strftime('%Y-%m-%dT00:00:00') }}</MovementStatusDate>
                 <SourceID>{{ mv.owner }}</SourceID>
                 <SourceBilling>P</SourceBilling>
@@ -182,7 +182,7 @@
             <DocumentNumber>{{ wd.document_no }}</DocumentNumber>
             <ATCUD>{{ wd.atcud_code or '' }}</ATCUD>
             <DocumentStatus>
-                <WorkStatus>{{ 'A' if wd.docstatus == 2 else 'N' }}</WorkStatus>
+                <WorkStatus>{{ wd.work_status }}</WorkStatus>
                 <WorkStatusDate>{{ wd.posting_date.strftime('%Y-%m-%dT00:00:00') }}</WorkStatusDate>
                 <SourceID>{{ wd.owner }}</SourceID>
                 <SourceBilling>P</SourceBilling>
