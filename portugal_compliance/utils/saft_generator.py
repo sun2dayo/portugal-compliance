@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from jinja2 import Environment, FileSystemLoader
 import time
 from datetime import datetime
+from portugal_compliance.utils.jinja_methods import get_month_name_portuguese
 
 
 def get_company_address(company):
@@ -1107,6 +1108,8 @@ def generate_saft_background(log_name):
 			'filename': os.path.basename(file_path)
 		})
 
+		_send_saft_export_email(export_log, saft_xml)
+
 	except Exception as e:
 		frappe.log_error(f"Erro na geração SAF-T background: {str(e)}")
 
@@ -1130,3 +1133,77 @@ def generate_saft_background(log_name):
 			'export_log_name': log_name,
 			'error': str(e)
 		})
+
+
+def _send_saft_export_email(export_log, saft_xml):
+	"""
+	Envia o SAF-T por email ao contabilista, se configurado (Fase 3 -
+	Portugal Auth Settings.saft_communication_method = "Email
+	(Contabilista)"). Só dispara para exports com
+	export_reason == "Monthly Submission" - a geração automática mensal
+	(ver utils/saft_scheduler.py) é a única que define esta razão; um
+	export ad-hoc (Audit Request, System Test, regeneração manual de um
+	período qualquer) nunca deve ir parar à caixa de correio do
+	contabilista sem essa intenção explícita.
+
+	Resiliência (pedido explícito, 2026-09-03): uma falha aqui (ex: SMTP
+	da empresa por configurar) fica só no Error Log - nunca reverte nem
+	marca como Failed um SAF-T que já foi gerado e validado com sucesso.
+	O ficheiro fica sempre disponível para download manual.
+	"""
+	if export_log.export_reason != "Monthly Submission":
+		return
+
+	settings = frappe.get_single("Portugal Auth Settings")
+	if settings.saft_communication_method != "Email (Contabilista)":
+		return
+
+	if not settings.saft_recipient_email:
+		frappe.log_error(
+			title="SAF-T: envio por email não configurado",
+			message=(
+				f"saft_communication_method = \"Email (Contabilista)\" mas "
+				f"saft_recipient_email está vazio. Export: {export_log.name}"
+			),
+		)
+		return
+
+	try:
+		company_name = frappe.db.get_value(
+			"Company", export_log.company, "company_name"
+		) or export_log.company
+		month_name = get_month_name_portuguese(export_log.from_date.month)
+		year = export_log.from_date.year
+		cert_number = frappe.db.get_single_value(
+			"Portugal Auth Settings", "software_certificate_number"
+		) or "0"
+
+		subject = f"SAF-T (Faturação) - {company_name} - {month_name}/{year}"
+		message = f"""
+			<p>Exmo(a). Sr(a).,</p>
+			<p>O ficheiro SAF-T de faturação referente ao mês de {month_name} de {year}
+			foi gerado automaticamente pelo ERPNext (Software Certificado n.º
+			{cert_number}/AT) e segue em anexo para submissão no Portal das
+			Finanças.</p>
+			<p>Este é um email automático - não é necessário responder.</p>
+		"""
+		filename = (
+			os.path.basename(export_log.file_path)
+			if export_log.file_path
+			else f"SAFT-PT_{export_log.company}_{export_log.from_date}_{export_log.to_date}.xml"
+		)
+
+		frappe.sendmail(
+			recipients=[settings.saft_recipient_email],
+			subject=subject,
+			message=message,
+			attachments=[{"fname": filename, "fcontent": saft_xml.encode("utf-8")}],
+		)
+		frappe.logger().info(
+			f"SAF-T enviado por email para {settings.saft_recipient_email}: {export_log.name}"
+		)
+	except Exception:
+		frappe.log_error(
+			title="Erro ao enviar SAF-T por email",
+			message=f"Export: {export_log.name}\n{frappe.get_traceback()}",
+		)
