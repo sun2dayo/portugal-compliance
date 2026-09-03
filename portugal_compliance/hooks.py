@@ -282,7 +282,10 @@ override_whitelisted_methods = {}
 scheduler_events = {
 	"all": ["portugal_compliance.tasks.all.execute"],
 	"hourly": ["portugal_compliance.tasks.hourly.execute"],
-	"daily": ["portugal_compliance.tasks.daily.execute"],
+	"daily": [
+		"portugal_compliance.tasks.daily.execute",
+		"portugal_compliance.utils.saft_scheduler.ensure_monthly_saft_generated"
+	],
 	"weekly": ["portugal_compliance.tasks.weekly.execute"],
 	"monthly": ["portugal_compliance.tasks.monthly.execute"],
 	"yearly": ["portugal_compliance.tasks.yearly.execute"]

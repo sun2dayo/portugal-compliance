@@ -177,6 +177,39 @@
             "options": "Tempo Real (Webservice)\nDesativado",
             "default": "Tempo Real (Webservice)",
             "description": "Tempo Real: a Delivery Note é comunicada à AT via webservice (envioDocumentoTransporte) logo após a submissão. Desativado: nenhuma comunicação automática (este módulo ainda não implementa o canal alternativo por ficheiro SAF-T de documentos de transporte)."
+        },
+        {
+            "fieldname": "saft_communication_section",
+            "fieldtype": "Section Break",
+            "label": "Comunicação SAF-T Mensal"
+        },
+        {
+            "fieldname": "saft_communication_method",
+            "label": "Método de Comunicação do SAF-T Mensal",
+            "fieldtype": "Select",
+            "options": "Manual\nEmail (Contabilista)",
+            "default": "Manual",
+            "description": "A AT não disponibiliza nenhum webservice para upload do ficheiro SAF-T (confirmado: o único webservice de faturação existente, perfil WFA/RegisterInvoice, comunica os documentos um a um - ver Método de Comunicação de Faturas acima; quando esse canal está em Tempo Real, a obrigação de SAF-T mensal deixa de existir). O ficheiro é sempre gerado automaticamente no dia configurado abaixo, para arquivo e para submissão manual no Portal das Finanças. Manual: fica disponível para download em SAF-T Export Log. Email (Contabilista): é também enviado por email para o endereço abaixo."
+        },
+        {
+            "fieldname": "saft_send_day",
+            "label": "Dia do Mês para Gerar o SAF-T",
+            "fieldtype": "Select",
+            "options": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28",
+            "default": "5",
+            "description": "Dia do mês em que o SAF-T do mês anterior é gerado automaticamente. Por omissão dia 5, o prazo legal de submissão à AT (Portaria 302/2016)."
+        },
+        {
+            "fieldname": "saft_communication_column_break",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "saft_recipient_email",
+            "label": "Email do Contabilista",
+            "fieldtype": "Data",
+            "options": "Email",
+            "depends_on": "eval:doc.saft_communication_method=='Email (Contabilista)'",
+            "description": "Endereço para onde o ficheiro SAF-T mensal é enviado automaticamente, além de ficar disponível para download."
         }
     ]
 }
