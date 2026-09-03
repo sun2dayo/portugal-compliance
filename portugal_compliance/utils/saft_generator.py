@@ -212,7 +212,18 @@ class SAFTGenerator:
 			"tax_table": self.get_tax_table_data(company_doc.name),
 
 			# Source documents
-			"sales_invoices": (sales_invoices := self.get_sales_invoices_data(company_doc.name, from_date, to_date)),
+			# Sales Invoice (FT/NC) + POS Invoice (FS) - dois documentos
+			# fiscais distintos, cada um com a sua propria serie/ATCUD,
+			# concatenados numa unica lista "sales_invoices" (records_count
+			# e sales_invoices_count, atributos de instancia, acumulam
+			# corretamente ao longo das duas chamadas). A query de Sales
+			# Invoice exclui is_consolidated=1 (ver get_sales_invoices_data)
+			# para nao duplicar a mesma venda ja reportada como FS.
+			"sales_invoices": (sales_invoices := sorted(
+				self.get_sales_invoices_data(company_doc.name, from_date, to_date, doctype="Sales Invoice")
+				+ self.get_sales_invoices_data(company_doc.name, from_date, to_date, doctype="POS Invoice"),
+				key=lambda inv: (inv.posting_date, inv.name),
+			)),
 			# TotalDebit/TotalCredit do lote (SAFmonetaryType, nunca
 			# negativo) - somados ao nivel da LINHA (debit_credit),
 			# nao do total da fatura, para lidar corretamente com o
@@ -262,8 +273,15 @@ class SAFTGenerator:
 										AND si.posting_date BETWEEN %s AND %s
 										AND si.docstatus IN (1, 2)
 								  )
+								  OR EXISTS (
+									  SELECT 1 FROM `tabPOS Invoice` pi
+									  WHERE pi.customer = c.name
+										AND pi.company = %s
+										AND pi.posting_date BETWEEN %s AND %s
+										AND pi.docstatus IN (1, 2)
+								  )
 								  ORDER BY c.name
-								  """, (company, company, from_date, to_date), as_dict=True)
+								  """, (company, company, from_date, to_date, company, from_date, to_date), as_dict=True)
 		# docstatus IN (1, 2): desde que get_sales_invoices_data passou
 		# a incluir faturas anuladas (docstatus=2) no SourceDocuments,
 		# o cliente dessa fatura tem de constar do MasterFiles tambem -
@@ -271,6 +289,12 @@ class SAFTGenerator:
 		# um cliente inexistente no ficheiro (keyref invalido, XSD
 		# rejeita o ficheiro inteiro). So aconteceria com um cliente
 		# cuja UNICA fatura no periodo estivesse anulada.
+		#
+		# Segundo EXISTS (POS Invoice): mesma logica, agora que
+		# get_sales_invoices_data() tambem exporta Faturas Simplificadas
+		# (2026-09-03) - um cliente cuja UNICA compra no periodo tenha
+		# sido no POS ficaria de fora do MasterFiles sem isto, com o
+		# mesmo problema de keyref invalido.
 
 		for row in customers:
 			row["country_code"] = self._country_code(row.country)
@@ -319,7 +343,15 @@ class SAFTGenerator:
 
 	def get_products_data(self, company, from_date, to_date):
 		"""
-		Obtém dados dos produtos/serviços
+		Obtém dados dos produtos/serviços. Verifica tanto Sales Invoice
+		(FT/NC) como POS Invoice (FS) - desde que get_sales_invoices_data()
+		passou a exportar Faturas Simplificadas (2026-09-03), um artigo
+		vendido só no POS ficaria de fora do MasterFiles (ProductCode sem
+		correspondência, keyref inválido) sem o segundo EXISTS. docstatus
+		IN (1, 2) nos dois - mesmo motivo do get_customers_data acima:
+		o item de uma linha de um documento anulado continua a ser
+		exportado em SourceDocuments (valores a 0.00, mas o ProductCode
+		mantém-se), por isso tem de continuar declarado aqui também.
 		"""
 		products = frappe.db.sql("""
 								 SELECT DISTINCT i.name,
@@ -334,9 +366,16 @@ class SAFTGenerator:
 											   WHERE sii.item_code = i.item_code
 												 AND si.company = %s
 												 AND si.posting_date BETWEEN %s AND %s
-												 AND si.docstatus = 1)
+												 AND si.docstatus IN (1, 2))
+								 OR EXISTS (SELECT 1
+											   FROM `tabPOS Invoice Item` pii
+														INNER JOIN `tabPOS Invoice` pi ON pi.name = pii.parent
+											   WHERE pii.item_code = i.item_code
+												 AND pi.company = %s
+												 AND pi.posting_date BETWEEN %s AND %s
+												 AND pi.docstatus IN (1, 2))
 								 ORDER BY i.item_code
-								 """, (company, from_date, to_date), as_dict=True)
+								 """, (company, from_date, to_date, company, from_date, to_date), as_dict=True)
 
 		return products
 
@@ -435,8 +474,32 @@ class SAFTGenerator:
 		do POS). doctype nunca vem de input do utilizador - so das 2
 		constantes internas acima, por isso interpolar diretamente no
 		nome da tabela e seguro.
+
+		prepare_context() chama esta funcao DUAS VEZES - uma por
+		doctype - e concatena o resultado (2026-09-03, auditoria
+		pedida pelo utilizador: nenhuma Fatura Simplificada entrava no
+		SAF-T ate agora, apesar de o suporte a "POS Invoice" já estar
+		pronto aqui desde sempre). Ver o filtro is_consolidated acima
+		para a salvaguarda contra duplicacao com o mecanismo nativo de
+		consolidacao de POS Invoices em Sales Invoices do ERPNext.
 		"""
 		item_doctype = f"{doctype} Item"
+		# Sales Invoice "is_consolidated=1": criada automaticamente pelo
+		# proprio ERPNext (consolidate_pos_invoices(), chamado sem
+		# nenhuma intervencao nossa em POS Closing Entry.on_submit())
+		# para agregar POS Invoices num unico lancamento contabilistico
+		# por fecho de caixa - a POS Invoice original mantem-se submetida,
+		# com o seu proprio ATCUD/serie FS, apenas com o campo
+		# consolidated_invoice a apontar para esta nova Sales Invoice.
+		# E um artefacto interno de contabilidade, nunca um documento
+		# fiscal distinto para a AT - incluir esta Sales Invoice AQUI,
+		# agora que get_sales_invoices_data() tambem e chamada com
+		# doctype="POS Invoice" (ver prepare_context), duplicaria a
+		# mesma venda: uma vez como FS (documento real, correto) e outra
+		# vez como uma FT fantasma sem correspondencia com nenhuma serie
+		# comunicada. POS Invoice nao tem esta coluna - filtro so
+		# aplicado quando doctype="Sales Invoice".
+		consolidated_filter = "AND IFNULL(si.is_consolidated, 0) = 0" if doctype == "Sales Invoice" else ""
 		rows = frappe.db.sql(f"""
 							 SELECT si.name,
 									si.customer,
@@ -469,6 +532,7 @@ class SAFTGenerator:
 							 WHERE si.company = %s
 							   AND si.posting_date BETWEEN %s AND %s
 							   AND si.docstatus IN (1, 2)
+							   {consolidated_filter}
 							 ORDER BY si.posting_date, si.name
 							 """, (company, from_date, to_date), as_dict=True)
 		# base_* (moeda da empresa, EUR) em vez dos campos "nus"
