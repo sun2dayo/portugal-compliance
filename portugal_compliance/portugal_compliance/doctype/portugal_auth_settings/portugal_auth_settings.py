@@ -91,3 +91,46 @@ class PortugalAuthSettings(Document):
 		except Exception as e:
 			frappe.log_error(f"Error getting certificate info: {str(e)}")
 			return {"error": str(e)}
+
+
+# Convencao de pastas para deteccao automatica dos certificados mTLS/
+# WS-Security (2026-09-04, pedido do utilizador): uma pasta por modo,
+# junto a home do utilizador do bench - mesmo local e mesmo padrao de
+# nome ja estabelecido nesta sessao para a chave de assinatura de
+# teste (~/.portugal_compliance_test_keys/test_signing_key.pem,
+# configurada em invoice_signing_key_path, campo que fica fora desta
+# deteccao automatica por pedido explicito - já funciona bem manual).
+# Producao usa a mesma pasta sem o sufixo "_test". Os nomes de
+# ficheiro dentro de cada pasta sao uma convencao nova (nunca
+# existiram antes) - documentados aqui e nas descricoes dos campos no
+# JSON, para quem for colocar lá os certificados reais saber como os
+# nomear.
+CERTIFICATE_AUTODETECT_DIRS = {
+	1: os.path.expanduser("~/.portugal_compliance_test_keys"),
+	0: os.path.expanduser("~/.portugal_compliance_keys"),
+}
+CERTIFICATE_AUTODETECT_FILENAMES = {
+	"mtls_certificate_path": "mtls_certificate.pem",
+	"mtls_private_key_path": "mtls_private_key.pem",
+	"at_public_certificate_path": "at_public_certificate.pem",
+}
+
+
+@frappe.whitelist()
+def detect_certificate_paths(sandbox_mode):
+	"""
+	Deteta os certificados mTLS/WS-Security no caminho por omissao do
+	modo indicado (sandbox ou producao) e devolve os caminhos
+	encontrados - so os que existirem mesmo em disco, nunca um caminho
+	adivinhado. Chamada do lado do cliente (portugal_auth_settings.js)
+	ao mudar Sandbox Mode e ao abrir o formulario; quem decide se
+	sobrescreve um campo ja preenchido e o proprio JS, esta funcao so
+	responde "o que existe".
+	"""
+	base_dir = CERTIFICATE_AUTODETECT_DIRS[cint(sandbox_mode)]
+	found = {}
+	for fieldname, filename in CERTIFICATE_AUTODETECT_FILENAMES.items():
+		path = os.path.join(base_dir, filename)
+		if os.path.isfile(path):
+			found[fieldname] = path
+	return found

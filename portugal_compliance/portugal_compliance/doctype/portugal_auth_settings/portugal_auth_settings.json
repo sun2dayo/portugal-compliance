@@ -39,7 +39,8 @@
             "fieldname": "sandbox_mode",
             "label": "Sandbox Mode",
             "fieldtype": "Check",
-            "default": 1
+            "default": "0",
+            "description": "Por omissão desativado (produção) - ativar apenas em ambiente de testes/homologação. Ao mudar este valor, os campos de certificado mTLS abaixo são atualizados automaticamente para os detetados no caminho correspondente (sandbox ou produção), se existirem."
         },
         {
             "fieldname": "series_validation_section",
@@ -162,7 +163,7 @@
             "label": "Método de Comunicação de Faturas",
             "fieldtype": "Select",
             "options": "Offline (SAF-T Mensal)\nTempo Real (Webservice)",
-            "default": "Offline (SAF-T Mensal)",
+            "default": "Tempo Real (Webservice)",
             "description": "Offline: a fatura só é assinada (RSA) e reportada à AT no SAF-T mensal. Tempo Real: além da assinatura, a fatura é comunicada à AT via webservice (RegisterInvoice) logo após a submissão."
         },
         {

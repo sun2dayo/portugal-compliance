@@ -30,6 +30,14 @@ frappe.ui.form.on('Portugal Auth Settings', {
         if (!frm.doc.sandbox_mode) {
             frm.dashboard.add_comment(__('Warning: You are in production mode. Ensure all configurations are correct.'), 'red');
         }
+
+        // Deteção automática dos certificados mTLS/WS-Security
+        // (2026-09-04, pedido do utilizador) - so preenche campos
+        // vazios no carregamento do formulario, nunca sobrescreve o
+        // que ja esta configurado so por reabrir a pagina. Ver
+        // sandbox_mode() abaixo para o comportamento ao mudar de modo
+        // (esse sim substitui, para refletir o modo escolhido).
+        autodetect_certificate_paths(frm, /* overwrite */ false);
     },
 
     sandbox_mode: function(frm) {
@@ -39,6 +47,12 @@ frappe.ui.form.on('Portugal Auth Settings', {
         } else {
             frm.set_value('at_webservice_url', 'https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService');
         }
+
+        // Ao mudar explicitamente de modo, os 3 campos de certificado
+        // sao substituidos pelos detetados no modo novo (se existirem)
+        // - e essa a intencao de mudar o toggle, ao contrario do
+        // preenchimento silencioso so-quando-vazio do refresh acima.
+        autodetect_certificate_paths(frm, /* overwrite */ true);
     },
 
     ssl_certificate_path: function(frm) {
@@ -124,6 +138,38 @@ function validate_certificate_path(path) {
             indicator: 'orange'
         });
     }
+}
+
+function autodetect_certificate_paths(frm, overwrite) {
+    const FIELDS = ['mtls_certificate_path', 'mtls_private_key_path', 'at_public_certificate_path'];
+
+    frappe.call({
+        method: 'portugal_compliance.portugal_compliance.doctype.portugal_auth_settings.portugal_auth_settings.detect_certificate_paths',
+        args: { sandbox_mode: frm.doc.sandbox_mode },
+        callback: function(r) {
+            const found = r.message || {};
+            let changed_any = false;
+
+            FIELDS.forEach(function(fieldname) {
+                const detected_path = found[fieldname];
+                if (!detected_path) return;
+                if (!overwrite && frm.doc[fieldname]) return;
+                if (frm.doc[fieldname] === detected_path) return;
+
+                frm.set_value(fieldname, detected_path);
+                changed_any = true;
+            });
+
+            if (changed_any) {
+                frappe.show_alert({
+                    message: __('Certificados detetados automaticamente ({0})', [
+                        frm.doc.sandbox_mode ? __('Sandbox') : __('Produção')
+                    ]),
+                    indicator: 'green'
+                });
+            }
+        }
+    });
 }
 
 function clear_session_tokens(frm) {
