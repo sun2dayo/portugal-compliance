@@ -21,10 +21,37 @@ from frappe.utils.password import set_encrypted_password, get_decrypted_password
 
 
 class PortugalSeriesConfiguration(Document):
-	def autoname(self):
-		"""Gerar nome automaticamente - CORREÇÃO CRÍTICA"""
-		if not self.name or self.name == 'new':
-			self.name = self.generate_unique_name()
+	# autoname() customizado removido (2026-09-04, auditoria de UX pedida
+	# pelo utilizador apos um Zero-State Test): gerava sempre um nome tipo
+	# "FT-2026-ZC-758061" via generate_unique_name() (hash aleatorio),
+	# ilegivel e sem qualquer relacao com o prefixo real da serie.
+	#
+	# O bug real, mais subtil do que parecia: nao bastava mudar o
+	# autoname do DocType (JSON) de "field:series_name" para
+	# "field:prefix", MANTENDO este metodo Python - Document.
+	# _sync_autoname_field() (frappe/model/base_document.py, chamado
+	# sempre a seguir a autoname() em qualquer insert()) forca sempre o
+	# campo declarado em "field:X" a ficar igual ao self.name final,
+	# INDEPENDENTEMENTE de quem definiu esse nome. Com este metodo
+	# customizado ainda a escrever o hash em self.name, mudar so o JSON
+	# teria desviado a corrupcao do campo "series_name" (cosmetico) para
+	# o campo "prefix" (usado em todo o motor - ATCUD, naming_series,
+	# comunicacao AT) - uma regressao muito pior que o problema original.
+	# Confirmado ao vivo, instrumentando Document.insert(): antes do
+	# insert, series_name continha corretamente "Fatura de venda... -
+	# NovaDX"; depois do insert, tinha sido reescrito para o mesmo hash
+	# do nome. A causa era sempre este metodo, nunca o JSON.
+	#
+	# Removido por completo (nao substituido por uma versao que force
+	# self.name = self.prefix) - o "field:prefix" declarativo no JSON
+	# ja trata disto sozinho via frappe/model/naming.py::
+	# set_name_from_naming_options(), incluindo o erro claro "Prefixo e
+	# obrigatorio" se alguma vez for chamado sem prefix definido (todos
+	# os pontos de criacao reais - document_hooks.py::
+	# _create_series_fallback, api.company_api.
+	# ensure_return_series_for_company/setup_all_series_for_company,
+	# create_series_programmatically abaixo - ja definem sempre prefix
+	# antes de insert()).
 
 	def validate(self):
 		"""Validações do documento - VERSÃO CERTIFICADA CORRIGIDA"""
@@ -240,9 +267,12 @@ class PortugalSeriesConfiguration(Document):
 
 	def before_save(self):
 		"""Executado antes de salvar - VERSÃO CERTIFICADA CORRIGIDA"""
-		# ✅ GARANTIR NOME ÚNICO SE NÃO DEFINIDO
-		if not getattr(self, 'name', None) or self.name == 'new':
-			self.name = self.generate_unique_name()
+		# Fallback de nome via generate_unique_name() removido (2026-09-04,
+		# mesmo commit que remove autoname() acima) - by the time
+		# before_save() corre, self.name ja foi definido corretamente por
+		# set_new_name() (field:prefix) durante o insert(); nunca chega a
+		# ser None/'new' aqui num fluxo normal, e mante-lo so preservava
+		# uma segunda via para o mesmo hash ilegivel reaparecer.
 
 		# ✅ GERAR PREFIXO AUTOMATICAMENTE SE NÃO DEFINIDO (SEM HÍFENS)
 		if not getattr(self, 'prefix', None):
@@ -269,36 +299,11 @@ class PortugalSeriesConfiguration(Document):
 		# Atualizar timestamp de modificação
 		self.last_modified_by = frappe.session.user
 
-	def generate_unique_name(self):
-		"""Gerar nome único para a série - CORREÇÃO CRÍTICA"""
-		try:
-			import time
-			from datetime import datetime
-
-			company_abbr = self.get_company_abbreviation()
-			current_year = datetime.now().year
-			timestamp = int(time.time())
-			doc_prefix = self.get_document_prefix()
-
-			# ✅ FORMATO SIMPLES: TIPO-ANO-EMPRESA-HASH
-			base_name = f"{doc_prefix}-{current_year}-{company_abbr}"
-			unique_hash = frappe.generate_hash(length=6)
-			unique_name = f"{base_name}-{unique_hash}"
-
-			# ✅ VERIFICAR UNICIDADE
-			counter = 1
-			original_name = unique_name
-			while frappe.db.exists("Portugal Series Configuration", unique_name):
-				unique_name = f"{original_name}-{counter}"
-				counter += 1
-
-			frappe.logger().info(f"✅ Nome único gerado: {unique_name}")
-			return unique_name
-
-		except Exception as e:
-			frappe.log_error(f"Erro ao gerar nome único: {str(e)}")
-			# Fallback para nome simples
-			return f"SERIES-{frappe.generate_hash(length=8)}"
+	# generate_unique_name() removida (2026-09-04, mesmo commit que
+	# remove autoname() acima) - unica funcao que a chamava. Ver nota em
+	# autoname() para o motivo completo. get_company_abbreviation() e
+	# get_document_prefix() (usadas aqui) mantem-se - ainda chamadas por
+	# generate_series_prefix() mais abaixo.
 
 	def after_insert(self):
 		"""Executado após inserção - VERSÃO CERTIFICADA"""

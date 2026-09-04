@@ -1,7 +1,7 @@
 {
     "actions": [],
     "allow_rename": 1,
-    "autoname": "field:series_name",
+    "autoname": "field:prefix",
     "creation": "2025-01-01 00:00:00.000000",
     "default_view": "List",
     "doctype": "DocType",
@@ -55,7 +55,6 @@
             "fieldtype": "Data",
             "label": "Nome da Série",
             "reqd": 1,
-            "unique": 1,
             "description": "Nome único para identificar a série (ex: Fatura - FT2025NDX)"
         },
         {
@@ -84,8 +83,9 @@
             "fieldtype": "Data",
             "label": "Prefixo",
             "reqd": 1,
+            "unique": 1,
             "uppercase": 1,
-            "description": "Prefixo da série (formato: XXYYYY + EMPRESA, ex: FT2025NDX)"
+            "description": "Prefixo da série (formato: XXYYYY + EMPRESA, ex: FT2025NDX). Identifica univocamente a série - é também o nome (ID) do registo."
         },
         {
             "fieldname": "naming_series",
@@ -233,7 +233,8 @@
             "fieldtype": "Data",
             "label": "Código do Documento",
             "read_only": 1,
-            "description": "Código de 2 letras do tipo de documento (ex: FT, FS, FC)"
+            "in_list_view": 1,
+            "description": "Código de 2 letras do tipo de documento (ex: FT, FS, FC). Distingue séries que partilham o mesmo Tipo de Documento (ex: FT vs NC, ambas Sales Invoice)."
         },
         {
             "fieldname": "year_code",
