@@ -52,10 +52,19 @@ DISK_SHADOWED_FORMATS = {
 }
 
 
-def ensure_native_print_formats_compliant():
-	"""Chamada em after_migrate. Garante que os Print Formats nativos da
-	ERPNext para os 6 doctypes fiscais tem ATCUD/QR/assinatura/texto de
-	certificacao injetados. Idempotente: so escreve quando o marcador nao
+def ensure_native_print_formats_compliant(app_name=None):
+	"""Chamada em after_migrate (zero args) E em after_app_install, que
+	chama todo hook com o nome da app instalada como argumento
+	posicional (frappe/installer.py::install_app faz
+	frappe.get_attr(fn)(name)) - sem app_name=None aqui, um
+	`bench install-app`/`bench reinstall` rebentava sempre nesta funcao
+	com TypeError (confirmado ao vivo, 2026-09-04, durante um
+	reinstall). app_name nunca e usado - a funcao corre sempre para
+	todas as apps, so precisa de aceitar e ignorar o argumento.
+
+	Garante que os Print Formats nativos da ERPNext para os 6 doctypes
+	fiscais tem ATCUD/QR/assinatura/texto de certificacao injetados.
+	Idempotente: so escreve quando o marcador nao
 	esta presente no html atual, ou (para os 3 disk-shadowed) quando o
 	module ainda nao e o nosso - serve tanto para o rollout inicial como
 	para a auto-reparacao apos um bench update que reimporte o original."""
@@ -115,8 +124,11 @@ _LETTERHEAD_LOGO_SRC_PATTERN = re.compile(
 )
 
 
-def ensure_letter_head_logo_uses_base64():
-	"""Chamada em after_migrate. Garante que o <img> do logo na letterhead
+def ensure_letter_head_logo_uses_base64(app_name=None):
+	"""Chamada em after_migrate (zero args) E em after_app_install
+	(chamada com o nome da app instalada como argumento posicional -
+	mesmo motivo e correcao de ensure_native_print_formats_compliant()
+	acima, mesmo commit). Garante que o <img> do logo na letterhead
 	"Company Letterhead - Grey" usa get_company_logo_base64() em vez de
 	frappe.utils.get_url() - idempotente e auto-reparavel pelo mesmo
 	motivo e mecanismo de ensure_native_print_formats_compliant() acima."""
