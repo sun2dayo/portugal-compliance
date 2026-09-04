@@ -70,7 +70,7 @@
             "fieldname": "invoice_signing_key_path",
             "label": "Caminho da Chave Privada (PEM)",
             "fieldtype": "Data",
-            "description": "Chave privada RSA usada para assinar documentos (distinta do certificado do webservice)"
+            "description": "Chave privada RSA usada para assinar documentos (distinta do certificado do webservice). Ao contrário dos certificados mTLS acima, esta chave não depende do modo Sandbox/Produção - é a mesma em qualquer ambiente até ser certificada. Local seguro recomendado: /etc/portugal_compliance/signing_keys/invoice_signing_key.pem (nunca a pasta home de um utilizador do sistema)."
         },
         {
             "fieldname": "invoice_signing_key_password",
