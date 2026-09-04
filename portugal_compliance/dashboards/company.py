@@ -7,14 +7,20 @@ from frappe import _
 from frappe.utils import today, add_days, getdate, now, cint, flt
 from datetime import datetime, timedelta
 
-# Doctypes que efetivamente comunicam series/ATCUD a AT (mesmo escopo
-# autoritativo de FISCAL_IMMUTABLE_DOCTYPES em utils/document_hooks.py,
-# pos-expurgo de 2026-08-22). Portugal Series Configuration ainda tem
-# registos antigos de Purchase Invoice/Stock Entry/Journal Entry na
-# base de dados (nunca apagados, so deixaram de gerar ATCUD) - sem
-# este filtro o Dashboard AT continua a mostra-los como se fossem
-# series fiscais validas (auditoria de certificacao 2026-08-24).
-FISCAL_SERIES_DOCTYPES = ["Sales Invoice", "POS Invoice", "Payment Entry", "Delivery Note"]
+# Doctypes que efetivamente comunicam series/ATCUD a AT. Ate 2026-09-04
+# esta era uma lista fixa (Sales Invoice/POS Invoice/Payment Entry/
+# Delivery Note) escrita antes da Fase 1 (2026-09-03) ter tornado
+# Quotation/Sales Order doctypes de compliance completo - o Dashboard
+# AT ficou sempre a mostrar so 5 das 7 series reais de uma empresa (a
+# tabela "Series por tipo de documento" nunca listava Orcamento/Nota
+# de Encomenda). Corrigido para derivar sempre de
+# document_hooks.py::supported_doctypes (a mesma fonte unica de
+# verdade que _create_series_fallback usa para criar as series em
+# primeiro lugar) em vez de manter uma 5ª copia hardcoded sujeita ao
+# mesmo desalinhamento no futuro.
+from portugal_compliance.utils.document_hooks import portugal_document_hooks
+
+FISCAL_SERIES_DOCTYPES = list(portugal_document_hooks.supported_doctypes.keys())
 
 # Rotulo por codigo de documento AT (nao por DocType do Frappe) - uma
 # Nota de Credito e uma Sales Invoice com is_return=1, mas tem a sua
@@ -32,6 +38,8 @@ AT_DOC_CODE_LABELS = {
 	"GC": _("Guia de Consignação"),
 	"RC": _("Recibo"),
 	"RG": _("Outros Recibos"),
+	"OR": _("Orçamento"),
+	"NE": _("Nota de Encomenda"),
 }
 
 
@@ -353,8 +361,12 @@ class CompanyDashboard:
 		try:
 			first_day = frappe.utils.get_first_day(today())
 
-			document_types = ['Sales Invoice', 'Purchase Invoice', 'Payment Entry',
-							  'Delivery Note']
+			# Mesma correcao e mesmo motivo do FISCAL_SERIES_DOCTYPES acima:
+			# esta lista tambem tinha ficado desalinhada (faltavam POS
+			# Invoice/Quotation/Sales Order, e incluia Purchase Invoice a
+			# mais - fatura de compra nunca foi um doctype de compliance,
+			# ver document_hooks.py::supported_doctypes).
+			document_types = FISCAL_SERIES_DOCTYPES
 			total_count = 0
 
 			for doc_type in document_types:
@@ -403,6 +415,29 @@ class CompanyDashboard:
 											order_by='document_code, series_name'
 											)
 
+			# Documentos com ATCUD por serie (2026-09-04, pedido do
+			# utilizador: "onde vejo indicadores de documentos ja
+			# comunicados, por tipo?"). Nao existia nenhuma resposta a
+			# isto - so havia contagem de SERIES comunicadas (0/1 por
+			# serie) e o total agregado de ATCUD gerados (sem
+			# discriminacao por tipo). ATCUD.validation_code_used e o
+			# sinal real: series ainda nao comunicada a AT gera sempre
+			# um codigo de validacao placeholder "TEMP<prefixo>" (ver
+			# atcud_generator.py) em vez do codigo real devolvido pela
+			# AT - um documento so tem ATCUD verdadeiramente valido
+			# perante a AT quando este campo NAO comeca por "TEMP".
+			series_names = [s['name'] for s in series_data]
+			documents_total = {}
+			documents_real = {}
+			if series_names:
+				atcud_rows = frappe.db.get_all('ATCUD Log',
+					filters={'company': self.company_name, 'series_used': ['in', series_names]},
+					fields=['series_used', 'validation_code_used'])
+				for row in atcud_rows:
+					documents_total[row.series_used] = documents_total.get(row.series_used, 0) + 1
+					if not (row.validation_code_used or '').startswith('TEMP'):
+						documents_real[row.series_used] = documents_real.get(row.series_used, 0) + 1
+
 			# Agrupar por código de documento AT (FT/NC/FS/RC/GT/...), não
 			# por DocType do Frappe - uma Nota de Crédito é uma Sales
 			# Invoice com is_return=1, mas tem série/prefixo próprios (NC)
@@ -416,6 +451,8 @@ class CompanyDashboard:
 					grouped_series[label] = []
 
 				series['status'] = self.get_series_status(series)
+				series['documents_with_atcud'] = documents_total.get(series['name'], 0)
+				series['documents_communicated'] = documents_real.get(series['name'], 0)
 				grouped_series[label].append(series)
 
 			return grouped_series

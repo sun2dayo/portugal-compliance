@@ -54,15 +54,13 @@ class PortugalComplianceDashboard {
 				<div class="cd-status-banner"></div>
 				<div class="cd-alerts"></div>
 				<div class="cd-stats" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:18px 0;"></div>
-				<div class="row">
-					<div class="col-sm-7">
-						<h5>${__('ATCUD gerados - últimos 6 meses')}</h5>
-						<div class="cd-trend-chart"></div>
-					</div>
-					<div class="col-sm-5">
-						<h5>${__('Séries por tipo de documento')}</h5>
-						<div class="cd-series-summary"></div>
-					</div>
+				<div style="margin-bottom:18px;">
+					<h5>${__('ATCUD gerados - últimos 6 meses')}</h5>
+					<div class="cd-trend-chart"></div>
+				</div>
+				<div>
+					<h5>${__('Séries por tipo de documento')}</h5>
+					<div class="cd-series-summary"></div>
 				</div>
 			</div>
 		`).appendTo(this.page.main);
@@ -174,25 +172,65 @@ class PortugalComplianceDashboard {
 			return;
 		}
 
-		const $table = $(`
-			<table class="table table-bordered">
-				<thead><tr><th>${__('Tipo')}</th><th>${__('Ativas')}</th><th>${__('Comunicadas')}</th></tr></thead>
-				<tbody></tbody>
-			</table>
-		`).appendTo($wrap);
+		// Grelha de cartões em vez de tabela (2026-09-04, pedido do
+		// utilizador - "mais moderna graficamente" + responsividade):
+		// uma tabela de 5 colunas nunca cabe num ecrã de telemóvel sem
+		// scroll horizontal; um grid de cartões reflui sozinho (CSS
+		// grid auto-fit) em qualquer largura, sem scroll nenhum.
+		const $grid = $(
+			'<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px;"></div>'
+		).appendTo($wrap);
 
 		doc_types.forEach((doc_type) => {
 			const rows = summary[doc_type] || [];
 			const active = rows.filter((r) => r.is_active).length;
 			const communicated = rows.filter((r) => r.is_communicated).length;
+			// documents_with_atcud/documents_communicated: contagem real
+			// de DOCUMENTOS (nao series) por tipo - distingue ATCUD
+			// "TEMP..." (serie ainda nao comunicada, placeholder local)
+			// de um ATCUD com codigo de validacao real da AT. Antes desta
+			// coluna nao havia forma de ver isto por tipo de documento,
+			// so o total agregado nos cartoes de estatisticas acima.
+			const docs_total = rows.reduce((sum, r) => sum + (r.documents_with_atcud || 0), 0);
+			const docs_real = rows.reduce((sum, r) => sum + (r.documents_communicated || 0), 0);
+			const doc_code = (rows[0] && rows[0].document_code) || '';
+
+			const series_pill = this.ratio_pill(communicated, rows.length);
+			const docs_pill = this.ratio_pill(docs_real, docs_total);
+
 			$(`
-				<tr>
-					<td>${frappe.utils.escape_html(doc_type)}</td>
-					<td>${active}</td>
-					<td>${communicated} / ${rows.length}</td>
-				</tr>
-			`).appendTo($table.find('tbody'));
+				<div style="border:1px solid var(--border-color); border-radius:10px; padding:14px 16px; background:var(--card-bg);">
+					<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+						<span style="font-weight:600;">${frappe.utils.escape_html(doc_type)}</span>
+						${doc_code ? `<span class="indicator-pill gray" style="font-size:.7rem;">${frappe.utils.escape_html(doc_code)}</span>` : ''}
+					</div>
+					<div style="display:flex; justify-content:space-between; padding:4px 0; border-top:1px solid var(--border-color);">
+						<span class="text-muted small">${__('Séries Ativas')}</span>
+						<span style="font-variant-numeric:tabular-nums;">${active}</span>
+					</div>
+					<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border-color);">
+						<span class="text-muted small">${__('Séries Comunicadas')}</span>
+						${series_pill}
+					</div>
+					<div style="display:flex; justify-content:space-between; padding:4px 0; border-top:1px solid var(--border-color);">
+						<span class="text-muted small">${__('Documentos c/ ATCUD')}</span>
+						<span style="font-variant-numeric:tabular-nums;">${docs_total}</span>
+					</div>
+					<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border-color);">
+						<span class="text-muted small">${__('Comunicados à AT')}</span>
+						${docs_pill}
+					</div>
+				</div>
+			`).appendTo($grid);
 		});
+	}
+
+	ratio_pill(done, total) {
+		let color = 'gray';
+		if (total > 0) {
+			color = done >= total ? 'green' : (done > 0 ? 'orange' : 'red');
+		}
+		return `<span class="indicator-pill ${color}" style="font-variant-numeric:tabular-nums;">${done} / ${total}</span>`;
 	}
 
 	color_to_bootstrap(color) {
