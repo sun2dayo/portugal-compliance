@@ -53,7 +53,7 @@
             "fieldname": "at_username",
             "label": "Utilizador AT (webservice)",
             "fieldtype": "Data",
-            "description": "Utilizador registado no Portal das Financas para o servico de webservices (distinto do login normal)"
+            "description": "Utilizador registado no Portal das Finanças para o serviço de webservices (distinto do login normal). Tem de ter as 3 permissões atribuídas: WSE (Comunicação de Séries), WFA (Comunicação de Faturação) e WDT (Comunicação de Transportes) - faltar alguma bloqueia o respetivo canal (séries, faturas ou guias de transporte) mesmo com o utilizador/password corretos. Permissões geridas em acesso.gov.pt (Gestão de Utilizadores)."
         },
         {
             "fieldname": "webservice_credentials_column_break",
