@@ -142,11 +142,38 @@ class ATCUDLog(Document):
 		"""Trata sucesso na geração do ATCUD"""
 		try:
 			# Atualizar estatísticas da série
+			#
+			# frappe.db.set_value (nao frappe.get_doc(...).save()) e
+			# deliberado, nao um atalho: Portugal Series Configuration usa
+			# autoname "field:prefix", e Document.save() corre sempre
+			# _sync_autoname_field() no fim, que forca o campo "prefix" a
+			# ficar igual a "name" - mesmo quando "prefix" ja estava
+			# correto e "name" e um identificador de hash historico
+			# diferente (ex: name="NE-2026-ZC-d0f92d", prefix="NE2026ZC").
+			# Cada chamada anterior a series_doc.save() aqui corrompia
+			# silenciosamente o prefix real da serie so por incrementar um
+			# contador - e o prefix e o que entra na assinatura RSA de
+			# cada documento (ver signature.py::build_data_to_sign), por
+			# isso a corrupcao invalidava retroativamente a assinatura de
+			# TODOS os documentos ja emitidos nessa serie assim que o
+			# segundo documento era gerado. Encontrado 2026-09-05 via
+			# verify_signature_chain() a reportar assinaturas invalidas em
+			# Sales Order - confirmado por prova criptografica (a
+			# assinatura original so verifica com o prefix limpo,
+			# nunca com o "name" hash). set_value escreve so os 2 campos
+			# pedidos, sem tocar em "prefix" nem correr autoname/hooks.
 			if self.series_used:
-				series_doc = frappe.get_doc("Portugal Series Configuration", self.series_used)
-				series_doc.total_documents_issued = (series_doc.total_documents_issued or 0) + 1
-				series_doc.last_document_date = self.document_date or frappe.utils.today()
-				series_doc.save()
+				current_total = frappe.db.get_value(
+					"Portugal Series Configuration", self.series_used, "total_documents_issued"
+				) or 0
+				frappe.db.set_value(
+					"Portugal Series Configuration",
+					self.series_used,
+					{
+						"total_documents_issued": current_total + 1,
+						"last_document_date": self.document_date or frappe.utils.today(),
+					},
+				)
 
 			# Limpar logs de falha anteriores para este documento
 			frappe.db.sql("""
