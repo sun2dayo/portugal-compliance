@@ -62,12 +62,6 @@
             "description": "Bloquear a gravação de um Cliente português sem NIF preenchido. Mantenha desativado para permitir vendas a consumidor final sem NIF (retalho/POS) - nesses casos o sistema usa automaticamente o NIF genérico 999999990 no QR Code e no SAF-T."
         },
         {
-            "fieldname": "session_tokens",
-            "label": "Session Tokens",
-            "fieldtype": "Table",
-            "options": "Portugal Session Token"
-        },
-        {
             "fieldname": "invoice_signing_section",
             "fieldtype": "Section Break",
             "label": "Chave de Assinatura de Documentos (RSA-SHA1)"
