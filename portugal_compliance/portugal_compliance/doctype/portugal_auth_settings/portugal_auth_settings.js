@@ -36,7 +36,8 @@ frappe.ui.form.on('Portugal Auth Settings', {
         // vazios no carregamento do formulario, nunca sobrescreve o
         // que ja esta configurado so por reabrir a pagina. Ver
         // sandbox_mode() abaixo para o comportamento ao mudar de modo
-        // (esse sim substitui, para refletir o modo escolhido).
+        // (esse sim substitui - mas so caminhos "geridos", nunca um
+        // valor manual do administrador; ver is_certificate_path_managed).
         autodetect_certificate_paths(frm, /* overwrite */ false);
     },
 
@@ -50,8 +51,11 @@ frappe.ui.form.on('Portugal Auth Settings', {
 
         // Ao mudar explicitamente de modo, os 3 campos de certificado
         // sao substituidos pelos detetados no modo novo (se existirem)
-        // - e essa a intencao de mudar o toggle, ao contrario do
-        // preenchimento silencioso so-quando-vazio do refresh acima.
+        // - e essa a intencao de mudar o toggle. "Smart default": so
+        // substitui campos vazios OU campos cujo valor atual e ele
+        // proprio um caminho gerido pela autodeteccao (dentro das
+        // pastas oficiais, com o nome esperado) - um caminho manual
+        // do administrador nunca e tocado, mesmo ao mudar de modo.
         autodetect_certificate_paths(frm, /* overwrite */ true);
     },
 
@@ -140,6 +144,41 @@ function validate_certificate_path(path) {
     }
 }
 
+// Converte um padrao glob simples (só "*" e "?", como usado pelo
+// backend em CERTIFICATE_AUTODETECT_FILENAME_PATTERNS) numa regex,
+// para reconhecer nomes de ficheiro com wildcard (ex:
+// "at_public_key*.cer" - o certificado publico da AT tem o ano de
+// validade no nome e e renovado periodicamente).
+function glob_to_regex(pattern) {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.');
+    return new RegExp('^' + escaped + '$');
+}
+
+// Um caminho e "gerido" pela autodeteccao quando esta dentro de uma
+// das pastas oficiais (config.dirs, devolvidas pelo backend - nunca
+// hardcoded aqui, para nao haver duas fontes de verdade) e o nome do
+// ficheiro corresponde ao padrao esperado para esse campo
+// (config.patterns). So um caminho gerido pode ser substituido pela
+// autodeteccao ao mudar de modo (overwrite=true) - qualquer outro
+// valor e considerado uma escolha manual do administrador e nunca e
+// sobrescrito, mesmo que o ficheiro que ele aponta exista.
+function is_certificate_path_managed(path, fieldname, config) {
+    if (!path) return false;
+
+    const separator_index = path.lastIndexOf('/');
+    if (separator_index === -1) return false;
+
+    const dir = path.substring(0, separator_index);
+    const filename = path.substring(separator_index + 1);
+
+    if (!config.dirs.includes(dir)) return false;
+
+    const pattern = config.patterns[fieldname];
+    return pattern ? glob_to_regex(pattern).test(filename) : false;
+}
+
 function autodetect_certificate_paths(frm, overwrite) {
     const FIELDS = ['mtls_certificate_path', 'mtls_private_key_path', 'at_public_certificate_path'];
 
@@ -147,14 +186,25 @@ function autodetect_certificate_paths(frm, overwrite) {
         method: 'portugal_compliance.portugal_compliance.doctype.portugal_auth_settings.portugal_auth_settings.detect_certificate_paths',
         args: { sandbox_mode: frm.doc.sandbox_mode },
         callback: function(r) {
-            const found = r.message || {};
+            const result = r.message || {};
+            const found = result.found || {};
             let changed_any = false;
+            let kept_manual_any = false;
 
             FIELDS.forEach(function(fieldname) {
                 const detected_path = found[fieldname];
                 if (!detected_path) return;
-                if (!overwrite && frm.doc[fieldname]) return;
-                if (frm.doc[fieldname] === detected_path) return;
+
+                const current_path = frm.doc[fieldname];
+                if (current_path === detected_path) return;
+
+                if (current_path) {
+                    const managed = is_certificate_path_managed(current_path, fieldname, result);
+                    if (!overwrite || !managed) {
+                        if (overwrite && !managed) kept_manual_any = true;
+                        return;
+                    }
+                }
 
                 frm.set_value(fieldname, detected_path);
                 changed_any = true;
@@ -166,6 +216,12 @@ function autodetect_certificate_paths(frm, overwrite) {
                         frm.doc.sandbox_mode ? __('Sandbox') : __('Produção')
                     ]),
                     indicator: 'green'
+                });
+            }
+            if (kept_manual_any) {
+                frappe.show_alert({
+                    message: __('Caminhos configurados manualmente foram mantidos'),
+                    indicator: 'blue'
                 });
             }
         }

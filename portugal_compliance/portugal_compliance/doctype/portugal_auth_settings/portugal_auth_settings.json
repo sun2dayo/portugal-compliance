@@ -139,19 +139,19 @@
             "fieldname": "mtls_certificate_path",
             "label": "Certificado Cliente mTLS (PEM)",
             "fieldtype": "Data",
-            "description": "Certificado extraido do .pfx fornecido pela AT, convertido para PEM"
+            "description": "Certificado extraido do .pfx fornecido pela AT, convertido para PEM. Deteção automática: /etc/portugal_compliance/certificates/{test|prod}/mtls_client_cert.pem, conforme o modo (Sandbox/Produção)."
         },
         {
             "fieldname": "mtls_private_key_path",
             "label": "Chave Privada mTLS (PEM)",
             "fieldtype": "Data",
-            "description": "Chave privada extraida do mesmo .pfx - NUNCA a mesma chave usada para assinar documentos (ver Chave de Assinatura acima)"
+            "description": "Chave privada extraida do mesmo .pfx - NUNCA a mesma chave usada para assinar documentos (ver Chave de Assinatura acima). Deteção automática: /etc/portugal_compliance/certificates/{test|prod}/mtls_client_key.pem, conforme o modo (Sandbox/Produção)."
         },
         {
             "fieldname": "at_public_certificate_path",
             "label": "Certificado Público da AT (cifra WS-Security)",
             "fieldtype": "Data",
-            "description": "Certificado público da AT (.cer/.pem) usado para cifrar a password no cabeçalho WS-Security proprietário exigido pelo webservice de séries - distinto do certificado mTLS acima."
+            "description": "Certificado público da AT (.cer/.pem) usado para cifrar a password no cabeçalho WS-Security proprietário exigido pelo webservice de séries - distinto do certificado mTLS acima. Deteção automática: /etc/portugal_compliance/certificates/{test|prod}/at_public_key*.cer (o mais recente, quando a AT o renovar), conforme o modo (Sandbox/Produção)."
         },
         {
             "fieldname": "invoice_communication_section",
