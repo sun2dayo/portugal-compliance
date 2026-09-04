@@ -3,6 +3,21 @@
 <!-- comprador). MovementOfGoods (Delivery Note - GR/GD) e WorkingDocuments (Quotation -->
 <!-- OR / Sales Order NE) acrescentados na Fase 2 (2026-09-03) - o ATCUD/assinatura ja -->
 <!-- existiam para os 3 doctypes, so faltava esta extracao. -->
+<!-- Auditoria 2026-09-04 (pontos 5.3-5.5 do guiao da AT sobre rastreabilidade -->
+<!-- documental, SalesInvoices/Line apenas): OrderReferences/OriginatingON e -->
+<!-- References/Reference+Reason sao ambos elementos de Line no XSD oficial -->
+<!-- (SAF-T_PT_1.04_01.xsd), nunca de Invoice - confirmado por leitura direta do -->
+<!-- ficheiro. Ate agora so existia OrderReferences, e estava a receber o dado -->
+<!-- errado (a referencia da Nota de Credito ao documento original, via -->
+<!-- return_against) - "fio trocado": dados de devolucao na tag de pre-venda. -->
+<!-- Corrigido: References (novo) recebe agora esse dado (o proprio XSD -->
+<!-- descreve References como "estrutura de referencias a outros documentos em -->
+<!-- documentos retificativos de faturas" - exatamente este caso), e -->
+<!-- OrderReferences passa a receber a origem real (Sales/POS Invoice -->
+<!-- Item.sales_order/.delivery_note, calculado por linha em -->
+<!-- saft_generator.py::_order_reference_for_item - uma fatura pode consolidar -->
+<!-- itens de encomendas/guias diferentes, por isso nunca ao nivel da fatura -->
+<!-- inteira). -->
 <SourceDocuments>
     <SalesInvoices>
         <NumberOfEntries>{{ sales_invoices|length }}</NumberOfEntries>
@@ -43,9 +58,9 @@
             {% for item in invoice.lines %}
             <Line>
                 <LineNumber>{{ loop.index }}</LineNumber>
-                {% if invoice.original_document_reference %}
+                {% if item.order_reference %}
                 <OrderReferences>
-                    <OriginatingON>{{ invoice.original_document_reference }}</OriginatingON>
+                    <OriginatingON>{{ item.order_reference }}</OriginatingON>
                 </OrderReferences>
                 {% endif %}
                 <ProductCode>{{ item.item_code }}</ProductCode>
@@ -54,6 +69,12 @@
                 <UnitOfMeasure>{{ item.uom or 'Un' }}</UnitOfMeasure>
                 <UnitPrice>{{ '%.4f'|format(item.rate or 0) }}</UnitPrice>
                 <TaxPointDate>{{ invoice.posting_date.strftime('%Y-%m-%d') }}</TaxPointDate>
+                {% if invoice.original_document_reference %}
+                <References>
+                    <Reference>{{ invoice.original_document_reference }}</Reference>
+                    <Reason>{{ invoice.credit_note_reason }}</Reason>
+                </References>
+                {% endif %}
                 <Description>{{ item.description or item.item_name or item.item_code }}</Description>
                 {% if item.debit_credit == "D" %}
                 <DebitAmount>{{ '%.2f'|format(item.amount or 0) }}</DebitAmount>

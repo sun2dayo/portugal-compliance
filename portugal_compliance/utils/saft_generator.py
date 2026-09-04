@@ -609,6 +609,7 @@ class SAFTGenerator:
 									si.naming_series,
 									si.is_return,
 									si.return_against,
+									si.remarks,
 									si.shipping_address_name,
 									si.customer_address,
 									sii.item_code,
@@ -619,7 +620,9 @@ class SAFTGenerator:
 									sii.base_rate,
 									sii.base_net_amount,
 									sii.item_tax_template,
-									sii.at_exemption_reason
+									sii.at_exemption_reason,
+									sii.sales_order,
+									sii.delivery_note
 							 FROM `tab{doctype}` si
 									  INNER JOIN `tab{item_doctype}` sii ON sii.parent = si.name
 							 WHERE si.company = %s
@@ -758,6 +761,18 @@ class SAFTGenerator:
 			nao do documento atual - por isso o mesmo helper de
 			formatacao (_format_invoice_no) e reutilizado aqui com os
 			dados do original.
+
+			Auditoria 2026-09-04 (pontos 5.3-5.5 do guiao da AT): este
+			valor alimenta <References><Reference> (elemento de Line,
+			XSD - ver source_documents.xml), nunca <OrderReferences> -
+			ficou ligado a essa tag por engano ate agora ("fio
+			trocado": dados de devolucao injetados na tag de pre-venda).
+			Confirmado no XSD oficial (SAF-T_PT_1.04_01.xsd) que
+			<References> e mesmo para "documentos retificativos de
+			faturas" (comentario no proprio ficheiro, junto ao
+			complexType References) - exatamente este caso. Ver
+			_order_reference_for_item() abaixo para a tag
+			<OrderReferences> real (Encomenda/Guia de origem).
 			"""
 			if not return_against:
 				return None
@@ -776,6 +791,58 @@ class SAFTGenerator:
 					)
 					original_doc_cache[return_against] = f"{orig.atcud_code or ''} {orig_invoice_no}".strip()
 			return original_doc_cache[return_against]
+
+		order_ref_cache = {}
+		# Codigo AT (Portugal_document_types) para os 2 doctypes que
+		# Sales/POS Invoice Item pode referenciar como origem -
+		# diferente de _document_code_for() acima (que so trata
+		# FT/NC/FS, com a ambiguidade do is_return): Sales Order e
+		# Delivery Note nunca tem uma variante de devolucao equivalente
+		# aqui, o codigo e sempre fixo.
+		_ORDER_REF_DOC_CODE = {"Sales Order": "NE", "Delivery Note": "GT"}
+
+		def _order_reference_for_item(sales_order, delivery_note):
+			"""
+			<OrderReferences><OriginatingON> (elemento de Line, XSD) -
+			documento de origem REAL desta linha (Nota de Encomenda ou,
+			na sua falta, Guia de Transporte), a partir dos campos
+			nativos Sales/POS Invoice Item.sales_order/.delivery_note.
+
+			Por linha, nunca por fatura inteira: ao contrario de
+			return_against (campo do cabecalho, uma so Nota de Credito
+			refere sempre um unico documento original), uma fatura pode
+			consolidar itens de encomendas ou guias diferentes - cada
+			linha tem de reportar a sua propria origem. sales_order tem
+			prioridade sobre delivery_note quando ambos preenchidos (o
+			fluxo mais comum, Encomenda -> Guia -> Fatura: a Encomenda
+			e a origem "raiz" do pedido do cliente, a Guia so
+			documenta o transporte de algo ja encomendado).
+
+			Mesmo formato "ATCUD NUMERO" de _original_document_reference
+			acima (mesmo tipo XSD, SAFPTtextTypeMandatoryMax60Car, para
+			OriginatingON e Reference) - reutiliza os mesmos helpers
+			(_get_signatures_by_invoice, _format_invoice_no).
+			"""
+			ref_doctype, ref_name = (
+				("Sales Order", sales_order) if sales_order
+				else ("Delivery Note", delivery_note) if delivery_note
+				else (None, None)
+			)
+			if not ref_name:
+				return None
+			cache_key = (ref_doctype, ref_name)
+			if cache_key not in order_ref_cache:
+				orig = frappe.db.get_value(ref_doctype, ref_name, ["atcud_code", "naming_series"], as_dict=True)
+				if not orig:
+					order_ref_cache[cache_key] = None
+				else:
+					orig_sig = self._get_signatures_by_invoice([ref_name], doctype=ref_doctype).get(ref_name)
+					orig_doc_code = _ORDER_REF_DOC_CODE[ref_doctype]
+					orig_no = self._format_invoice_no(
+						ref_name, orig_sig.sequence_number if orig_sig else None, orig_doc_code
+					)
+					order_ref_cache[cache_key] = f"{orig.atcud_code or ''} {orig_no}".strip()
+			return order_ref_cache[cache_key]
 
 		address_cache = {}
 
@@ -878,6 +945,12 @@ class SAFTGenerator:
 				invoice["net_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_net_total))
 				invoice["gross_total_abs"] = 0.0 if is_cancelled else abs(flt(row.base_grand_total))
 				invoice["original_document_reference"] = _original_document_reference(row.return_against)
+				# <References><Reason> (XSD, minOccurs=0 mas sempre
+				# preenchido aqui por clareza - so e renderizado quando
+				# original_document_reference existe, ver template).
+				# Max 50 car. (SAFPTtextTypeMandatoryMax50Car) - remarks
+				# livre do utilizador pode exceder, cortado em seguranca.
+				invoice["credit_note_reason"] = ((row.remarks or "Devolução").strip() or "Devolução")[:50]
 				invoice["ship_to"] = _address_dict(row.shipping_address_name)
 				invoice["self_billing_indicator"] = _self_billing(row.customer)
 				invoice["withholding_tax"] = _withholding_tax_rows(row.name)
@@ -919,6 +992,7 @@ class SAFTGenerator:
 				abs(flt(row.base_rate) * flt(row.qty) - flt(row.base_net_amount)), 2
 			)
 			invoices[row.name]["lines"].append(frappe._dict({
+				"order_reference": _order_reference_for_item(row.sales_order, row.delivery_note),
 				"item_code": row.item_code,
 				"item_name": row.item_name,
 				"description": row.description,
