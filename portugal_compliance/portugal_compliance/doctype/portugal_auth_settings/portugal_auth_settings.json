@@ -19,10 +19,13 @@
     ],
     "fields": [
         {
-            "fieldname": "at_webservice_url",
-            "label": "AT Webservice URL",
-            "fieldtype": "Data",
-            "default": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
+            "fieldname": "environment_tab",
+            "fieldtype": "Tab Break",
+            "label": "Ambiente"
+        },
+        {
+            "fieldname": "environment_section",
+            "fieldtype": "Section Break"
         },
         {
             "fieldname": "sandbox_mode",
@@ -32,39 +35,44 @@
             "description": "Por omissão desativado (produção) - ativar apenas em ambiente de testes/homologação. Ao mudar este valor, os campos de certificado mTLS abaixo são atualizados automaticamente para os detetados no caminho correspondente (sandbox ou produção), se existirem."
         },
         {
-            "fieldname": "series_validation_section",
-            "fieldtype": "Section Break",
-            "label": "Séries e Validação de NIF"
-        },
-        {
-            "fieldname": "auto_create_series",
-            "label": "Criar séries automaticamente",
-            "fieldtype": "Check",
-            "default": "1",
-            "description": "Ao ativar Portugal Compliance numa empresa, criar automaticamente as séries base (Fatura Venda, Fatura POS, Recibo, Guia de Transporte). Se desativado, as séries têm de ser criadas manualmente (botão \"Configurar Séries\" na Empresa)."
-        },
-        {
-            "fieldname": "validate_nif",
-            "label": "Validar NIF",
-            "fieldtype": "Check",
-            "default": "1",
-            "description": "Avisar (sem bloquear a gravação) quando o NIF de um Cliente ou Fornecedor português não passa o algoritmo de validação oficial (módulo 11)."
-        },
-        {
-            "fieldname": "series_validation_column_break",
+            "fieldname": "environment_column_break",
             "fieldtype": "Column Break"
         },
         {
-            "fieldname": "require_customer_nif",
-            "label": "Exigir NIF do Cliente",
-            "fieldtype": "Check",
-            "default": "0",
-            "description": "Bloquear a gravação de um Cliente português sem NIF preenchido. Mantenha desativado para permitir vendas a consumidor final sem NIF (retalho/POS) - nesses casos o sistema usa automaticamente o NIF genérico 999999990 no QR Code e no SAF-T."
+            "fieldname": "at_webservice_url",
+            "label": "AT Webservice URL",
+            "fieldtype": "Data",
+            "default": "https://servicos.portaldasfinancas.gov.pt:722/SeriesWSService"
+        },
+        {
+            "fieldname": "webservice_credentials_section",
+            "fieldtype": "Section Break",
+            "label": "Credenciais do Webservice da AT (WS-Security)"
+        },
+        {
+            "fieldname": "at_username",
+            "label": "Utilizador AT (webservice)",
+            "fieldtype": "Data",
+            "description": "Utilizador registado no Portal das Financas para o servico de webservices (distinto do login normal)"
+        },
+        {
+            "fieldname": "webservice_credentials_column_break",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "at_password",
+            "label": "Password AT (webservice)",
+            "fieldtype": "Password"
+        },
+        {
+            "fieldname": "cryptography_tab",
+            "fieldtype": "Tab Break",
+            "label": "Criptografia"
         },
         {
             "fieldname": "invoice_signing_section",
             "fieldtype": "Section Break",
-            "label": "Chave de Assinatura de Documentos (RSA-SHA1)"
+            "label": "Assinatura de Documentos (RSA-SHA1)"
         },
         {
             "fieldname": "invoice_signing_key_path",
@@ -76,6 +84,10 @@
             "fieldname": "invoice_signing_key_password",
             "label": "Password da Chave Privada",
             "fieldtype": "Password"
+        },
+        {
+            "fieldname": "invoice_signing_column_break",
+            "fieldtype": "Column Break"
         },
         {
             "fieldname": "invoice_signing_key_version",
@@ -92,31 +104,9 @@
             "description": "Numero atribuido pela AT apos certificacao. 0 enquanto o software nao estiver certificado (campo R do QR code)."
         },
         {
-            "fieldname": "cash_vat_scheme",
-            "label": "Regime de IVA de Caixa (Artigo 78.º-A do CIVA)",
-            "fieldtype": "Check",
-            "default": "0",
-            "description": "Ativar apenas se a empresa estiver efetivamente enquadrada no regime de IVA de Caixa junto da AT. Determina o campo PaymentType dos recibos no SAF-T: RC (\"Recibo emitido no âmbito do regime de IVA de Caixa\") quando ativo, RG (\"Outros recibos emitidos\") caso contrário - distinção exigida pelo XSD oficial (SAFTPTPaymentType), sem relação com o sentido do pagamento (Receber/Pagar)."
-        },
-        {
-            "fieldname": "webservice_credentials_section",
+            "fieldname": "mtls_certificates_section",
             "fieldtype": "Section Break",
-            "label": "Credenciais do Webservice da AT (WS-Security)"
-        },
-        {
-            "fieldname": "at_username",
-            "label": "Utilizador AT (webservice)",
-            "fieldtype": "Data",
-            "description": "Utilizador registado no Portal das Financas para o servico de webservices (distinto do login normal)"
-        },
-        {
-            "fieldname": "at_password",
-            "label": "Password AT (webservice)",
-            "fieldtype": "Password"
-        },
-        {
-            "fieldname": "mtls_column_break",
-            "fieldtype": "Column Break"
+            "label": "Certificados de Comunicação (mTLS)"
         },
         {
             "fieldname": "mtls_certificate_path",
@@ -131,10 +121,78 @@
             "description": "Chave privada extraida do mesmo .pfx - NUNCA a mesma chave usada para assinar documentos (ver Chave de Assinatura acima). Deteção automática: /etc/portugal_compliance/certificates/{test|prod}/mtls_client_key.pem, conforme o modo (Sandbox/Produção)."
         },
         {
+            "fieldname": "mtls_column_break",
+            "fieldtype": "Column Break"
+        },
+        {
             "fieldname": "at_public_certificate_path",
             "label": "Certificado Público da AT (cifra WS-Security)",
             "fieldtype": "Data",
             "description": "Certificado público da AT (.cer/.pem) usado para cifrar a password no cabeçalho WS-Security proprietário exigido pelo webservice de séries - distinto do certificado mTLS acima. Deteção automática: /etc/portugal_compliance/certificates/{test|prod}/at_public_key*.cer (o mais recente, quando a AT o renovar), conforme o modo (Sandbox/Produção)."
+        },
+        {
+            "fieldname": "business_rules_tab",
+            "fieldtype": "Tab Break",
+            "label": "Regras de Negócio"
+        },
+        {
+            "fieldname": "series_validation_section",
+            "fieldtype": "Section Break",
+            "label": "Séries e Validação de NIF"
+        },
+        {
+            "fieldname": "auto_create_series",
+            "label": "Criar séries automaticamente",
+            "fieldtype": "Check",
+            "default": "1",
+            "description": "Ao ativar Portugal Compliance numa empresa, criar automaticamente as séries base (Fatura Venda, Fatura POS, Recibo, Guia de Transporte). Se desativado, as séries têm de ser criadas manualmente (botão \"Configurar Séries\" na Empresa)."
+        },
+        {
+            "fieldname": "series_validation_column_break",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "validate_nif",
+            "label": "Validar NIF",
+            "fieldtype": "Check",
+            "default": "1",
+            "description": "Avisar (sem bloquear a gravação) quando o NIF de um Cliente ou Fornecedor português não passa o algoritmo de validação oficial (módulo 11)."
+        },
+        {
+            "fieldname": "require_customer_nif",
+            "label": "Exigir NIF do Cliente",
+            "fieldtype": "Check",
+            "default": "0",
+            "description": "Bloquear a gravação de um Cliente português sem NIF preenchido. Mantenha desativado para permitir vendas a consumidor final sem NIF (retalho/POS) - nesses casos o sistema usa automaticamente o NIF genérico 999999990 no QR Code e no SAF-T."
+        },
+        {
+            "fieldname": "cash_vat_scheme_section",
+            "fieldtype": "Section Break",
+            "label": "Regime de IVA de Caixa"
+        },
+        {
+            "fieldname": "cash_vat_scheme",
+            "label": "Regime de IVA de Caixa (Artigo 78.º-A do CIVA)",
+            "fieldtype": "Check",
+            "default": "0",
+            "description": "Ativar apenas se a empresa estiver efetivamente enquadrada no regime de IVA de Caixa junto da AT. Determina o campo PaymentType dos recibos no SAF-T: RC (\"Recibo emitido no âmbito do regime de IVA de Caixa\") quando ativo, RG (\"Outros recibos emitidos\") caso contrário - distinção exigida pelo XSD oficial (SAFTPTPaymentType), sem relação com o sentido do pagamento (Receber/Pagar)."
+        },
+        {
+            "fieldname": "cancelled_documents_section",
+            "fieldtype": "Section Break",
+            "label": "Impressão de Documentos Anulados"
+        },
+        {
+            "fieldname": "allow_print_cancelled_documents",
+            "label": "Permitir Impressão de Documentos Anulados",
+            "fieldtype": "Check",
+            "default": "0",
+            "description": "Desativado (omissão): comportamento nativo do ERPNext - o ícone \"Print\" fica oculto e a impressão bloqueada num documento anulado (docstatus=2), tal como em qualquer outra empresa não portuguesa. Ativado: espelha o valor para o campo nativo Print Settings.allow_print_for_cancelled, desbloqueando a impressão de qualquer documento anulado no site inteiro (é uma definição global do Frappe, não específica desta app) - necessário para o ponto 5.2 do guião de certificação AT (imprimir uma fatura anulada com a menção \"DOCUMENTO ANULADO\" visível)."
+        },
+        {
+            "fieldname": "communication_tab",
+            "fieldtype": "Tab Break",
+            "label": "Comunicação AT"
         },
         {
             "fieldname": "invoice_communication_section",
@@ -194,18 +252,6 @@
             "options": "Email",
             "depends_on": "eval:doc.saft_communication_method=='Email (Contabilista)'",
             "description": "Endereço para onde o ficheiro SAF-T mensal é enviado automaticamente, além de ficar disponível para download."
-        },
-        {
-            "fieldname": "cancelled_documents_section",
-            "fieldtype": "Section Break",
-            "label": "Impressão de Documentos Anulados"
-        },
-        {
-            "fieldname": "allow_print_cancelled_documents",
-            "label": "Permitir Impressão de Documentos Anulados",
-            "fieldtype": "Check",
-            "default": "0",
-            "description": "Desativado (omissão): comportamento nativo do ERPNext - o ícone \"Print\" fica oculto e a impressão bloqueada num documento anulado (docstatus=2), tal como em qualquer outra empresa não portuguesa. Ativado: espelha o valor para o campo nativo Print Settings.allow_print_for_cancelled, desbloqueando a impressão de qualquer documento anulado no site inteiro (é uma definição global do Frappe, não específica desta app) - necessário para o ponto 5.2 do guião de certificação AT (imprimir uma fatura anulada com a menção \"DOCUMENTO ANULADO\" visível)."
         }
     ]
 }
