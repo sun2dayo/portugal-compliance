@@ -309,6 +309,20 @@ class PortugalComplianceDocumentHooks:
 		   este é ao nível da Company inteira - qualquer documento fiscal
 		   já submetido, de qualquer um dos 4 doctypes, bloqueia a
 		   alteração destes 2 campos para sempre.
+
+		   NIF vazio -> preenchido e sempre permitido (2026-09-05,
+		   bug encontrado ao investigar porque o campo NIF desaparecia
+		   do formulário da NovaDX): a condição original bloqueava
+		   `doc.tax_id != before.tax_id` mesmo quando before.tax_id
+		   era vazio - impedia definir o NIF pela PRIMEIRA VEZ assim
+		   que existisse um documento fiscal, não só alterá-lo depois
+		   de já correto. Como o NIF é obrigatório nas validações
+		   portuguesas mas nunca mais podia ser gravado, uma empresa
+		   que emitisse documentos de teste antes de configurar o NIF
+		   ficava permanentemente bloqueada, sem qualquer via de
+		   recuperação pela UI. A proteção real (impedir corromper um
+		   NIF já usado em documentos assinados/comunicados) só faz
+		   sentido quando before.tax_id já não era vazio.
 		"""
 		if doc.country == "Portugal" and not cint(doc.get("portugal_compliance_enabled")):
 			doc.portugal_compliance_enabled = 1
@@ -330,7 +344,10 @@ class PortugalComplianceDocumentHooks:
 		if not has_existing_fiscal_records(doc.name):
 			return
 
-		if doc.country != before.country or doc.tax_id != before.tax_id:
+		tax_id_changed = doc.tax_id != before.tax_id
+		tax_id_locked = tax_id_changed and bool(before.tax_id)
+
+		if doc.country != before.country or tax_id_locked:
 			frappe.throw(
 				_(
 					"Ação bloqueada: Já existem documentos fiscais emitidos para esta "

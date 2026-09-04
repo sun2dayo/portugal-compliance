@@ -1292,15 +1292,29 @@ function apply_fiscal_lock_read_only(frm) {
      * Espelha no ecrã, de forma preventiva, o bloqueio que já existe no
      * servidor (document_hooks.py::validate_company_fiscal_lock): uma
      * vez que a empresa tem pelo menos um documento fiscal submetido,
-     * País, NIF e a própria checkbox de compliance tornam-se read-only.
-     * A verificação em si (has_existing_fiscal_records) corre sempre no
-     * servidor - este handler só decide se desenha os campos como
-     * editáveis ou não; nunca é a fonte de verdade da regra.
+     * País, NIF (se já preenchido) e a própria checkbox de compliance
+     * tornam-se read-only. A verificação em si (has_existing_fiscal_records)
+     * corre sempre no servidor - este handler só decide se desenha os
+     * campos como editáveis ou não; nunca é a fonte de verdade da regra.
+     *
+     * NIF vazio e sempre editável, mesmo com documentos fiscais já
+     * emitidos (2026-09-05, bug encontrado ao investigar porque o
+     * campo desaparecia do formulário da NovaDX): um campo read_only
+     * sem valor fica oculto pelo próprio Frappe (comportamento nativo
+     * para não poluir o formulário com campos em branco não
+     * editáveis) - bloquear um NIF que nunca chegou a ser definido
+     * tornava-o não só não-editável como invisível, sem qualquer via
+     * de recuperação pela UI. O servidor já reflete a mesma exceção
+     * (só bloqueia mudar um NIF que já tinha valor - ver
+     * validate_company_fiscal_lock), este handler só passou a
+     * corresponder a essa regra real.
      */
-    const LOCKED_FIELDS = ['portugal_compliance_enabled', 'country', 'tax_id'];
+    const ALWAYS_LOCKED_FIELDS = ['portugal_compliance_enabled', 'country'];
 
     if (frm.is_new()) {
-        LOCKED_FIELDS.forEach(fieldname => frm.set_df_property(fieldname, 'read_only', 0));
+        ALWAYS_LOCKED_FIELDS.concat(['tax_id']).forEach(
+            fieldname => frm.set_df_property(fieldname, 'read_only', 0)
+        );
         return;
     }
 
@@ -1309,14 +1323,21 @@ function apply_fiscal_lock_read_only(frm) {
         args: { company: frm.doc.name },
         callback: function(r) {
             const locked = !!r.message;
-            LOCKED_FIELDS.forEach(fieldname => {
+            ALWAYS_LOCKED_FIELDS.forEach(fieldname => {
                 frm.set_df_property(fieldname, 'read_only', locked ? 1 : 0);
                 frm.refresh_field(fieldname);
             });
+
+            const tax_id_locked = locked && !!frm.doc.tax_id;
+            frm.set_df_property('tax_id', 'read_only', tax_id_locked ? 1 : 0);
+            frm.refresh_field('tax_id');
+
             if (locked) {
                 frm.set_df_property(
                     'portugal_compliance_enabled', 'description',
-                    __('Já existem documentos fiscais emitidos para esta empresa - País, NIF e este campo ficaram permanentemente bloqueados (Portaria n.º 363/2010).')
+                    tax_id_locked
+                        ? __('Já existem documentos fiscais emitidos para esta empresa - País, NIF e este campo ficaram permanentemente bloqueados (Portaria n.º 363/2010).')
+                        : __('Já existem documentos fiscais emitidos para esta empresa - País e este campo ficaram permanentemente bloqueados (Portaria n.º 363/2010). O NIF ainda não foi definido: preencha-o para que os próximos documentos fiquem corretamente identificados - depois de gravado, também ficará bloqueado.')
                 );
                 frm.refresh_field('portugal_compliance_enabled');
             }
