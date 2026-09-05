@@ -194,6 +194,17 @@ class PortugalComplianceDashboard {
 			const docs_total = rows.reduce((sum, r) => sum + (r.documents_with_atcud || 0), 0);
 			const docs_real = rows.reduce((sum, r) => sum + (r.documents_communicated || 0), 0);
 			const doc_code = (rows[0] && rows[0].document_code) || '';
+			// is_communicating (2026-09-05, reportado pelo utilizador):
+			// Orçamento/Nota de Encomenda/Recibos nunca tem comunicação à
+			// AT por documento (não existe webservice para isso - só o
+			// registo da série, já refletido acima em "Séries
+			// Comunicadas") - mostrar "0/3 Comunicados à AT" nestes
+			// cartões sugeria uma falha que nunca poderá ser corrigida.
+			// O ciclo visível destes tipos termina em "Documentos c/
+			// ATCUD"; só Fatura/Fatura Simplificada/Nota de Crédito/Guia
+			// de Remessa (as que realmente falam com um webservice por
+			// documento) mostram esta linha.
+			const is_communicating = !!(rows[0] && rows[0].is_communicating);
 
 			const series_pill = this.ratio_pill(communicated, rows.length);
 			const docs_pill = this.ratio_pill(docs_real, docs_total);
@@ -216,10 +227,12 @@ class PortugalComplianceDashboard {
 						<span class="text-muted small">${__('Documentos c/ ATCUD')}</span>
 						<span style="font-variant-numeric:tabular-nums;">${docs_total}</span>
 					</div>
+					${is_communicating ? `
 					<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border-color);">
 						<span class="text-muted small">${__('Comunicados à AT')}</span>
 						${docs_pill}
 					</div>
+					` : ''}
 				</div>
 			`).appendTo($grid);
 		});

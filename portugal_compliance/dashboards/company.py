@@ -22,6 +22,23 @@ from portugal_compliance.utils.document_hooks import portugal_document_hooks
 
 FISCAL_SERIES_DOCTYPES = list(portugal_document_hooks.supported_doctypes.keys())
 
+# Doctypes que efetivamente falam com um webservice da AT por DOCUMENTO
+# (RegisterInvoice/envioDocumentoTransporte), confirmado em hooks.py:
+# so estes 3 tem "enqueue_invoice_communication"/
+# "enqueue_transport_communication" ligado a on_submit. Quotation,
+# Sales Order e Payment Entry (Orcamento/Nota de Encomenda/Recibos)
+# ficam de fora deliberadamente - tem serie registada na AT (webservice
+# de series, WSE) e ATCUD/assinatura, mas a AT nao disponibiliza
+# nenhum canal para comunicar estes documentos individualmente (nao
+# sao faturas). 2026-09-05, pedido do utilizador: mostrar "Comunicados
+# à AT" nos cartoes destes tipos no Dashboard AT sugeria uma falha de
+# comunicacao que nao existe e nunca podera ser corrigida - gera
+# panico sem motivo. Mesma distincao ja aplicada aos indicadores dos
+# proprios formularios (ver quotation.js/sales_order.js/
+# payment_entry.js::show_series_info vs sales_invoice.js/
+# pos_invoice.js/delivery_note.js::show_at_communication_status).
+COMMUNICATING_DOCTYPES = {"Sales Invoice", "POS Invoice", "Delivery Note"}
+
 # Rotulo por codigo de documento AT (nao por DocType do Frappe) - uma
 # Nota de Credito e uma Sales Invoice com is_return=1, mas tem a sua
 # propria serie/prefixo (NC) e deve aparecer separada da Fatura (FT)
@@ -420,23 +437,51 @@ class CompanyDashboard:
 			# comunicados, por tipo?"). Nao existia nenhuma resposta a
 			# isto - so havia contagem de SERIES comunicadas (0/1 por
 			# serie) e o total agregado de ATCUD gerados (sem
-			# discriminacao por tipo). ATCUD.validation_code_used e o
-			# sinal real: series ainda nao comunicada a AT gera sempre
-			# um codigo de validacao placeholder "TEMP<prefixo>" (ver
-			# atcud_generator.py) em vez do codigo real devolvido pela
-			# AT - um documento so tem ATCUD verdadeiramente valido
-			# perante a AT quando este campo NAO comeca por "TEMP".
+			# discriminacao por tipo).
+			#
+			# documents_communicated CORRIGIDO (2026-09-05, reportado pelo
+			# utilizador): usava o mesmo sinal do ATCUD (validation_code_used
+			# nao comecar por "TEMP") para dizer se um DOCUMENTO tinha sido
+			# "comunicado a AT" - mas esse sinal e sobre a SERIE (webservice
+			# de series, WSE), nao sobre o documento em si. Um Orcamento ou
+			# Nota de Encomenda mostrava "0/3 Comunicados a AT" mesmo sendo
+			# impossivel a AT alguma vez comunicar esses documentos
+			# individualmente (nao ha webservice para isso - ver
+			# COMMUNICATING_DOCTYPES acima) - sugeria uma falha inexistente.
+			# Agora conta apenas sucessos REAIS registados em Portugal AT
+			# Communication Log (RegisterInvoice/envioDocumentoTransporte),
+			# e so para series cujo document_type esta em
+			# COMMUNICATING_DOCTYPES - as restantes nem chegam a ser
+			# consultadas nesta tabela, ficam sempre None (ver
+			# is_communicating abaixo, usado pelo JS para decidir se mostra
+			# esta métrica de todo).
 			series_names = [s['name'] for s in series_data]
 			documents_total = {}
 			documents_real = {}
 			if series_names:
 				atcud_rows = frappe.db.get_all('ATCUD Log',
 					filters={'company': self.company_name, 'series_used': ['in', series_names]},
-					fields=['series_used', 'validation_code_used'])
+					fields=['series_used', 'document_type', 'document_name'])
 				for row in atcud_rows:
 					documents_total[row.series_used] = documents_total.get(row.series_used, 0) + 1
-					if not (row.validation_code_used or '').startswith('TEMP'):
-						documents_real[row.series_used] = documents_real.get(row.series_used, 0) + 1
+
+				communicating_names = [s['name'] for s in series_data
+										if s['document_type'] in COMMUNICATING_DOCTYPES]
+				if communicating_names:
+					comm_atcud_rows = [r for r in atcud_rows if r.series_used in communicating_names]
+					comm_pairs = {(r.document_type, r.document_name) for r in comm_atcud_rows}
+					if comm_pairs:
+						success_rows = frappe.db.get_all('Portugal AT Communication Log',
+							filters={
+								'document_type': ['in', list({p[0] for p in comm_pairs})],
+								'document_name': ['in', list({p[1] for p in comm_pairs})],
+								'status': 'Success',
+							},
+							fields=['document_type', 'document_name'])
+						success_pairs = {(r.document_type, r.document_name) for r in success_rows}
+						for row in comm_atcud_rows:
+							if (row.document_type, row.document_name) in success_pairs:
+								documents_real[row.series_used] = documents_real.get(row.series_used, 0) + 1
 
 			# Agrupar por código de documento AT (FT/NC/FS/RC/GT/...), não
 			# por DocType do Frappe - uma Nota de Crédito é uma Sales
@@ -453,6 +498,13 @@ class CompanyDashboard:
 				series['status'] = self.get_series_status(series)
 				series['documents_with_atcud'] = documents_total.get(series['name'], 0)
 				series['documents_communicated'] = documents_real.get(series['name'], 0)
+				# is_communicating: existe webservice de AT para ESTE tipo
+				# de documento (ver COMMUNICATING_DOCTYPES) - usado pelo JS
+				# do dashboard para decidir se mostra a métrica "Comunicados
+				# à AT" no cartão deste tipo, ou se o ciclo visível termina
+				# em "Documentos c/ ATCUD" (Orçamento/Nota de Encomenda/
+				# Recibos, que nunca tem comunicacao AT individual).
+				series['is_communicating'] = series['document_type'] in COMMUNICATING_DOCTYPES
 				grouped_series[label].append(series)
 
 			return grouped_series
