@@ -21,8 +21,8 @@ app_description = "Compliance with Portuguese fiscal regulations (ATCUD, SAFT-PT
 app_icon = "octicon octicon-law"
 app_color = "green"
 app_email = "compliance@novadx.pt"
-app_license = "MIT"
-app_version = "2.0.0"
+app_license = "GPL-3.0"
+app_version = "1.1.0"
 
 # ✅ REQUIRED APPS
 required_apps = ["frappe", "erpnext"]
