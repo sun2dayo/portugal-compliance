@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 # primeiro lugar) em vez de manter uma 5ª copia hardcoded sujeita ao
 # mesmo desalinhamento no futuro.
 from portugal_compliance.utils.document_hooks import portugal_document_hooks
+from portugal_compliance.utils.signature import get_signing_spec
 
 FISCAL_SERIES_DOCTYPES = list(portugal_document_hooks.supported_doctypes.keys())
 
@@ -393,13 +394,38 @@ class CompanyDashboard:
 				# esta guarda falhava sempre e o total ficava sempre a 0,
 				# independentemente de haver documentos reais no periodo
 				# (apanhado ao vivo: 5 documentos reais devolviam 0).
-				if frappe.db.table_exists(doc_type):
+				if not frappe.db.table_exists(doc_type):
+					continue
+
+				# 2026-09-05, reportado pelo utilizador (34 erros/24h no
+				# Dashboard AT): filtro fixo em "posting_date" para TODOS
+				# os tipos - Quotation/Sales Order nao tem esse campo,
+				# usam "transaction_date" (mesmo problema ja resolvido em
+				# signature.py::DOCUMENT_SIGNING_SPEC, reutilizado aqui em
+				# vez de duplicar o mapeamento). Isto rebentava com
+				# "Unknown column 'posting_date'" logo no primeiro destes
+				# 2 tipos do loop, e como o try/except era à volta do
+				# LOOP INTEIRO (nao por iteracao), a excecao descartava
+				# tambem a contagem ja acumulada dos tipos anteriores -
+				# "Documentos Este Mês" ficava sempre em 0 no dashboard,
+				# mesmo com documentos reais no periodo (confirmado no
+				# proprio traceback: total_count=3 no momento do erro,
+				# perdido pelo return 0 do except exterior).
+				spec = get_signing_spec(doc_type)
+				date_field = spec['date_field'] if spec else 'posting_date'
+
+				# Isolado por tipo (nao só o loop inteiro): um problema
+				# especifico de UM doctype nunca mais deve zerar a
+				# contagem dos restantes.
+				try:
 					count = frappe.db.count(doc_type, {
 						'company': self.company_name,
-						'posting_date': ['>=', first_day],
+						date_field: ['>=', first_day],
 						'docstatus': 1
 					})
 					total_count += count
+				except Exception as e:
+					frappe.log_error(f"Error counting {doc_type} for monthly total: {str(e)}")
 
 			return total_count
 
