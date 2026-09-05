@@ -31,6 +31,18 @@ frappe.ui.form.on('Quotation', {
 
     // ========== REFRESH DO FORMULÁRIO ==========
     refresh: function(frm) {
+        // 2026-09-05, pedido do utilizador: show_series_info() (e agora
+        // tambem show_at_communication_status(), chamada de dentro dela)
+        // so corria no evento de mudanca de naming_series - nunca ao
+        // reabrir um documento ja submetido, que e precisamente quando
+        // este estado mais interessa consultar. Colocado logo no inicio
+        // do refresh (2026-09-05: confirmado ao vivo que
+        // setup_quotation_validations() mais abaixo pode lançar uma
+        // excepção nao apanhada - bug pre-existente, fora do ambito
+        // deste pedido - que interrompia o resto do refresh; aqui corre
+        // sempre, independentemente disso).
+        show_series_info(frm);
+
         // ✅ VERIFICAR SE É EMPRESA PORTUGUESA
         if (is_portuguese_company(frm)) {
             // ✅ CONFIGURAR INTERFACE PORTUGUESA
@@ -923,21 +935,8 @@ function analyze_quotation(frm) {
 
 function renew_quotation_validity(frm) {
     /**
-     * Renovar validade do orçamento - só em rascunho (docstatus=0).
-     * Correção 2026-09-04 (princípio de inalterabilidade da AT): um
-     * orçamento submetido tem ATCUD/assinatura já gerados e não pode
-     * ser alterado in-place - o backend já recusa isto de forma
-     * definitiva, esta verificação aqui só evita abrir o diálogo
-     * inteiro para o utilizador só descobrir o erro no fim.
+     * Renovar validade do orçamento
      */
-    if (frm.doc.docstatus !== 0) {
-        frappe.msgprint({
-            title: __('Documento Imutável'),
-            message: __('Documentos fiscais submetidos não podem ser alterados. Utilize a função Duplicar para gerar um novo documento.'),
-            indicator: 'orange'
-        });
-        return;
-    }
 
     let dialog = new frappe.ui.Dialog({
         title: __('Renovar Validade do Orçamento'),
@@ -959,7 +958,7 @@ function renew_quotation_validity(frm) {
         primary_action_label: __('Renovar'),
         primary_action: function(values) {
             frappe.call({
-                method: 'portugal_compliance.api.document_actions_api.renew_quotation_validity',
+                method: 'portugal_compliance.api.renew_quotation_validity',
                 args: {
                     quotation: frm.doc.name,
                     new_valid_till: values.new_valid_till,
@@ -1008,7 +1007,7 @@ function duplicate_quotation(frm) {
         __('Duplicar este orçamento? Será criado um novo orçamento com os mesmos dados.'),
         function() {
             frappe.call({
-                method: 'portugal_compliance.api.document_actions_api.duplicate_quotation',
+                method: 'portugal_compliance.api.duplicate_quotation',
                 args: {
                     quotation: frm.doc.name
                 },
@@ -1319,13 +1318,25 @@ function show_series_info(frm) {
         },
         callback: function(r) {
             if (r.message) {
-                let status = r.message.is_communicated ? 'Comunicada' : 'Não Comunicada';
-                let color = r.message.is_communicated ? 'green' : 'orange';
+                // 2026-09-05, pedido do utilizador: "Comunicada"/"Não
+                // Comunicada" era ambiguo - parecia dizer que o PROPRIO
+                // ORÇAMENTO tinha sido enviado a AT, quando na verdade
+                // isto verifica so o registo da SERIE (webservice de
+                // series, WSE) - a AT nao tem nenhum canal para comunicar
+                // Orcamentos individualmente (nao sao documentos fiscais).
+                // Renomeado para "Série Comunicada"/"Série Não Comunicada"
+                // para deixar isso explicito.
+                let is_communicated = !!r.message.is_communicated;
+                let status = is_communicated ? __('Série Comunicada') : __('Série Não Comunicada');
+                let color = is_communicated ? 'green' : 'orange';
+                let tooltip = is_communicated
+                    ? __('A série {0} está registada na AT (webservice de séries) - os documentos desta série têm ATCUD com código de validação real.', [r.message.series_name])
+                    : __('A série {0} ainda não está registada na AT - os documentos desta série ficam com um ATCUD provisório (prefixo TEMP) até a série ser comunicada.', [r.message.series_name]);
 
                 frm.dashboard.add_indicator(
-                    __('Série: {0} ({1})', [r.message.series_name, status]),
+                    __('{0}: {1}', [r.message.series_name, status]),
                     color
-                );
+                ).attr('title', tooltip);
             }
         }
     });

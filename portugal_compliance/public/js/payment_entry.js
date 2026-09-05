@@ -31,6 +31,15 @@ frappe.ui.form.on('Payment Entry', {
 
     // ========== REFRESH DO FORMULÁRIO ==========
     refresh: function(frm) {
+        // 2026-09-05, pedido do utilizador: show_series_info() so corria
+        // no evento de mudanca de naming_series - nunca ao reabrir um
+        // documento ja submetido, que e precisamente quando este estado
+        // mais interessa consultar. Colocado logo no inicio do refresh
+        // (confirmado ao vivo em quotation.js que codigo mais abaixo no
+        // mesmo handler - setup_*_validations - pode lançar excepçao nao
+        // apanhada e interromper o resto do refresh; aqui corre sempre).
+        show_series_info(frm);
+
         // ✅ VERIFICAR SE É EMPRESA PORTUGUESA
         if (is_portuguese_company(frm)) {
             // ✅ CONFIGURAR INTERFACE PORTUGUESA
@@ -1346,13 +1355,24 @@ function show_series_info(frm) {
         },
         callback: function(r) {
             if (r.message) {
-                let status = r.message.is_communicated ? 'Comunicada' : 'Não Comunicada';
-                let color = r.message.is_communicated ? 'green' : 'orange';
+                // 2026-09-05, pedido do utilizador: mesmo ajuste feito em
+                // quotation.js - Payment Entry (Recibo) segue exactamente
+                // a mesma logica de Quotation/Sales Order, confirmado em
+                // hooks.py (so tem generate_atcud_on_submit, nunca teve
+                // nenhum hook de comunicacao via webservice) - esta
+                // verificacao e sobre a SERIE (webservice WSE), nao sobre
+                // o proprio recibo.
+                let is_communicated = !!r.message.is_communicated;
+                let status = is_communicated ? __('Série Comunicada') : __('Série Não Comunicada');
+                let color = is_communicated ? 'green' : 'orange';
+                let tooltip = is_communicated
+                    ? __('A série {0} está registada na AT (webservice de séries) - os documentos desta série têm ATCUD com código de validação real.', [r.message.series_name])
+                    : __('A série {0} ainda não está registada na AT - os documentos desta série ficam com um ATCUD provisório (prefixo TEMP) até a série ser comunicada.', [r.message.series_name]);
 
                 frm.dashboard.add_indicator(
-                    __('Série: {0} ({1})', [r.message.series_name, status]),
+                    __('{0}: {1}', [r.message.series_name, status]),
                     color
-                );
+                ).attr('title', tooltip);
             }
         }
     });
