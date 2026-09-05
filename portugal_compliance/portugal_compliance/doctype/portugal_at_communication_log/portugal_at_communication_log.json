@@ -85,7 +85,8 @@
   {
    "fieldname": "last_attempt_date",
    "fieldtype": "Datetime",
-   "label": "Last Attempt Date"
+   "label": "Last Attempt Date",
+   "in_list_view": 1
   },
   {
    "fieldname": "next_retry_date",
@@ -101,7 +102,6 @@
    "fieldname": "at_response_code",
    "fieldtype": "Data",
    "label": "C\u00f3digo de Resposta (CodigoResposta)",
-   "in_list_view": 1,
    "description": "0/0000/2001 = sucesso; -3 = documento duplicado (tratado como sucesso idempotente); ver tabela de c\u00f3digos em at_invoice_webservice.py"
   },
   {
