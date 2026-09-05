@@ -88,6 +88,14 @@ class SAFTGenerator:
 		# sempre 0 mesmo com guias/orçamentos reais incluídos).
 		self.movements_count = 0
 		self.working_documents_count = 0
+		# Mesmo motivo dos contadores acima (2026-09-05, reportado pelo
+		# utilizador - Processing Time no SAF-T Export Log ficava sempre
+		# "0.00"): generate_saft() sempre calculou o tempo de geracao
+		# (start_time/processing_time locais), mas so o publicava via
+		# frappe.publish_realtime para a barra de progresso ao vivo -
+		# nunca o expunha ao chamador, por isso generate_saft_background
+		# nao tinha como o gravar no log.
+		self.last_processing_time = 0
 
 	def _get_line_tax_rate(self, item_tax_template, invoice_tax_rate=None):
 		"""
@@ -148,6 +156,7 @@ class SAFTGenerator:
 			# Validar XML gerado
 			if self.validate_xml_structure(saft_xml):
 				processing_time = time.time() - start_time
+				self.last_processing_time = processing_time
 				frappe.publish_realtime('saft_generation_progress', {
 					'status': 'completed',
 					'processing_time': processing_time
@@ -1682,6 +1691,7 @@ def generate_saft_background(log_name):
 		export_log.payment_entries_count = generator.payments_count
 		export_log.delivery_notes_count = generator.movements_count
 		export_log.working_documents_count = generator.working_documents_count
+		export_log.processing_time = generator.last_processing_time
 
 		# Validacao XSD real contra o schema oficial da AT (Requisito 1.4
 		# da auditoria de certificacao 2026-08-24) - antes disto o ficheiro

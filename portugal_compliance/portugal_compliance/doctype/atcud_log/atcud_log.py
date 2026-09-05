@@ -73,7 +73,16 @@ class ATCUDLog(Document):
 			self.erpnext_version = frappe.__version__
 
 		if not self.module_version:
-			self.module_version = "1.0.0"  # Versão do módulo Portugal Compliance
+			# Mesmo mecanismo que o proprio Frappe usa para "a versao
+			# de uma app" (frappe/utils/change_log.py::get_versions(),
+			# o que alimenta `bench version`): le __version__ do
+			# __init__.py da app, nunca um valor fixo. Substituido um
+			# literal "1.0.0" hardcoded (2026-09-05, reportado pelo
+			# utilizador - nunca refletia a versao real, e ja nem
+			# batia certo com nenhum dos outros 2 numeros de versao
+			# existentes no repo: hooks.py::app_version="2.0.0" e
+			# __init__.py::__version__="1.1.0").
+			self.module_version = frappe.get_attr("portugal_compliance.__version__")
 
 	def before_insert(self):
 		"""Executado antes de inserir"""

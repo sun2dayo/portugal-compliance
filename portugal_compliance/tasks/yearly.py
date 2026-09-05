@@ -586,6 +586,12 @@ def generate_company_annual_saft(company, start_date, end_date, year):
 		# campos reais do DocType (nao existem period_start/period_end/
 		# year/export_date, e "Annual" nao e um export_type valido - ver
 		# saf_t_export_log.py::validate_export_type).
+		# total_records/sales_invoices_count/etc. e processing_time:
+		# mesmo bug ja corrigido em generate_saft_background() (2026-09-05,
+		# reportado pelo utilizador - Portugal Compliance > SAF-T Export
+		# Log mostrava sempre 0 nestes campos) - este caminho anual criava
+		# o registo sem nunca ler os contadores/tempo reais que o
+		# SAFTGenerator ja calcula durante generate_saft().
 		export_log_fields = {
 			"doctype": "SAF-T Export Log",
 			"company": company,
@@ -596,6 +602,12 @@ def generate_company_annual_saft(company, start_date, end_date, year):
 			"file_size": len(saft_xml.encode('utf-8')),
 			"file_path": file_path,
 			"file_hash": saft_generator.generate_file_hash(saft_xml),
+			"total_records": saft_generator.get_records_count(),
+			"sales_invoices_count": saft_generator.sales_invoices_count,
+			"payment_entries_count": saft_generator.payments_count,
+			"delivery_notes_count": saft_generator.movements_count,
+			"working_documents_count": saft_generator.working_documents_count,
+			"processing_time": saft_generator.last_processing_time,
 		}
 		# fiscal_year e um Link para "Fiscal Year" - so preenchido quando
 		# existe mesmo um registo com esse nome (o formato do nome do ano
