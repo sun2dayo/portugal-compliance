@@ -74,6 +74,7 @@
    "label": "Company",
    "options": "Company",
    "reqd": 1,
+   "in_list_view": 1,
    "description": "Company for which SAF-T was exported"
   },
   {
@@ -81,6 +82,7 @@
    "fieldtype": "Date",
    "label": "From Date",
    "reqd": 1,
+   "in_list_view": 1,
    "description": "Start date of the export period"
   },
   {
@@ -88,6 +90,7 @@
    "fieldtype": "Date",
    "label": "To Date",
    "reqd": 1,
+   "in_list_view": 1,
    "description": "End date of the export period"
   },
   {
@@ -101,6 +104,7 @@
    "options": "Full\nInvoicing\nAccounting\nMovement of Goods\nAT Communication",
    "default": "Full",
    "reqd": 1,
+   "in_list_view": 1,
    "description": "Type of SAF-T export performed"
   },
   {
@@ -117,6 +121,7 @@
    "options": "Pending\nIn Progress\nCompleted\nFailed\nCancelled",
    "default": "Pending",
    "reqd": 1,
+   "in_list_view": 1,
    "description": "Current status of the export",
    "read_only": 1
   },
